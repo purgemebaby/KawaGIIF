@@ -1,0 +1,135 @@
+/*
+ * Editor: barra de acciones, barra lateral de media y panel de propiedades.
+ *
+ * Ya no define ni botones ni modales: los toma de `styles/components.css`.
+ * M8 sustituye esta pantalla por ventanas propias (panel flotante + polybar),
+ * así que aquí solo se adapta a los tokens, sin rediseñar.
+ */
+
+/* `flex: 1` y no `height: 100%`: el contenedor es una columna flex que ya
+   incluye la cabecera con el botón del menú, así que pedir el 100% del alto
+   se pasaría justo por lo que mide esa cabecera. */
+.editor-screen {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  color: var(--kg-fg);
+}
+
+.editor-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--kg-space-4);
+  padding: var(--kg-space-5) var(--kg-space-6) var(--kg-space-3);
+}
+
+.editor-toolbar h1 {
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.editor-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--kg-space-2);
+}
+
+.editor-body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 230px 1fr 270px;
+  border-top: 1px solid var(--kg-border);
+}
+
+.media-sidebar,
+.properties-panel {
+  padding: var(--kg-space-4);
+  overflow-y: auto;
+}
+
+.media-sidebar {
+  border-right: 1px solid var(--kg-border);
+}
+
+.media-sidebar h2,
+.properties-panel h3 {
+  margin: 0 0 var(--kg-space-3);
+  color: var(--kg-fg-faint);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.media-sidebar-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kg-space-2);
+}
+
+.media-sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: var(--kg-space-2);
+  padding: var(--kg-space-2);
+  border: 1px solid var(--kg-border);
+  border-radius: var(--kg-radius-sm);
+  background: var(--kg-bg-panel);
+  font-size: 12px;
+  cursor: grab;
+  transition:
+    border-color var(--kg-dur-fast) var(--kg-ease-out),
+    background var(--kg-dur-fast) var(--kg-ease-out);
+}
+
+.media-sidebar-item:hover {
+  border-color: var(--kg-accent);
+  background: var(--kg-bg-raised);
+}
+
+.media-sidebar-item:active {
+  cursor: grabbing;
+}
+
+.media-sidebar-item span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-thumb {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--kg-radius-sm);
+  object-fit: cover;
+  background: var(--kg-bg-input);
+}
+
+.sidebar-thumb-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--kg-bg-input);
+  color: var(--kg-fg-faint);
+  font-family: var(--kg-font-mono);
+  font-size: 9px;
+}
+
+.editor-canvas-hint {
+  padding: var(--kg-space-5);
+  color: var(--kg-fg-muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.editor-canvas-hint p {
+  margin-bottom: var(--kg-space-2);
+}
+
+.properties-panel {
+  border-left: 1px solid var(--kg-border);
+}

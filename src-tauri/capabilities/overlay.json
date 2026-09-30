@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "overlay",
+  "description": "Capability for animation overlay windows",
+  "windows": ["overlay-*"],
+  "permissions": ["core:default", "core:window:allow-start-dragging"]
+}

@@ -1,0 +1,82 @@
+/*
+ * Pantalla de carga: título centrado y barra de progreso con un personaje
+ * que camina sobre ella.
+ */
+
+.loading-screen {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--kg-space-6);
+  background: var(--kg-bg-app);
+  /* Un resplandor tenue detrás del título, para que no flote sobre un plano. */
+  background-image: radial-gradient(
+    circle at 50% 42%,
+    rgb(169 123 255 / 0.1) 0%,
+    transparent 55%
+  );
+  transition:
+    opacity var(--kg-dur-slow) var(--kg-ease-out),
+    filter var(--kg-dur-slow) var(--kg-ease-out),
+    transform var(--kg-dur-slow) var(--kg-ease-out);
+}
+
+/* Salida: se desvanece difuminándose y creciendo un pelín, en vez de
+   desaparecer de golpe. */
+.loading-screen.is-leaving {
+  opacity: 0;
+  filter: blur(14px);
+  transform: scale(1.03);
+  pointer-events: none;
+}
+
+.loading-bar {
+  --walker-size: 34px;
+  position: relative;
+  width: min(360px, 60vw);
+  height: 8px;
+  border-radius: var(--kg-radius-pill);
+  background: var(--kg-bg-raised);
+}
+
+.loading-bar-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--kg-accent), var(--kg-accent-2));
+  /* Sin transición: la anchura ya se actualiza por fotograma, y añadir una
+     encima haría que la barra fuera siempre por detrás del indicador. */
+}
+
+/*
+ * Indicador que recorre la barra. De fábrica es una burbuja con brillo, en la
+ * línea de la identidad; en Ajustes se puede sustituir por el GIF o la imagen
+ * que se quiera (M9).
+ */
+.loading-walker {
+  position: absolute;
+  bottom: 100%;
+  width: var(--walker-size);
+  height: var(--walker-size);
+  margin-bottom: 2px;
+  border: 2px solid var(--kg-title-outline);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 34% 30%, rgb(255 255 255 / 0.75) 0%, transparent 42%),
+    linear-gradient(180deg, var(--kg-accent-2), var(--kg-accent));
+  /* Un balanceo corto, para que se lea como algo que anda y no que se desliza. */
+  animation: kg-walker-bob 620ms ease-in-out infinite;
+}
+
+@keyframes kg-walker-bob {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-7deg);
+  }
+  50% {
+    transform: translateY(-4px) rotate(7deg);
+  }
+}

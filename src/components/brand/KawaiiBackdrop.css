@@ -1,0 +1,183 @@
+/*
+ * Fondo de caritas kawaii ASCII, desplazándose en diagonal suave.
+ *
+ * Truco de construcción: en vez de mover en dos ejes a la vez, se GIRA el
+ * contenedor y dentro se desplaza solo en horizontal. Así el ángulo del
+ * movimiento y la inclinación de las caras son el mismo por definición, sin
+ * tener que sincronizar dos números, y el bucle sigue siendo exacto porque el
+ * desplazamiento es de un solo eje.
+ */
+
+.kawaii-backdrop {
+  /* ~25°: ni una diagonal exacta de 45° (que se lee como patrón geométrico)
+     ni una horizontal. */
+  --kawaii-angle: -25deg;
+
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+
+  /*
+   * Hueco elíptico: el fondo se desvanece en el centro para no competir con
+   * el título ni con los botones. Degradado gradual, no recorte duro, para
+   * que no se vea el borde de la máscara.
+   */
+  -webkit-mask-image: radial-gradient(
+    ellipse 44% 40% at 50% 46%,
+    transparent 0%,
+    transparent 46%,
+    #000 100%
+  );
+  mask-image: radial-gradient(
+    ellipse 44% 40% at 50% 46%,
+    transparent 0%,
+    transparent 46%,
+    #000 100%
+  );
+}
+
+/*
+ * Capa girada. Muy sobredimensionada y centrada: al girar, un rectángulo del
+ * tamaño de la pantalla dejaría las esquinas vacías.
+ */
+.kawaii-rotor {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 240%;
+  height: 240%;
+  transform: translate(-50%, -50%) rotate(var(--kawaii-angle));
+}
+
+/*
+ * Dos copias del patrón, una al lado de la otra. La animación desplaza
+ * exactamente el ancho de una: cuando la primera sale por la izquierda, la
+ * segunda está justo donde empezó la primera, así que el reinicio no se ve.
+ */
+.kawaii-drift {
+  display: flex;
+  width: 200%;
+  height: 100%;
+  animation: kawaii-drift 120s linear infinite;
+}
+
+@keyframes kawaii-drift {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.kawaii-tile {
+  flex: 0 0 50%;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  align-content: space-around;
+  /* Columnas más juntas que las filas: leído en diagonal, un espaciado igual
+     en los dos ejes deja calles verticales muy evidentes. */
+  gap: clamp(30px, 4.5vw, 62px) clamp(8px, 1.2vw, 18px);
+}
+
+.kawaii-face {
+  position: relative;
+  display: inline-block;
+  color: var(--kg-fg-faint);
+  /* Muy tenue: es textura, no contenido. Debe notarse solo si la buscas. */
+  opacity: 0.15;
+  font-family: var(--kg-font-mono);
+  font-size: clamp(24px, 2.7vw, 38px);
+  white-space: nowrap;
+  text-align: center;
+}
+
+/*
+ * El guiño: las dos versiones se superponen y se turnan por opacidad. Al estar
+ * superpuestas el ancho no cambia, así que la cara no da un salto al parpadear.
+ *
+ * Se anima la opacidad de cada capa directamente, en vez de con una variable
+ * compartida: es más código pero no depende de `@property`, que no todos los
+ * motores interpolan igual.
+ */
+.kawaii-face-open,
+.kawaii-face-wink {
+  display: block;
+  animation-name: inherit;
+  animation-duration: inherit;
+  animation-delay: inherit;
+  animation-iteration-count: infinite;
+  animation-timing-function: steps(1, end);
+  /*
+   * `both` NO es opcional aquí, y su ausencia era un bug visible.
+   *
+   * Cada cara arranca con un retardo de hasta 24 s para que no guiñen todas a
+   * la vez. Con el valor por defecto (`none`), durante ese retardo el elemento
+   * NO usa el primer fotograma: usa su estilo base. Y en el estilo base
+   * ninguna de las dos capas fijaba opacidad, así que las dos valían 1 y se
+   * dibujaban a la vez, desplazadas entre sí porque las variantes abierta y
+   * guiñada no miden lo mismo (`−` es más estrecho que `◕`). El resultado era
+   * una cara que parecía duplicada y mal superpuesta.
+   *
+   * Se veía sobre todo al cambiar de pestaña y volver: el componente se
+   * remonta, todas las animaciones reinician y todas las caras caen otra vez
+   * dentro de su retardo a la vez.
+   *
+   * Con `both`, el retardo se pinta con el primer fotograma (abierta visible,
+   * guiñada oculta) y el final se queda en el último.
+   */
+  animation-fill-mode: both;
+}
+
+.kawaii-face-wink {
+  position: absolute;
+  inset: 0;
+  /* Red de seguridad para cuando la animación no llega a correr: con las
+     animaciones de Windows desactivadas, la guarda de `motion.css` la corta a
+     0,01 ms y una sola repetición, y sin esto volveríamos al mismo solapado. */
+  opacity: 0;
+}
+
+.kawaii-face-open {
+  animation-name: kawaii-eyes-open;
+}
+
+.kawaii-face-wink {
+  animation-name: kawaii-eyes-wink;
+}
+
+/*
+ * El guiño ocupa un 6% del ciclo. Con menos no llegaba a percibirse; con esto
+ * se lee claramente como un parpadeo sin que parezca que la cara cambia.
+ */
+@keyframes kawaii-eyes-open {
+  0%,
+  87% {
+    opacity: 1;
+  }
+  88%,
+  94% {
+    opacity: 0;
+  }
+  95%,
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes kawaii-eyes-wink {
+  0%,
+  87% {
+    opacity: 0;
+  }
+  88%,
+  94% {
+    opacity: 1;
+  }
+  95%,
+  100% {
+    opacity: 0;
+  }
+}

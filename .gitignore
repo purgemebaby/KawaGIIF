@@ -1,0 +1,42 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Rust / Tauri build output (src-tauri/.gitignore already covers this
+# scoped to that folder; repetido acá por si alguna vez se borra)
+src-tauri/target/
+src-tauri/gen/schemas/
+
+# Estado local de Claude Code (locks de tareas programadas, config de
+# sesión) — no aporta nada al repo y es específico de esta máquina.
+.claude/
+
+# Variables de entorno / secretos locales
+.env
+.env.local
+.env.*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Windows
+Thumbs.db
+desktop.ini

@@ -1,0 +1,176 @@
+/*
+ * Todas las animaciones de la app, en un solo sitio.
+ *
+ * Tenerlas juntas hace evidente el vocabulario de movimiento y evita que
+ * cada pantalla se invente su propia curva y su propia duración.
+ */
+
+/*
+ * Ola por letra: la usa el título y el estado vacío de la biblioteca.
+ *
+ * Los valores son un seno REAL muestreado cada 30°, y se recorren en `linear`.
+ * Las dos cosas van juntas y son el motivo de que haya doce paradas en vez de
+ * cuatro:
+ *
+ * Una función de suavizado en CSS no se aplica al ciclo entero, sino a CADA
+ * tramo entre dos paradas. Con cuatro paradas y `ease-in-out`, la letra
+ * aceleraba y frenaba cuatro veces por vuelta; y como cada letra va desfasada,
+ * en un mismo instante cada una estaba en un tramo distinto de ese frenazo, lo
+ * que se veía como si cada letra ondease a una frecuencia diferente.
+ *
+ * Con la curva ya metida en los propios valores, el suavizado sobra: `linear`
+ * entre doce puntos de un seno da un movimiento continuo de verdad, sin
+ * principio ni final perceptibles.
+ */
+@keyframes kg-wave {
+  0%   { transform: translateY(0); }
+  8.33%  { transform: translateY(-0.06em); }
+  16.66% { transform: translateY(-0.104em); }
+  25%  { transform: translateY(-0.12em); }
+  33.33% { transform: translateY(-0.104em); }
+  41.66% { transform: translateY(-0.06em); }
+  50%  { transform: translateY(0); }
+  58.33% { transform: translateY(0.06em); }
+  66.66% { transform: translateY(0.104em); }
+  75%  { transform: translateY(0.12em); }
+  83.33% { transform: translateY(0.104em); }
+  91.66% { transform: translateY(0.06em); }
+  100% { transform: translateY(0); }
+}
+
+/* Aparecer creciendo desde el centro, pasarse y asentar. Para el panel del
+   editor (M8). */
+@keyframes kg-pop {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  55% {
+    transform: scale(1.09);
+    opacity: 1;
+  }
+  78% {
+    transform: scale(0.965);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Entrar deslizándose desde arriba con un pequeño rebote. Para la polybar
+   del editor (M8). */
+@keyframes kg-slide-down {
+  0% {
+    transform: translateY(-130%);
+    opacity: 0;
+  }
+  70% {
+    transform: translateY(6px);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+/*
+ * Las hormigas marchantes del marco de selección NO están aquí: viven en
+ * `windows/OverlayItemApp.css`. Solo las usa la ventana de animación, y esa
+ * ventana ya no carga esta hoja — carga `styles/overlay.css`, que es mínima a
+ * propósito (ver la nota de ese archivo). Tenerlas aquí dejaba una definición
+ * muerta que podía divergir de la que se usa de verdad.
+ */
+
+/*
+ * Resplandor de neón violeta latiendo. Pulso suave y no parpadeo irregular:
+ * el botón se queda encendido mientras el ratón está encima, y un destello
+ * errático ahí resultaría molesto.
+ *
+ * Deliberadamente TENUE y LENTO. Una primera versión más marcada y rápida
+ * llamaba demasiado la atención: un resplandor suave que respira despacio se
+ * lee como algo encendido, mientras que uno intenso parece un aviso.
+ */
+@keyframes kg-neon-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px rgb(169 123 255 / 0.28),
+      0 0 12px -4px rgb(169 123 255 / 0.3);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px rgb(169 123 255 / 0.45),
+      0 0 22px -4px rgb(169 123 255 / 0.42);
+  }
+}
+
+/* Entrada suave desde abajo, para contenido que aparece. */
+@keyframes kg-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/*
+ * Cambio de pantalla. La dirección la decide el orden en la barra lateral: al
+ * ir hacia una pantalla que está más abajo, el contenido entra desde abajo,
+ * como si la lista se desplazara. Da sensación de sitio en vez de que las
+ * pantallas se sustituyan sin más.
+ */
+@keyframes kg-screen-in-down {
+  from {
+    opacity: 0;
+    transform: translateY(52px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes kg-screen-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(-52px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.kg-wave > span {
+  /* Obligatorio: `transform` no hace nada sobre una caja en línea. */
+  display: inline-block;
+  /* `linear` a propósito: la curva ya va dentro de los keyframes (ver arriba).
+     Añadir suavizado encima es lo que rompía la continuidad del movimiento. */
+  animation: kg-wave 4s linear infinite;
+  /*
+   * El desfase reparte las letras a lo largo de poco más de un cuarto del
+   * ciclo. Es el número que decide si la ola se lee o no: si el reparto se
+   * acerca a la vuelta completa, la última letra adelanta a las del medio y
+   * el sentido de la onda se pierde. Con un cuarto, la cresta recorre la
+   * palabra de izquierda a derecha de forma inequívoca.
+   */
+  animation-delay: calc(var(--i) * -0.14s);
+}
+
+/*
+ * Respetar "Mostrar animaciones en Windows" cuando está desactivado. No es
+ * solo accesibilidad: hay gente a quien el movimiento constante le molesta, y
+ * esta app tiene animaciones en bucle por definición.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

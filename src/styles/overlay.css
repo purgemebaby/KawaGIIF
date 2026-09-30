@@ -1,0 +1,78 @@
+/*
+ * Hoja mínima para las ventanas de animación.
+ *
+ * POR QUÉ EXISTE: antes todas las ventanas cargaban `styles/index.css`, que
+ * arrastra tokens, base, motion y components — unas 1.200 líneas — además de
+ * la fuente Modak. Una overlay usaba de todo eso exactamente DOS declaraciones
+ * (`--kg-accent`, dos veces en `OverlayItemApp.css`).
+ *
+ * Y no era solo peso de CSS: al compartir un único `index.html`, cada ventana
+ * parseaba y ejecutaba también el bundle entero de JavaScript, con el editor,
+ * la biblioteca y los ajustes dentro. Se midió que el motor web crea un proceso
+ * por ventana, de ~50 MB cada uno, así que ese desperdicio se pagaba diez
+ * veces.
+ *
+ * Regla para mantenerlo: aquí solo entra lo que una ventana SIN interfaz
+ * necesita. Si algo hace falta para la ventana de control, va en `index.css`.
+ */
+
+/*
+ * Solo los cuatro tokens que usan de verdad estas dos ventanas: `--kg-accent`
+ * (dos veces en `OverlayItemApp.css`) y los tres del grid. Se copian los
+ * valores en vez de importar `tokens.css` entero, que son 103 líneas para
+ * esto.
+ *
+ * ⚠️ Estos valores son un DUPLICADO de `tokens.css`. Si se cambia la paleta,
+ * hay que cambiarlos aquí también. Es el único sitio de la app donde se
+ * permite duplicar un color, y el precio de no cargar la hoja entera en las
+ * nueve ventanas que no la necesitan.
+ */
+:root {
+  --kg-accent: #a97bff;
+  --kg-grid-scrim: rgba(8, 9, 12, 0.3);
+  --kg-grid-line: rgba(154, 157, 168, 0.2);
+  --kg-grid-line-accent: rgba(169, 123, 255, 0.11);
+}
+
+/*
+ * Se probó aquí un fondo con alfa mínimo (0,004) para forzar a WebView2 a
+ * componer las regiones transparentes, bajo la teoría de que las bandas
+ * blancas salían de no tener nada que pintar. NO funcionó. Lo que hizo
+ * desaparecer el blanco en la prueba de diagnóstico fueron colores al 55%,
+ * que sencillamente lo tapaban — se leyó como arreglo cuando solo era una
+ * máscara.
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* El margen de 8px por defecto de `body` es lo que dejaba el grid corto por la
+   izquierda. En CSS y no desde JavaScript: depender de un estilo en línea para
+   algo tan básico como "el contenido llena la ventana" ya falló una vez. */
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/*
+ * Ni selección de texto ni arrastre fantasma de imágenes: las dos cosas
+ * delatan que por debajo hay un navegador, y sobre una animación además
+ * estorban al arrastre de la propia ventana.
+ */
+body {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+img,
+video,
+canvas {
+  -webkit-user-drag: none;
+}

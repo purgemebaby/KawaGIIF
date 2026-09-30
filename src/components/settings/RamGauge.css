@@ -1,0 +1,89 @@
+/* Medidor de aguja de memoria, en Ajustes. */
+
+.ram-gauge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--kg-space-1);
+  padding: var(--kg-space-4);
+  border: 1px solid var(--kg-border);
+  border-radius: var(--kg-radius-md);
+  background: var(--kg-bg-panel);
+}
+
+.ram-gauge-dial {
+  width: 160px;
+  height: 120px;
+}
+
+.ram-gauge-track,
+.ram-gauge-fill {
+  fill: none;
+  stroke-width: 7;
+  stroke-linecap: round;
+}
+
+.ram-gauge-track {
+  stroke: var(--kg-bg-input);
+}
+
+.ram-gauge-fill {
+  stroke: var(--kg-accent);
+  /* El arco se redibuja cada 2 s; la transición evita que pegue saltos. */
+  transition: stroke var(--kg-dur-med) var(--kg-ease-out);
+}
+
+/* Con la memoria casi llena, el color lo dice sin tener que leer el número. */
+.ram-gauge-fill.is-high {
+  stroke: var(--kg-danger);
+}
+
+.ram-gauge-needle {
+  stroke: var(--kg-fg);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.ram-gauge-hub {
+  fill: var(--kg-fg);
+}
+
+.ram-gauge-readout {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: calc(-1 * var(--kg-space-4));
+}
+
+.ram-gauge-readout strong {
+  font-size: 17px;
+  /* Cifras de ancho fijo: sin esto el texto baila en cada refresco. */
+  font-variant-numeric: tabular-nums;
+}
+
+.ram-gauge-readout small {
+  color: var(--kg-fg-faint);
+  font-size: 11px;
+}
+
+.ram-gauge-app {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin-top: var(--kg-space-3);
+  padding-top: var(--kg-space-3);
+  border-top: 1px solid var(--kg-border);
+  width: 100%;
+  color: var(--kg-fg-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+/* La advertencia de que es aproximado va siempre visible, no en un tooltip:
+   presentar una estimación como si fuera exacta es peor que no darla. */
+.ram-gauge-estimate {
+  color: var(--kg-fg-faint);
+  font-size: 10.5px;
+}

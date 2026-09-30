@@ -1,0 +1,103 @@
+/*
+ * Tokens de diseño — ÚNICA fuente de verdad de la identidad visual.
+ *
+ * Regla que sostiene todo esto: ningún valor de color, radio, sombra,
+ * duración o tipografía puede escribirse literal en ningún otro archivo.
+ * Antes había 139 literales hex repartidos por cinco hojas y cuatro bloques
+ * de modo oscuro que duplicaban cada color, así que cambiar un gris obligaba
+ * a buscarlo por medio proyecto.
+ *
+ * Solo hay UNA paleta, oscura. El modo claro se eliminó a propósito: la
+ * identidad pedida es gris oscuro, y mantener dos temas era exactamente el
+ * origen de toda la duplicación.
+ */
+
+:root {
+  /* ---------- Superficies, de más al fondo a más al frente ---------- */
+  --kg-bg-app: #16171b;
+  --kg-bg-panel: #1d1f24;
+  --kg-bg-raised: #26282f;
+  --kg-bg-input: #121317;
+  /* Velo de los modales y del grid del editor. */
+  --kg-scrim: rgba(9, 10, 13, 0.62);
+
+  /* ---------- Texto ---------- */
+  --kg-fg: #e8e9ee;
+  --kg-fg-muted: #9a9da8;
+  --kg-fg-faint: #6b6e7a;
+  /* Texto que va encima de un fondo de acento. */
+  --kg-fg-on-accent: #16121c;
+
+  /* ---------- Acentos ----------
+   * El violeta y el chicle vienen del título. Se reservan para lo que se
+   * puede tocar (navegación activa, botón primario, foco); el resto de la
+   * interfaz se queda en grises para que el acento signifique algo.
+   */
+  --kg-accent: #a97bff;
+  --kg-accent-strong: #b98fff;
+  --kg-accent-2: #ff7bd0;
+  --kg-accent-soft: rgba(169, 123, 255, 0.14);
+
+  --kg-danger: #ff6b6b;
+  --kg-danger-soft: rgba(255, 107, 107, 0.14);
+
+  /* ---------- Bordes ---------- */
+  --kg-border: #33363f;
+  --kg-border-strong: #454956;
+
+  /* ---------- Geometría ---------- */
+  --kg-radius-sm: 8px;
+  --kg-radius-md: 14px;
+  --kg-radius-lg: 22px;
+  --kg-radius-pill: 999px;
+
+  --kg-space-1: 4px;
+  --kg-space-2: 8px;
+  --kg-space-3: 12px;
+  --kg-space-4: 16px;
+  --kg-space-5: 24px;
+  --kg-space-6: 32px;
+
+  /* ---------- Elevación ---------- */
+  --kg-shadow-1: 0 2px 8px rgba(0, 0, 0, 0.35);
+  --kg-shadow-2: 0 8px 28px rgba(0, 0, 0, 0.5);
+
+  /* ---------- Movimiento ---------- */
+  --kg-dur-fast: 140ms;
+  --kg-dur-med: 260ms;
+  --kg-dur-slow: 420ms;
+  --kg-ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
+  /* Con rebote: se pasa del destino y vuelve. Para los "pop" del editor. */
+  --kg-ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* ---------- Tipografía ----------
+   * `--kg-font-ui` y `--kg-font-size` los SOBRESCRIBE en tiempo de ejecución
+   * el ajuste de fuente de M9. `--kg-font-display` no: el título y la
+   * pantalla de carga van siempre en Modak, y tenerlo como token separado es
+   * lo que los hace inmunes a ese ajuste por construcción.
+   */
+  --kg-font-ui: system-ui, "Segoe UI", sans-serif;
+  --kg-font-display: "Modak", system-ui, cursive;
+  --kg-font-mono: ui-monospace, "Cascadia Mono", monospace;
+  --kg-font-size: 14px;
+
+  /* ---------- Título burbuja ----------
+   * Dos contornos, como en el grafiti: uno oscuro pegado a la letra que le da
+   * grosor de pegatina, y un filo claro por fuera que la despega del fondo.
+   *
+   * El filo claro no es decorativo: el contorno oscuro solo (#16121c) es casi
+   * idéntico al fondo de la app (#16171b), así que por sí mismo desaparece.
+   * Funcionaba sobre el fondo blanco de la referencia, no sobre el nuestro.
+   */
+  --kg-title-outline: #16121c;
+  --kg-title-keyline: #f4eefc;
+
+  /* ---------- Grid decorativo del editor ----------
+   * Estética de plano dibujado a mano: gris azulado apagado sobre un velo
+   * casi negro, con una segunda pareja de líneas de acento apenas visible y
+   * desplazada un par de píxeles para simular imprecisión manual.
+   */
+  --kg-grid-scrim: rgba(8, 9, 12, 0.3);
+  --kg-grid-line: rgba(154, 157, 168, 0.2);
+  --kg-grid-line-accent: rgba(169, 123, 255, 0.11);
+}

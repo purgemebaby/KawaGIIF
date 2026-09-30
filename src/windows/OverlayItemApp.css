@@ -1,0 +1,159 @@
+/*
+ * Una animación colocada en el escritorio.
+ *
+ * Sin fondo de ningún tipo: la ventana es transparente de verdad y cualquier
+ * color aquí se vería como un rectángulo pegado alrededor del medio.
+ */
+
+.overlay-shell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100vh;
+  cursor: move;
+}
+
+/*
+ * ⚠️ NO poner `filter`, `transform` ni `will-change` sobre el medio.
+ *
+ * Hubo aquí un resplandor hecho con `filter: drop-shadow` y un `scale(0.94)`
+ * para dejarle sitio. Se veía bien, pero las tres propiedades fuerzan al motor
+ * a sacar el elemento a una CAPA DE COMPOSICIÓN propia, y WebView2 falla
+ * componiendo capas dentro de una ventana transparente: aparecían bandas
+ * blancas rectangulares —su color de fondo por defecto asomando— al seleccionar
+ * y deseleccionar.
+ *
+ * La marca de selección vive ahora en `.overlay-shell.selected::after`. Y el
+ * medio ya no cambia de tamaño al seleccionarlo, que además es lo correcto:
+ * seleccionar no debería alterar cómo se ve el contenido.
+ */
+
+.overlay-media-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  /* Los clics tienen que llegar al shell, que es la región de arrastre. */
+  pointer-events: none;
+}
+
+.overlay-media-wrap img,
+.overlay-media-wrap video,
+.overlay-media-wrap .overlay-media {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+/*
+ * Hormigas marchantes marcando el LÍMITE DE LA VENTANA, que es hasta donde
+ * llega el redimensionado. Es la otra mitad de la marca de selección: el
+ * resplandor dice "este medio está seleccionado" y las hormigas dicen "y este
+ * es su marco", igual que el recorte de Photoshop.
+ *
+ * El desplazamiento es EXACTAMENTE un ciclo del patrón (12px de trazo + 12px
+ * de hueco = 24), que es lo que hace el bucle invisible: al terminar, cada guion
+ * está donde estaba el siguiente. Con cualquier otro valor daría un salto.
+ *
+ * ⚠️ Los valores de `background-position` en un keyframe son posiciones
+ * ABSOLUTAS, no desplazamientos. Cada línea DEBE conservar su coordenada
+ * perpendicular en el fotograma final, o se desplaza de eje y barre la imagen.
+ * Una versión anterior ponía `-14px 0` para la línea de abajo (que arranca en
+ * `0 100%`): su coordenada vertical iba del 100% al 0, así que la línea subía
+ * cruzando el GIF entero. Lo mismo la derecha, de `100%` a `0` en horizontal.
+ * Las otras dos no cambiaban de eje, y por eso solo fallaban dos de las cuatro.
+ */
+@keyframes kg-march {
+  to {
+    /* Las cuatro primeras son las capas del resplandor: quietas. Solo se
+       mueven las cuatro últimas, que son las hormigas. La lista tiene que
+       cubrir TODAS las capas o los valores se aplicarían a las de arriba. */
+    background-position:
+      0 0,
+      0 0,
+      0 0,
+      0 0,
+      24px 0,
+      -24px 100%,
+      0 -24px,
+      100% 24px;
+  }
+}
+
+.overlay-shell.selected::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+
+  /*
+   * Ocho capas: las CUATRO PRIMERAS son el resplandor (un degradado desde cada
+   * borde hacia dentro) y las cuatro últimas las hormigas.
+   *
+   * Guiones de 12px separados por 12: menos marcas y más aire entre ellas.
+   *
+   * Morado alternando con HUECO TRANSPARENTE, no con negro. Sobre una ventana
+   * transparente el hueco no necesita color propio: deja ver el escritorio y ya
+   * contrasta con el trazo.
+   *
+   * El resplandor va con degradados y NO con `box-shadow: inset`: una sombra
+   * difuminada obliga a rasterizar el desenfoque, y eso es trabajo que WebView2
+   * hace mal en ventanas transparentes. Un degradado se evalúa por píxel sin
+   * textura intermedia. Y hacia DENTRO es obligatorio: la ventana mide
+   * exactamente lo que el medio, así que hacia fuera quedaría recortado a ras.
+   */
+  background-image:
+    linear-gradient(to bottom, rgb(169 123 255 / 0.4), transparent 18px),
+    linear-gradient(to top, rgb(169 123 255 / 0.4), transparent 18px),
+    linear-gradient(to right, rgb(169 123 255 / 0.4), transparent 18px),
+    linear-gradient(to left, rgb(169 123 255 / 0.4), transparent 18px),
+    repeating-linear-gradient(90deg, var(--kg-accent) 0 12px, transparent 12px 24px),
+    repeating-linear-gradient(90deg, var(--kg-accent) 0 12px, transparent 12px 24px),
+    repeating-linear-gradient(0deg, var(--kg-accent) 0 12px, transparent 12px 24px),
+    repeating-linear-gradient(0deg, var(--kg-accent) 0 12px, transparent 12px 24px);
+  background-size:
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    100% 1px,
+    100% 1px,
+    1px 100%,
+    1px 100%;
+  background-position:
+    0 0,
+    0 0,
+    0 0,
+    0 0,
+    0 0,
+    0 100%,
+    0 0,
+    100% 0;
+  background-repeat: no-repeat;
+
+  animation: kg-march 1100ms linear infinite;
+}
+
+/* Respeta "Mostrar animaciones en Windows" desactivado. La guarda global vive
+   en `motion.css`, que esta ventana ya no carga, así que va aquí. */
+@media (prefers-reduced-motion: reduce) {
+  /* Se para el movimiento, pero el marco y el resplandor siguen visibles: son
+     la única señal de que hay algo seleccionado. */
+  .overlay-shell.selected::after {
+    animation: none;
+  }
+}
+
+.resize-handle {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 18px;
+  height: 18px;
+  cursor: nwse-resize;
+  background: linear-gradient(135deg, transparent 50%, var(--kg-accent) 50%);
+}

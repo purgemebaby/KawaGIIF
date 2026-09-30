@@ -1,0 +1,377 @@
+/*
+ * Ventana de control: armazón, navegación, Inicio y Ajustes.
+ *
+ * El fondo de la app vive aquí y no en `body`, porque `body` lo comparten
+ * todas las ventanas y las overlays lo necesitan transparente.
+ */
+
+.control-shell {
+  /* Ancla de la pantalla de carga, que se superpone con `inset: 0`. */
+  position: relative;
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--kg-bg-app);
+  color: var(--kg-fg);
+}
+
+/*
+ * Columna flex para que las pantallas que quieren ocupar el alto disponible
+ * (Inicio, que se centra; el Editor, con sus tres columnas) puedan pedirlo con
+ * `flex: 1` sin tener que descontar a mano el alto de la cabecera.
+ */
+.control-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+/* ---------- Barra lateral plegable ---------- */
+
+.nav-sidebar {
+  --nav-width: 210px;
+  flex-shrink: 0;
+  width: var(--nav-width);
+  overflow: hidden;
+  background: var(--kg-bg-panel);
+  border-right: 1px solid var(--kg-border);
+  transition:
+    width var(--kg-dur-med) var(--kg-ease-out),
+    border-color var(--kg-dur-med) var(--kg-ease-out);
+}
+
+/* Plegada: ancho cero. No `display: none`, que no se puede animar. */
+.nav-sidebar.collapsed {
+  width: 0;
+  border-right-color: transparent;
+}
+
+/*
+ * El contenido mantiene su ancho fijo dentro del contenedor que encoge, así
+ * que al plegarse se desliza hacia fuera en vez de aplastarse. Además se
+ * desvanece un poco antes de que termine el ancho, que es lo que evita ver
+ * el texto comprimido a mitad de camino.
+ */
+.nav-inner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kg-space-1);
+  width: var(--nav-width);
+  height: 100%;
+  padding: var(--kg-space-5) var(--kg-space-3);
+  opacity: 1;
+  transition: opacity var(--kg-dur-fast) var(--kg-ease-out);
+}
+
+.nav-sidebar.collapsed .nav-inner {
+  opacity: 0;
+}
+
+.nav-brand {
+  padding: 0 10px var(--kg-space-4);
+  color: var(--kg-accent-strong);
+  font-family: var(--kg-font-display);
+  font-size: 22px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: var(--kg-space-3);
+  padding: 10px var(--kg-space-3);
+  border: none;
+  border-radius: var(--kg-radius-sm);
+  background: transparent;
+  color: var(--kg-fg-muted);
+  font-family: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background var(--kg-dur-fast) var(--kg-ease-out),
+    color var(--kg-dur-fast) var(--kg-ease-out);
+}
+
+.nav-item-icon {
+  width: 16px;
+  font-size: 15px;
+  text-align: center;
+}
+
+.nav-item:hover {
+  background: var(--kg-bg-raised);
+  color: var(--kg-fg);
+}
+
+.nav-item.active {
+  background: var(--kg-accent-soft);
+  color: var(--kg-accent-strong);
+  font-weight: 600;
+}
+
+/* ---------- Contenido y botón de plegado ---------- */
+
+/*
+ * El botón vive fuera de la barra a propósito: dentro desaparecería al
+ * plegarla y no habría manera de volver a abrirla.
+ */
+.content-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: var(--kg-space-2);
+  padding: var(--kg-space-3) var(--kg-space-3) 0 var(--kg-space-4);
+  background: var(--kg-bg-app);
+}
+
+/*
+ * Contenedor de la pantalla activa. La `key` de React cambia al navegar, así
+ * que el elemento se remonta y la animación se reproduce de nuevo — sin eso,
+ * una animación CSS solo se ve la primera vez.
+ */
+.screen-slot {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.screen-slot.from-below {
+  animation: kg-screen-in-down var(--kg-dur-slow) var(--kg-ease-out);
+}
+
+.screen-slot.from-above {
+  animation: kg-screen-in-up var(--kg-dur-slow) var(--kg-ease-out);
+}
+
+/* ---------- Pantallas ---------- */
+
+.home-screen,
+.settings-screen,
+.placeholder-screen {
+  padding: var(--kg-space-5) var(--kg-space-6) var(--kg-space-6);
+}
+
+/*
+ * Inicio, centrado. Al plegar o desplegar la barra lateral el contenido se
+ * recentra solo, porque la barra es un hermano flex y su ancho está animado:
+ * no hace falta nada más para que la transición se conserve.
+ */
+.home-screen {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--kg-space-6);
+  overflow: hidden;
+  text-align: center;
+}
+
+/* Todo el contenido por encima del fondo animado, que va en z-index 0. */
+.home-header,
+.home-tiles,
+.home-actions {
+  position: relative;
+  z-index: 1;
+}
+
+.home-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--kg-space-2);
+}
+
+.home-subtitle {
+  color: var(--kg-fg-muted);
+  font-size: 13px;
+}
+
+.home-tiles {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--kg-space-4);
+}
+
+.home-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--kg-space-2);
+  width: 180px;
+  padding: var(--kg-space-5) var(--kg-space-4);
+  border: 1px solid var(--kg-border);
+  border-radius: var(--kg-radius-lg);
+  background: var(--kg-bg-panel);
+  color: inherit;
+  font-family: inherit;
+  text-align: center;
+  cursor: pointer;
+  transition:
+    border-color var(--kg-dur-fast) var(--kg-ease-out),
+    background var(--kg-dur-fast) var(--kg-ease-out),
+    transform var(--kg-dur-med) var(--kg-ease-out);
+}
+
+.home-tile:hover,
+.home-tile:focus-visible {
+  border-color: transparent;
+  background: var(--kg-bg-raised);
+  transform: translateY(-3px);
+  animation: kg-neon-pulse 4.5s var(--kg-ease-out) infinite;
+}
+
+.home-tile-icon {
+  font-size: 30px;
+  line-height: 1;
+  color: var(--kg-accent-strong);
+  transition: transform var(--kg-dur-med) var(--kg-ease-pop);
+}
+
+.home-tile:hover .home-tile-icon {
+  transform: scale(1.12);
+}
+
+.home-tile-title {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+/*
+ * La descripción solo aparece al pasar el ratón. Se anima `grid-template-rows`
+ * de 0fr a 1fr en vez de `height`, que es lo que permite una transición suave
+ * sin tener que saber de antemano cuánto va a ocupar el texto.
+ *
+ * La opacidad se apaga MÁS RÁPIDO que el colapso a propósito: si tardan lo
+ * mismo, el texto sigue viéndose mientras la caja ya está encogiendo y queda
+ * feo. Así desaparece antes de que la caja termine de moverse.
+ */
+.home-tile-desc {
+  display: grid;
+  grid-template-rows: 0fr;
+  color: var(--kg-fg-muted);
+  font-size: 12px;
+  line-height: 1.45;
+  opacity: 0;
+  transition:
+    grid-template-rows var(--kg-dur-med) var(--kg-ease-out),
+    opacity var(--kg-dur-fast) var(--kg-ease-out);
+}
+
+/*
+ * `overflow: hidden` es OBLIGATORIO, no cosmético: sin él la fila se colapsa
+ * igual pero el texto la desborda y se queda a la vista, que era justo el
+ * fallo que se veía. `min-height: 0` permite colapsar por debajo del alto
+ * natural del contenido.
+ */
+.home-tile-desc > * {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.home-tile:hover .home-tile-desc,
+.home-tile:focus-visible .home-tile-desc {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.home-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--kg-space-3);
+}
+
+/* ---------- Ajustes ---------- */
+
+/*
+ * Ajustes centrado: son cuatro filas cortas, y pegadas al borde izquierdo de
+ * una ventana ancha dejaban medio panel vacío.
+ */
+.settings-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.settings-screen h1 {
+  margin-bottom: var(--kg-space-5);
+  font-size: 24px;
+  font-weight: 600;
+}
+
+/* La columna de contenido tiene ancho propio para que las filas no se
+   estiren a lo ancho de la ventana. */
+.settings-list {
+  width: 100%;
+  max-width: 520px;
+}
+
+.settings-screen .ram-gauge {
+  width: 260px;
+  margin-bottom: var(--kg-space-6);
+}
+
+.settings-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--kg-space-3);
+  max-width: 520px;
+  padding: var(--kg-space-4) 0;
+  border-bottom: 1px solid var(--kg-border);
+  cursor: pointer;
+}
+
+.settings-row input[type="checkbox"] {
+  margin-top: 3px;
+  accent-color: var(--kg-accent);
+}
+
+.settings-row span {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.settings-row strong {
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.settings-row small {
+  color: var(--kg-fg-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.settings-row-number {
+  align-items: center;
+  justify-content: space-between;
+  cursor: default;
+}
+
+.settings-row-number input[type="number"] {
+  width: 80px;
+  padding: 7px 9px;
+  border: 1px solid var(--kg-border);
+  border-radius: var(--kg-radius-sm);
+  background: var(--kg-bg-input);
+  color: var(--kg-fg);
+  font-family: inherit;
+  font-size: 13px;
+}
+
+.settings-row-number input[type="number"]:focus {
+  border-color: var(--kg-accent);
+  outline: none;
+}
