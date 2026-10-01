@@ -18,6 +18,8 @@ src-tauri/gen/schemas/
 
 # Local Claude Code state, machine-specific
 .claude/
+.agents/
+skills-lock.json
 
 # Local environment variables and secrets
 .env
