@@ -59,28 +59,35 @@ Estas son cosas confirmadas investigando el estado actual de Tauri v2 en Windows
 - React, renderizado dentro del WebView2 que aporta Tauri.
 - Etiquetas HTML nativas (`<video>`, `<img>`) para WEBP animado y MP4, sin necesidad de librerías adicionales de reproducción. Para GIF con velocidad de reproducción ajustable no alcanza el `<img>` nativo (el navegador no expone ningún control de FPS): se decodifica con `gifuct-js` y se reproduce en `<canvas>` con `requestAnimationFrame`.
 
-## Estructura de carpetas propuesta
+## Estructura de carpetas real
 
 ```
 kawagiif/
+├── index.html / overlay.html     # Una entrada de Vite por clase de ventana
 ├── src/                          # Frontend React
-│   ├── components/
-│   │   ├── AnimationWindow.tsx
-│   │   ├── Library.tsx
-│   │   └── Settings.tsx
-│   ├── hooks/
-│   │   └── useTauriCommands.ts
-│   └── main.tsx
+│   ├── main.tsx                  # Entrada de la ventana de control
+│   ├── entries/overlay.tsx       # Entrada de las ventanas overlay
+│   ├── windows/                  # ControlApp y OverlayItemApp
+│   ├── components/               # Pantallas y piezas de UI
+│   ├── context/LibraryProvider.tsx
+│   ├── hooks/                    # useTauriEvent, useEditorSync, useMediaUrl, ...
+│   ├── lib/                      # ipc.ts (invoke/listen + modo navegador), placed.ts
+│   ├── i18n/en.ts                # Todos los textos visibles (inglés)
+│   └── styles/                   # tokens, base, motion, components, overlay
 ├── src-tauri/                    # Backend Rust
 │   ├── src/
-│   │   ├── main.rs
-│   │   ├── window_manager.rs
-│   │   ├── native/
-│   │   │   └── windows.rs
-│   │   ├── config.rs
-│   │   └── commands.rs
-│   ├── capabilities/
-│   │   └── default.json
+│   │   ├── main.rs               # Solo llama a kawagiif_lib::run()
+│   │   ├── lib.rs                # Builder, plugins, comandos, setup, salida
+│   │   ├── window_manager.rs     # Ventana de control y pool de overlays
+│   │   ├── template.rs           # Animaciones colocadas, slots, template.json
+│   │   ├── library.rs            # Biblioteca de media y etiquetas
+│   │   ├── config.rs             # config.toml, carpeta de datos, escritura atómica
+│   │   ├── commands.rs           # Comandos sueltos (ajustes, ventana de control)
+│   │   ├── error.rs              # AppError compartido por todos los comandos
+│   │   ├── tray.rs               # Icono y menú de la bandeja
+│   │   ├── system_stats.rs       # Medidor de RAM
+│   │   └── native/windows.rs     # Llamadas Win32 (unsafe)
+│   ├── capabilities/             # control.json, overlay.json (ventanas OV-SLOT-*)
 │   ├── Cargo.toml
 │   └── tauri.conf.json
 └── package.json
@@ -121,8 +128,8 @@ fn main() {
 
 El prototipo de los 3 escollos técnicos (ventana transparente sin decoraciones, click-through con recuperación robusta vía atajo global, workaround de `skip_taskbar` reforzado en cada evento de foco, y arrastre de ventana) está **construido y verificado de punta a punta** — con capturas de pantalla y consultas directas a la API Win32 (`GetWindowLongPtr`/`GetProcess`), no solo inspección visual.
 
-La v1 funcional completa (M1-M5) está **implementada**: ventana de control (Home/Storage/Editor/Ajustes) separada de las ventanas overlay de animación, biblioteca de media importable con tags y filtros, editor visual con grid decorativo estilo blueprint, plantilla persistente en disco, bandeja del sistema con menú contextual, y gestión robusta de ventanas (close-to-tray, cierre en cascada al salir, botón de pánico "matar todas las animaciones" disponible tanto en Home como en el menú del tray).
+La v1 funcional completa (M1-M5) está **implementada**: ventana de control (Home/Storage/Editor/Ajustes) separada de las ventanas overlay de animación, biblioteca de media importable con tags y filtros, editor visual (el grid decorativo estilo blueprint se eliminó después por dar más problemas que valor), plantilla persistente en disco, bandeja del sistema con menú contextual, y gestión robusta de ventanas (close-to-tray, cierre en cascada al salir, botón de pánico "matar todas las animaciones" disponible tanto en Home como en el menú del tray).
 
-**Cambio de arquitectura importante descubierto durante la implementación**: las ventanas overlay de animación NO se crean dinámicamente cuando el usuario coloca una animación — se confirmó empíricamente (comparando el `EXSTYLE` crudo vía Win32) que cualquier ventana `transparent(true)` creada DESPUÉS de que la app terminó de arrancar (sea desde un command handler o despachada a `run_on_main_thread`) nace sin `WS_EX_LAYERED`, sin transparencia real. La solución fue precrear un **pool fijo de 24 ventanas overlay ocultas en `setup()`**; colocar una animación asigna un slot libre del pool y lo reposiciona/muestra, en vez de crear una ventana nueva. Esto pone un techo de 24 animaciones simultáneas en v1 (ver `window_manager::OVERLAY_POOL_SIZE`).
+**Cambio de arquitectura importante descubierto durante la implementación**: las ventanas overlay de animación NO se crean dinámicamente cuando el usuario coloca una animación — se confirmó empíricamente (comparando el `EXSTYLE` crudo vía Win32) que cualquier ventana `transparent(true)` creada DESPUÉS de que la app terminó de arrancar (sea desde un command handler o despachada a `run_on_main_thread`) nace sin `WS_EX_LAYERED`, sin transparencia real. La solución fue precrear un **pool de ventanas overlay ocultas en `setup()`** (etiquetas `OV-SLOT-N`); colocar una animación asigna un slot libre del pool y lo reposiciona/muestra, en vez de crear una ventana nueva. El tamaño del pool es un ajuste (`overlay_pool_size`, 8 por defecto, máximo `window_manager::MAX_POOL` = 20) que se aplica al reiniciar, porque cada ventana es un proceso de render de WebView2 (~40-80 MB).
 
 El plan detallado de esta v1, dividido en milestones incrementales (fundamentos → biblioteca → navegación/ajustes → editor → bandeja/cierre en cascada), vive fuera de este documento en el sistema de planes de la sesión de desarrollo — este archivo se mantiene como el resumen de arquitectura de referencia, no como el tracker de progreso.
