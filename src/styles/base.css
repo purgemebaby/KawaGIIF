@@ -1,33 +1,9 @@
-/*
- * Reset y reglas de documento comunes a todas las ventanas.
- *
- * Nada de esto depende del rol de la ventana: lo que sí depende (el fondo
- * transparente de overlays y grid) se aplica desde `main.tsx`, porque el rol
- * solo se conoce en tiempo de ejecución.
- */
-
-/*
- * Modak vive en `index.css` y no aquí a propósito: solo la ventana de control
- * dibuja el título, y esta hoja la carga también el resto de ventanas.
- */
-
-/*
- * Sin `border-box`, cualquier elemento con `width: 100%` más padding y borde
- * mide más que su contenedor y se sale (le pasaba al campo del popover de
- * etiquetas). Global, para que esa clase de fallo no pueda repetirse.
- */
 *,
 *::before,
 *::after {
   box-sizing: border-box;
 }
 
-/*
- * El margen de 8px que trae `body` por defecto es lo que dejaba el grid corto
- * por la izquierda cuando se dimensionaba con `100vw`. Ponerlo a cero en CSS
- * y no desde JavaScript: depender de un estilo en línea para algo tan básico
- * como "el contenido llena la ventana" ya falló una vez.
- */
 html,
 body,
 #root {
@@ -41,20 +17,7 @@ body {
   font-family: var(--kg-font-ui);
   font-size: var(--kg-font-size);
   color: var(--kg-fg);
-  /*
-   * OJO: aquí NO va `background`. Todas las ventanas comparten este bundle, y
-   * las overlays y el grid necesitan fondo transparente de verdad. El fondo
-   * de la app va en `.control-shell`, que solo existe en la ventana de
-   * control.
-   */
 
-  /*
-   * Esto es una app de escritorio, no una página web. Por defecto el motor
-   * deja seleccionar cualquier texto de la interfaz y arrastrar las imágenes
-   * dejando el "fantasma" translúcido del navegador; las dos cosas delatan
-   * que por debajo hay un WebView y, en las animaciones, estorban al arrastre
-   * de la propia ventana.
-   */
   user-select: none;
   -webkit-user-select: none;
 }
@@ -65,10 +28,6 @@ canvas {
   -webkit-user-drag: none;
 }
 
-/*
- * Excepción: donde se escribe hay que poder seleccionar, colocar el cursor y
- * usar Ctrl+C / Ctrl+V con normalidad.
- */
 input,
 textarea,
 select,
@@ -78,7 +37,6 @@ select,
   font-family: inherit;
 }
 
-/* Foco visible y coherente en toda la app, en vez del contorno del sistema. */
 :focus-visible {
   outline: 2px solid var(--kg-accent);
   outline-offset: 2px;

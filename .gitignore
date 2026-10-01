@@ -12,16 +12,14 @@ dist
 dist-ssr
 *.local
 
-# Rust / Tauri build output (src-tauri/.gitignore already covers this
-# scoped to that folder; repetido acá por si alguna vez se borra)
+# Rust / Tauri build output (also listed in src-tauri/.gitignore)
 src-tauri/target/
 src-tauri/gen/schemas/
 
-# Estado local de Claude Code (locks de tareas programadas, config de
-# sesión) — no aporta nada al repo y es específico de esta máquina.
+# Local Claude Code state, machine-specific
 .claude/
 
-# Variables de entorno / secretos locales
+# Local environment variables and secrets
 .env
 .env.local
 .env.*.local

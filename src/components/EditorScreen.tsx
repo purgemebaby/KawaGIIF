@@ -1,21 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { invoke, listen } from "../lib/ipc";
+import { invoke } from "../lib/ipc";
+import type { Template } from "../lib/placed";
 import MediaSidebar from "./MediaSidebar";
 import PlacedItemsList from "./PlacedItemsList";
 import PropertiesPanel from "./PropertiesPanel";
 import Modal from "./ui/Modal";
 import { useEditorSync } from "../hooks/useEditorSync";
 import { useDeleteShortcut } from "../hooks/useDeleteShortcut";
-import { t } from "../i18n/es";
+import { useTauriEvent } from "../hooks/useTauriEvent";
+import { t } from "../i18n/en";
 import "./EditorScreen.css";
-
-interface PlacedMedia {
-  instance_id: string;
-}
-
-interface Template {
-  items: PlacedMedia[];
-}
 
 function EditorScreen() {
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
@@ -24,14 +18,6 @@ function EditorScreen() {
   const savedIdsRef = useRef<Set<string>>(new Set());
   const { movedInstanceIds, resetMoved, selectedId } = useEditorSync();
 
-  /*
-   * Supr quita la animación seleccionada.
-   *
-   * También está el mismo atajo dentro de la propia ventana de la animación,
-   * pero hace falta aquí porque el foco de teclado suele estar en el panel
-   * (acabas de tocar un slider o de pulsar en la lista), y entonces la overlay
-   * no recibe nada.
-   */
   const deleteSelected = useCallback(() => {
     if (selectedId) invoke("remove_placed_media", { instanceId: selectedId });
   }, [selectedId]);
@@ -46,19 +32,10 @@ function EditorScreen() {
     })();
     return () => {
       invoke("set_edit_mode", { enabled: false });
-      // Al salir del editor la ventana vuelve a poder minimizarse: la guarda
-      // solo tiene sentido mientras se está editando.
       invoke("set_control_minimizable", { enabled: true });
     };
   }, []);
 
-  /**
-   * Mientras haya cambios sin guardar, se desactiva el botón de minimizar.
-   * Minimizar dejaría la edición en un limbo: las overlays siguen siendo
-   * interactivas pero no hay ninguna ventana desde la que guardar o
-   * descartar. Las demás salidas (cerrar, navegar) sí pueden preguntar y
-   * tienen su propia guarda.
-   */
   const syncMinimizable = useCallback(async () => {
     const dirty = await invoke<boolean>("has_unsaved_changes");
     await invoke("set_control_minimizable", { enabled: !dirty });
@@ -66,11 +43,9 @@ function EditorScreen() {
 
   useEffect(() => {
     syncMinimizable();
-    const unlisten = listen("placed-items-changed", syncMinimizable);
-    return () => {
-      unlisten.then((f) => f());
-    };
   }, [syncMinimizable, movedInstanceIds]);
+
+  useTauriEvent("placed-items-changed", syncMinimizable);
 
   const openSaveConfirm = async () => {
     const working = await invoke<Template>("get_working_template");
@@ -131,7 +106,7 @@ function EditorScreen() {
           ))}
           <PlacedItemsList />
         </div>
-        <PropertiesPanel />
+        <PropertiesPanel selectedId={selectedId} />
       </div>
 
       {showSaveConfirm && (

@@ -1,15 +1,7 @@
-import { t } from "../../i18n/es";
+import { t } from "../../i18n/en";
 
 const MAX_VISIBLE = 3;
 
-/**
- * Chips de SOLO LECTURA para la tarjeta de la rejilla.
- *
- * Antes cada tarjeta llevaba un campo de texto editable permanentemente
- * visible, lo que saturaba la biblioteca entera. Aquí solo se muestran, y
- * editar es un gesto aparte (el popover): ver y editar son cosas distintas y
- * la rejilla se usa sobre todo para ver.
- */
 function TagChips({ tags, onEdit }: { tags: string[]; onEdit: () => void }) {
   const visible = tags.slice(0, MAX_VISIBLE);
   const hidden = tags.length - visible.length;

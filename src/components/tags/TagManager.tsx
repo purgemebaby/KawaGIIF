@@ -1,23 +1,14 @@
 import { useMemo, useState } from "react";
 import { useLibrary } from "../../context/LibraryProvider";
-import { t } from "../../i18n/es";
+import { t } from "../../i18n/en";
 import Modal from "../ui/Modal";
 
 interface Props {
-  /** Etiquetas activas ahora mismo como filtro. */
   activeFilters: string[];
   onToggleFilter: (tag: string) => void;
   onClose: () => void;
 }
 
-/**
- * Cuadro único de etiquetas: buscar, usar como filtro, renombrar y borrar.
- *
- * Antes esto solo gestionaba, y el filtrado vivía en una fila de pills bajo
- * los tipos de archivo que crecía sin límite y acababa comiéndose la pantalla.
- * Aquí todo lo relacionado con etiquetas está en un sitio y solo cuando se
- * pide.
- */
 function TagManager({ activeFilters, onToggleFilter, onClose }: Props) {
   const { tags, renameTag, deleteTag } = useLibrary();
   const [query, setQuery] = useState("");

@@ -1,14 +1,3 @@
-/*
- * Editor: barra de acciones, barra lateral de media y panel de propiedades.
- *
- * Ya no define ni botones ni modales: los toma de `styles/components.css`.
- * M8 sustituye esta pantalla por ventanas propias (panel flotante + polybar),
- * así que aquí solo se adapta a los tokens, sin rediseñar.
- */
-
-/* `flex: 1` y no `height: 100%`: el contenedor es una columna flex que ya
-   incluye la cabecera con el botón del menú, así que pedir el 100% del alto
-   se pasaría justo por lo que mide esa cabecera. */
 .editor-screen {
   flex: 1;
   min-height: 0;
@@ -48,6 +37,7 @@
 .properties-panel {
   padding: var(--kg-space-4);
   overflow-y: auto;
+  border-left: 1px solid var(--kg-border);
 }
 
 .media-sidebar {
@@ -128,8 +118,4 @@
 
 .editor-canvas-hint p {
   margin-bottom: var(--kg-space-2);
-}
-
-.properties-panel {
-  border-left: 1px solid var(--kg-border);
 }

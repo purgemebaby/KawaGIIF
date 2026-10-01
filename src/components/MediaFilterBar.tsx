@@ -1,5 +1,5 @@
 import type { MediaType } from "../context/LibraryProvider";
-import { t } from "../i18n/es";
+import { t } from "../i18n/en";
 import SortMenu from "./ui/SortMenu";
 
 export type SortMode = "name-asc" | "name-desc" | "date-new" | "date-old";
@@ -8,7 +8,6 @@ export interface MediaFilters {
   type: MediaType | "all";
   query: string;
   sort: SortMode;
-  /** Etiquetas seleccionadas. Se combinan por intersección. */
   tags: string[];
 }
 
@@ -81,13 +80,6 @@ function MediaFilterBar({ filters, onChange, onOpenTags }: MediaFilterBarProps) 
         </button>
       </div>
 
-      {/*
-        Solo se listan las etiquetas ACTIVAS, no todas las que existen. Antes
-        se pintaban todas aquí y con una biblioteca grande la fila se comía la
-        pantalla; el catálogo completo vive ahora en el cuadro de Etiquetas.
-        Estas siguen visibles para no perder de vista por qué está filtrada la
-        lista, y se quitan con un clic.
-      */}
       {filters.tags.length > 0 && (
         <div className="active-filters">
           {filters.tags.map((tag) => (

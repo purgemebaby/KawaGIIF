@@ -1,12 +1,4 @@
-/*
- * Ventana de control: armazón, navegación, Inicio y Ajustes.
- *
- * El fondo de la app vive aquí y no en `body`, porque `body` lo comparten
- * todas las ventanas y las overlays lo necesitan transparente.
- */
-
 .control-shell {
-  /* Ancla de la pantalla de carga, que se superpone con `inset: 0`. */
   position: relative;
   display: flex;
   height: 100vh;
@@ -15,11 +7,6 @@
   color: var(--kg-fg);
 }
 
-/*
- * Columna flex para que las pantallas que quieren ocupar el alto disponible
- * (Inicio, que se centra; el Editor, con sus tres columnas) puedan pedirlo con
- * `flex: 1` sin tener que descontar a mano el alto de la cabecera.
- */
 .control-content {
   flex: 1;
   min-width: 0;
@@ -27,8 +14,6 @@
   flex-direction: column;
   overflow-y: auto;
 }
-
-/* ---------- Barra lateral plegable ---------- */
 
 .nav-sidebar {
   --nav-width: 210px;
@@ -42,18 +27,11 @@
     border-color var(--kg-dur-med) var(--kg-ease-out);
 }
 
-/* Plegada: ancho cero. No `display: none`, que no se puede animar. */
 .nav-sidebar.collapsed {
   width: 0;
   border-right-color: transparent;
 }
 
-/*
- * El contenido mantiene su ancho fijo dentro del contenedor que encoge, así
- * que al plegarse se desliza hacia fuera en vez de aplastarse. Además se
- * desvanece un poco antes de que termine el ancho, que es lo que evita ver
- * el texto comprimido a mitad de camino.
- */
 .nav-inner {
   display: flex;
   flex-direction: column;
@@ -114,12 +92,6 @@
   font-weight: 600;
 }
 
-/* ---------- Contenido y botón de plegado ---------- */
-
-/*
- * El botón vive fuera de la barra a propósito: dentro desaparecería al
- * plegarla y no habría manera de volver a abrirla.
- */
 .content-topbar {
   position: sticky;
   top: 0;
@@ -131,11 +103,6 @@
   background: var(--kg-bg-app);
 }
 
-/*
- * Contenedor de la pantalla activa. La `key` de React cambia al navegar, así
- * que el elemento se remonta y la animación se reproduce de nuevo — sin eso,
- * una animación CSS solo se ve la primera vez.
- */
 .screen-slot {
   flex: 1;
   min-height: 0;
@@ -151,19 +118,11 @@
   animation: kg-screen-in-up var(--kg-dur-slow) var(--kg-ease-out);
 }
 
-/* ---------- Pantallas ---------- */
-
 .home-screen,
-.settings-screen,
-.placeholder-screen {
+.settings-screen {
   padding: var(--kg-space-5) var(--kg-space-6) var(--kg-space-6);
 }
 
-/*
- * Inicio, centrado. Al plegar o desplegar la barra lateral el contenido se
- * recentra solo, porque la barra es un hermano flex y su ancho está animado:
- * no hace falta nada más para que la transición se conserve.
- */
 .home-screen {
   position: relative;
   flex: 1;
@@ -176,7 +135,6 @@
   text-align: center;
 }
 
-/* Todo el contenido por encima del fondo animado, que va en z-index 0. */
 .home-header,
 .home-tiles,
 .home-actions {
@@ -247,15 +205,6 @@
   font-weight: 600;
 }
 
-/*
- * La descripción solo aparece al pasar el ratón. Se anima `grid-template-rows`
- * de 0fr a 1fr en vez de `height`, que es lo que permite una transición suave
- * sin tener que saber de antemano cuánto va a ocupar el texto.
- *
- * La opacidad se apaga MÁS RÁPIDO que el colapso a propósito: si tardan lo
- * mismo, el texto sigue viéndose mientras la caja ya está encogiendo y queda
- * feo. Así desaparece antes de que la caja termine de moverse.
- */
 .home-tile-desc {
   display: grid;
   grid-template-rows: 0fr;
@@ -268,12 +217,6 @@
     opacity var(--kg-dur-fast) var(--kg-ease-out);
 }
 
-/*
- * `overflow: hidden` es OBLIGATORIO, no cosmético: sin él la fila se colapsa
- * igual pero el texto la desborda y se queda a la vista, que era justo el
- * fallo que se veía. `min-height: 0` permite colapsar por debajo del alto
- * natural del contenido.
- */
 .home-tile-desc > * {
   min-height: 0;
   overflow: hidden;
@@ -292,12 +235,6 @@
   gap: var(--kg-space-3);
 }
 
-/* ---------- Ajustes ---------- */
-
-/*
- * Ajustes centrado: son cuatro filas cortas, y pegadas al borde izquierdo de
- * una ventana ancha dejaban medio panel vacío.
- */
 .settings-screen {
   display: flex;
   flex-direction: column;
@@ -310,8 +247,6 @@
   font-weight: 600;
 }
 
-/* La columna de contenido tiene ancho propio para que las filas no se
-   estiren a lo ancho de la ventana. */
 .settings-list {
   width: 100%;
   max-width: 520px;

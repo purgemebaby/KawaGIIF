@@ -6,12 +6,12 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { invoke, listen } from "../lib/ipc";
+import { invoke } from "../lib/ipc";
+import { useTauriEvent } from "../hooks/useTauriEvent";
 import { open } from "@tauri-apps/plugin-dialog";
 
 export type MediaType = "gif" | "mp4" | "jpeg" | "png" | "webp";
 
-/** Los tipos que son imágenes fijas: no tiene sentido darles velocidad. */
 export const STATIC_TYPES: MediaType[] = ["jpeg", "png"];
 
 export interface MediaItem {
@@ -28,19 +28,12 @@ export interface TagCount {
   count: number;
 }
 
-/** El backend señaliza "esta media está colocada en N sitios" así. */
-export const REFERENCED_PREFIX = "REFERENCED:";
+const REFERENCED_PREFIX = "REFERENCED:";
 
-/**
- * A partir de aquí se avisa antes de importar. No es un techo duro: desde que
- * los archivos se cargan en streaming, uno grande ya no tumba la app, solo
- * ocupa disco. El aviso existe para que no importes 2 GB sin darte cuenta.
- */
-export const LARGE_FILE_BYTES = 150 * 1024 * 1024;
+const LARGE_FILE_BYTES = 150 * 1024 * 1024;
 
 export interface PendingImport {
   paths: string[];
-  /** Los que superan el umbral, con su tamaño, para poder avisar. */
   large: { path: string; bytes: number }[];
 }
 
@@ -65,35 +58,16 @@ interface LibraryContextValue {
   tags: TagCount[];
   loading: boolean;
   refresh: () => Promise<void>;
-  /**
-   * Abre el diálogo de archivos. Si todos son de tamaño normal los importa y
-   * devuelve `null`; si alguno es grande NO importa nada y devuelve la lista
-   * para que la UI pueda avisar y confirmar con `confirmImport`.
-   */
   importFiles: () => Promise<PendingImport | null>;
   confirmImport: (paths: string[]) => Promise<void>;
   updateTags: (id: string, tags: string[]) => Promise<void>;
   renameTag: (from: string, to: string) => Promise<void>;
   deleteTag: (name: string) => Promise<void>;
-  /**
-   * Borra una media. Si está colocada en el escritorio y `force` es falso,
-   * lanza un error que `parseReferencedError` sabe traducir a un número, para
-   * que la UI pueda repreguntar en vez de borrar a ciegas.
-   */
   deleteMedia: (id: string, force?: boolean) => Promise<void>;
 }
 
 const LibraryContext = createContext<LibraryContextValue | null>(null);
 
-/**
- * Estado único de la biblioteca para toda la ventana.
- *
- * Antes cada componente llamaba a `useLibrary()` por su cuenta y se quedaba
- * con una copia independiente, así que importar desde la Biblioteca no
- * refrescaba la barra lateral del Editor. Ahora hay un solo `useState` y
- * además se escucha el evento `library-changed` que emite Rust, de modo que
- * cualquier cambio (importar, borrar, tocar etiquetas) se propaga solo.
- */
 export function LibraryProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<MediaItem[]>([]);
   const [tags, setTags] = useState<TagCount[]>([]);
@@ -117,20 +91,11 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     refresh();
   }, [refresh]);
 
-  useEffect(() => {
-    const unlisten = listen("library-changed", () => {
-      refresh();
-    });
-    return () => {
-      unlisten.then((f) => f());
-    };
-  }, [refresh]);
+  useTauriEvent("library-changed", refresh);
 
   const confirmImport = useCallback(
     async (sourcePaths: string[]) => {
       await invoke("import_media", { sourcePaths });
-      // Rust emite `library-changed`, pero refrescamos también aquí para que
-      // el usuario no vea un parpadeo mientras llega el evento.
       await refresh();
     },
     [refresh],
@@ -206,7 +171,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
 export function useLibrary(): LibraryContextValue {
   const ctx = useContext(LibraryContext);
   if (!ctx) {
-    throw new Error("useLibrary debe usarse dentro de un <LibraryProvider>");
+    throw new Error("useLibrary must be used inside a <LibraryProvider>");
   }
   return ctx;
 }

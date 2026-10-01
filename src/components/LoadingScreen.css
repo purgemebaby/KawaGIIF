@@ -1,8 +1,3 @@
-/*
- * Pantalla de carga: título centrado y barra de progreso con un personaje
- * que camina sobre ella.
- */
-
 .loading-screen {
   position: absolute;
   inset: 0;
@@ -13,10 +8,9 @@
   justify-content: center;
   gap: var(--kg-space-6);
   background: var(--kg-bg-app);
-  /* Un resplandor tenue detrás del título, para que no flote sobre un plano. */
   background-image: radial-gradient(
     circle at 50% 42%,
-    rgb(169 123 255 / 0.1) 0%,
+    rgb(var(--kg-accent-rgb) / 0.1) 0%,
     transparent 55%
   );
   transition:
@@ -25,8 +19,6 @@
     transform var(--kg-dur-slow) var(--kg-ease-out);
 }
 
-/* Salida: se desvanece difuminándose y creciendo un pelín, en vez de
-   desaparecer de golpe. */
 .loading-screen.is-leaving {
   opacity: 0;
   filter: blur(14px);
@@ -47,15 +39,8 @@
   height: 100%;
   border-radius: inherit;
   background: linear-gradient(90deg, var(--kg-accent), var(--kg-accent-2));
-  /* Sin transición: la anchura ya se actualiza por fotograma, y añadir una
-     encima haría que la barra fuera siempre por detrás del indicador. */
 }
 
-/*
- * Indicador que recorre la barra. De fábrica es una burbuja con brillo, en la
- * línea de la identidad; en Ajustes se puede sustituir por el GIF o la imagen
- * que se quiera (M9).
- */
 .loading-walker {
   position: absolute;
   bottom: 100%;
@@ -67,7 +52,6 @@
   background:
     radial-gradient(circle at 34% 30%, rgb(255 255 255 / 0.75) 0%, transparent 42%),
     linear-gradient(180deg, var(--kg-accent-2), var(--kg-accent));
-  /* Un balanceo corto, para que se lea como algo que anda y no que se desliza. */
   animation: kg-walker-bob 620ms ease-in-out infinite;
 }
 

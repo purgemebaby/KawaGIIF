@@ -1,35 +1,16 @@
 import { useEffect, useState } from "react";
-import { invoke, listen } from "../lib/ipc";
+import { invoke } from "../lib/ipc";
+import { loadPlacedMedia, type PlacedMedia } from "../lib/placed";
 import { STATIC_TYPES, type MediaType } from "../context/LibraryProvider";
-import { t } from "../i18n/es";
+import { t } from "../i18n/en";
 import Slider from "./ui/Slider";
-
-interface PlacedMedia {
-  instance_id: string;
-  media_id: string;
-  opacity: number;
-  playback_rate: number | null;
-}
-
-interface MediaItem {
-  id: string;
-  media_type: MediaType;
-}
 
 const DEFAULT_OPACITY = 1;
 const DEFAULT_RATE = 1;
 
-function PropertiesPanel() {
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+function PropertiesPanel({ selectedId }: { selectedId: string | null }) {
   const [placed, setPlaced] = useState<PlacedMedia | null>(null);
   const [mediaType, setMediaType] = useState<MediaType | null>(null);
-
-  useEffect(() => {
-    const unlisten = listen<string | null>("selection-changed", (e) => setSelectedId(e.payload));
-    return () => {
-      unlisten.then((f) => f());
-    };
-  }, []);
 
   useEffect(() => {
     if (!selectedId) {
@@ -38,16 +19,11 @@ function PropertiesPanel() {
       return;
     }
     let cancelled = false;
-    (async () => {
-      const item = await invoke<PlacedMedia | null>("get_placed_media", {
-        instanceId: selectedId,
-      });
-      if (cancelled || !item) return;
-      setPlaced(item);
-      const items = await invoke<MediaItem[]>("list_media");
-      const media = items.find((m) => m.id === item.media_id);
-      if (!cancelled && media) setMediaType(media.media_type);
-    })();
+    loadPlacedMedia(selectedId).then((result) => {
+      if (cancelled || !result) return;
+      setPlaced(result.item);
+      setMediaType(result.mediaType);
+    });
     return () => {
       cancelled = true;
     };
@@ -71,11 +47,6 @@ function PropertiesPanel() {
     invoke("set_item_playback_rate", { instanceId: selectedId, playbackRate: rate });
   };
 
-  /**
-   * Devuelve opacidad y velocidad a sus valores por defecto. NO toca posición
-   * ni tamaño a propósito: teletransportar el elemento al pulsar un botón
-   * llamado "Restablecer" se sentiría como un fallo, no como una función.
-   */
   const resetProperties = () => {
     setOpacity(DEFAULT_OPACITY);
     if (supportsSpeed) setPlaybackRate(DEFAULT_RATE);
@@ -121,10 +92,7 @@ function PropertiesPanel() {
       <button
         type="button"
         className="kg-btn kg-btn--danger kg-btn--sm"
-        onClick={() => {
-          invoke("remove_placed_media", { instanceId: selectedId });
-          setSelectedId(null);
-        }}
+        onClick={() => invoke("remove_placed_media", { instanceId: selectedId })}
       >
         {t.editor.removeItem}
       </button>

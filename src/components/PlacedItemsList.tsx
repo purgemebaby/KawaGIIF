@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import { invoke, listen } from "../lib/ipc";
+import { invoke } from "../lib/ipc";
+import { useTauriEvent } from "../hooks/useTauriEvent";
 import type { MediaType } from "../context/LibraryProvider";
-import { t } from "../i18n/es";
+import { t } from "../i18n/en";
 
 interface PlacedItemSummary {
   instance_id: string;
@@ -11,15 +12,6 @@ interface PlacedItemSummary {
   selected: boolean;
 }
 
-/**
- * Lista de las animaciones colocadas ahora mismo en el escritorio.
- *
- * Existe porque hasta ahora la única forma de deshacerse de algo que habías
- * colocado era "Deshacer", que revertía TODO. Aquí se quita una sola.
- *
- * El cruce con la biblioteca (para saber el nombre del archivo) lo hace Rust
- * en `list_placed_items`, así que esto es una llamada y no una por elemento.
- */
 function PlacedItemsList() {
   const [items, setItems] = useState<PlacedItemSummary[]>([]);
 
@@ -31,14 +23,8 @@ function PlacedItemsList() {
     refresh();
   }, [refresh]);
 
-  useEffect(() => {
-    const unlistenPlaced = listen("placed-items-changed", refresh);
-    const unlistenSelection = listen("selection-changed", refresh);
-    return () => {
-      unlistenPlaced.then((f) => f());
-      unlistenSelection.then((f) => f());
-    };
-  }, [refresh]);
+  useTauriEvent("placed-items-changed", refresh);
+  useTauriEvent("selection-changed", refresh);
 
   if (items.length === 0) {
     return (

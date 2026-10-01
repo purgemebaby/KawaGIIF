@@ -1,22 +1,7 @@
-/*
- * Título burbuja: dos capas superpuestas para conseguir DOS contornos.
- *
- * Un elemento solo admite un `-webkit-text-stroke`, así que el contorno doble
- * del grafiti (oscuro pegado a la letra, filo claro por fuera) obliga a
- * dibujar el texto dos veces: la capa de atrás aporta el filo claro grueso y
- * la de delante el relleno con su contorno oscuro encima.
- */
-
 .kg-title-wrap {
   position: relative;
   display: inline-block;
   line-height: 1;
-  /*
-   * La sombra va aquí y como `filter: drop-shadow`, no como `text-shadow`:
-   * el relleno degradado deja el texto transparente (ver `.kg-title-fill`),
-   * así que una `text-shadow` se vería A TRAVÉS de las letras. `drop-shadow`
-   * sombrea los píxeles ya pintados, no la caja del glifo.
-   */
   filter: drop-shadow(0 0.09em 0.18em rgb(0 0 0 / 0.6));
 }
 
@@ -28,11 +13,6 @@
   white-space: nowrap;
 }
 
-/*
- * Capa de ATRÁS: solo aporta el filo claro exterior. Su relleno da igual
- * porque queda tapado por la capa de delante; lo único que asoma es la parte
- * del trazo que sobresale.
- */
 .kg-title-keyline {
   color: var(--kg-title-keyline);
   -webkit-text-stroke: 0.16em var(--kg-title-keyline);
@@ -44,28 +24,6 @@
   inset: 0;
 }
 
-/*
- * Capa de DELANTE: el relleno degradado y el contorno oscuro.
- *
- * `background-clip: text` recorta el degradado a la forma de la letra, y para
- * verlo el color tiene que ser transparente.
- *
- * `paint-order: stroke fill` dibuja el trazo POR DETRÁS del relleno, así se
- * ve su grosor entero. Sin esto, `-webkit-text-stroke` se centra en el borde
- * del glifo y se come la mitad del relleno, dejando las letras finas y sucias.
- *
- * POR QUÉ EL SELECTOR ES DOBLE: `background-clip: text` recorta el fondo al
- * texto DEL PROPIO ELEMENTO. Con la onda activada las letras dejan de ser
- * texto de esta capa y pasan a ser `<span>` hijos con `transform` animado,
- * cada uno su propia capa de composición; el recorte se queda sin texto que
- * recortar, no pinta nada, y lo único visible es el filo claro de la capa de
- * atrás — el título se veía blanco. Así que el degradado se aplica en el
- * elemento que de verdad contiene los glifos, sea cual sea de los dos.
- *
- * Que el degradado pase a ser por letra en vez de por palabra no cambia lo
- * que se ve: es vertical (180deg) y todas las letras comparten alto y línea
- * base, así que las paradas caen donde caían.
- */
 .kg-title-fill,
 .kg-title-fill .kg-wave > span {
   background: linear-gradient(180deg, var(--kg-accent-2) 0%, var(--kg-accent) 100%);
@@ -76,8 +34,6 @@
   paint-order: stroke fill;
 }
 
-/* Solo para lectores de pantalla: las capas visuales están ocultas para
-   ellos, que si no leerían el título dos veces. */
 .kg-title-sr {
   position: absolute;
   width: 1px;

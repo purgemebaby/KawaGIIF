@@ -2,7 +2,7 @@ import { invoke } from "../lib/ipc";
 import KawaTitle from "./brand/KawaTitle";
 import KawaiiBackdrop from "./brand/KawaiiBackdrop";
 import { HOME_TILES, type Screen } from "./navItems";
-import { t } from "../i18n/es";
+import { t } from "../i18n/en";
 
 interface HomeScreenProps {
   onNavigate: (screen: Screen) => void;
@@ -30,11 +30,6 @@ function HomeScreen({ onNavigate }: HomeScreenProps) {
               {tile.icon}
             </span>
             <span className="home-tile-title">{tile.label}</span>
-            {/* Aparece al pasar el ratón. Se mantiene en el marcado (y no se
-                monta al hacer hover) para que los lectores de pantalla lo
-                anuncien. El `<span>` interior es necesario: la transición se
-                hace con `grid-template-rows: 0fr → 1fr`, que necesita un hijo
-                al que colapsar. */}
             <span className="home-tile-desc">
               <span>{tile.desc}</span>
             </span>

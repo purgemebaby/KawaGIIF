@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { invoke } from "../lib/ipc";
-import { t } from "../i18n/es";
+import { t } from "../i18n/en";
 import RamGauge from "./settings/RamGauge";
 
 interface AppConfig {

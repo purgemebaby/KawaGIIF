@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLibrary } from "../../context/LibraryProvider";
-import { t } from "../../i18n/es";
+import { t } from "../../i18n/en";
 
 interface Props {
   tags: string[];
@@ -8,18 +8,8 @@ interface Props {
   onClose: () => void;
 }
 
-/** Tope de longitud de una etiqueta. Ver el comentario del input. */
 const MAX_TAG_LENGTH = 40;
 
-/**
- * Editor de etiquetas de una media, pensado para vivir dentro de un popover
- * anclado a su tarjeta.
- *
- * El autocompletado sobre las etiquetas que ya existen es lo importante aquí:
- * es lo que evita de raíz acabar con `gato`, `Gato` y `gatos` como tres
- * etiquetas distintas. Rust normaliza igualmente al guardar, pero sugerir
- * antes de escribir es mejor que corregir después.
- */
 function TagPopover({ tags, onChange, onClose }: Props) {
   const { tags: allTags } = useLibrary();
   const [draft, setDraft] = useState("");
@@ -30,8 +20,6 @@ function TagPopover({ tags, onChange, onClose }: Props) {
     inputRef.current?.focus();
   }, []);
 
-  // Cerrar con Escape o al hacer clic fuera. Se escucha en captura para que
-  // el clic que cierra no active además lo que haya debajo.
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -64,7 +52,6 @@ function TagPopover({ tags, onChange, onClose }: Props) {
   const add = (raw: string) => {
     const cleaned = raw.trim().replace(/\s+/g, " ");
     if (!cleaned) return;
-    // Rust también deduplica, pero comprobarlo aquí evita un parpadeo.
     if (tags.some((tag) => tag.toLowerCase() === cleaned.toLowerCase())) {
       setDraft("");
       return;
@@ -104,8 +91,6 @@ function TagPopover({ tags, onChange, onClose }: Props) {
         className="tag-popover-input"
         value={draft}
         placeholder={t.tags.add}
-        // Tope en origen: una etiqueta de 200 caracteres no aporta nada y
-        // desbarataba el layout de la rejilla y de la barra de filtros.
         maxLength={MAX_TAG_LENGTH}
         onChange={(e) => setDraft(e.target.value)}
         onKeyDown={(e) => {

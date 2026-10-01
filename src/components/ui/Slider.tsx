@@ -4,21 +4,11 @@ interface Props {
   max: number;
   step: number;
   value: number;
-  /** Cómo mostrar el valor en la burbuja: `70%`, `1.35x`… */
   format: (value: number) => string;
   onChange: (value: number) => void;
 }
 
-/**
- * Slider con lectura numérica.
- *
- * La burbuja se coloca proporcionalmente al valor y aparece al pasar el ratón,
- * al enfocar con el teclado y mientras se arrastra. Antes estos controles no
- * decían en ningún momento qué número estabas poniendo, así que ajustar la
- * velocidad era prueba y error.
- */
 function Slider({ label, min, max, step, value, format, onChange }: Props) {
-  // 0 en el mínimo, 1 en el máximo. Se usa para posicionar la burbuja.
   const ratio = max === min ? 0 : (value - min) / (max - min);
 
   return (

@@ -1,33 +1,8 @@
-/*
- * Índice del sistema de estilos. Lo importa `main.tsx`, la entrada de la
- * ventana de CONTROL — no las demás: overlay y grid cargan `overlay.css`, que
- * es mínima. Ver la nota de ese archivo sobre por qué.
- *
- * El orden importa: los tokens primero (todo lo demás los usa), luego el
- * reset, luego las animaciones y por último las primitivas.
- */
-
-/*
- * Modak, empaquetada localmente. Nada de CDN: la CSP la bloquearía y además
- * la app tiene que funcionar sin conexión. Va aquí y no en `base.css` porque
- * solo esta ventana dibuja el título.
- *
- * `latin-400` y no `400`: el segundo declara TODOS los subconjuntos, y el
- * empaquetado acababa copiando 238 kB de glifos devanagari que la app no puede
- * llegar a usar — el título es una constante, "KawaGIIF".
- */
 @import "@fontsource/modak/latin-400.css";
 @import "./tokens.css";
 @import "./base.css";
 @import "./motion.css";
 @import "./components.css";
-
-/*
- * A partir de aquí, estilos de piezas concretas que no son primitivas
- * reutilizables. Ningún color literal: todo sale de los tokens.
- */
-
-/* ---------- Etiquetas ---------- */
 
 .tag-chips {
   display: flex;
@@ -47,8 +22,6 @@
   font-size: 11px;
 }
 
-/* `max-width` + elipsis: una etiqueta de 200 caracteres reventaba la tarjeta
-   y provocaba scroll horizontal en toda la ventana. */
 .tag-chip {
   display: inline-flex;
   align-items: center;
@@ -79,7 +52,6 @@
   cursor: pointer;
 }
 
-/* El popover se ancla a la tarjeta, que es `position: relative`. */
 .tag-popover {
   position: absolute;
   z-index: 20;
@@ -165,7 +137,6 @@
   color: var(--kg-fg-faint);
 }
 
-/* Buscador dentro del cuadro de etiquetas. */
 .tag-manager-search {
   width: 100%;
   margin-bottom: var(--kg-space-3);
@@ -183,8 +154,6 @@
   outline: none;
 }
 
-/* Filtros de etiqueta activos, en la barra. Solo se listan los que están
-   puestos; el catálogo completo vive en el cuadro de Etiquetas. */
 .active-filters {
   display: flex;
   flex-wrap: wrap;
@@ -192,7 +161,6 @@
   gap: var(--kg-space-2);
 }
 
-/* Contador junto al botón "Etiquetas" cuando hay filtros puestos. */
 .filter-tag-count {
   display: inline-flex;
   align-items: center;
@@ -206,8 +174,6 @@
   font-size: 10px;
   font-weight: 700;
 }
-
-/* ---------- Menú de ordenación ---------- */
 
 .sort-menu {
   position: relative;
@@ -257,74 +223,6 @@
   font-weight: 600;
 }
 
-.tag-filter-pills {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--kg-space-2);
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-}
-
-/* Igual que `.tag-chip`: sin el tope, una etiqueta larguísima empujaba la
-   fila entera y aparecía scroll horizontal. El texto completo va en `title`. */
-.tag-filter-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  max-width: 260px;
-  padding: 4px 11px;
-  border: 1px solid var(--kg-border);
-  border-radius: var(--kg-radius-pill);
-  background: var(--kg-bg-raised);
-  color: var(--kg-fg-muted);
-  font-family: inherit;
-  font-size: 12px;
-  cursor: pointer;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  transition:
-    background var(--kg-dur-fast) var(--kg-ease-out),
-    border-color var(--kg-dur-fast) var(--kg-ease-out),
-    color var(--kg-dur-fast) var(--kg-ease-out);
-}
-
-.tag-filter-pill > span:first-child {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.tag-filter-pill:hover {
-  border-color: var(--kg-border-strong);
-  color: var(--kg-fg);
-}
-
-.tag-filter-pill.active {
-  border-color: var(--kg-accent);
-  background: var(--kg-accent-soft);
-  color: var(--kg-accent-strong);
-}
-
-.tag-filter-count {
-  opacity: 0.65;
-  font-size: 11px;
-}
-
-.tag-filter-clear {
-  border: none;
-  background: none;
-  color: var(--kg-fg-faint);
-  font-family: inherit;
-  font-size: 12px;
-  cursor: pointer;
-  text-decoration: underline;
-}
-
-.tag-filter-clear:hover {
-  color: var(--kg-fg);
-}
-
 .tag-manager-list {
   list-style: none;
   margin: 0;
@@ -366,42 +264,12 @@
   font-size: 13px;
 }
 
-/* ---------- Barra de filtros ---------- */
-
 .filter-row {
   display: flex;
   align-items: center;
   gap: var(--kg-space-3);
   flex-wrap: wrap;
   width: 100%;
-}
-
-.filter-sort {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--kg-space-2);
-  font-size: 12px;
-}
-
-.filter-sort-label {
-  color: var(--kg-fg-faint);
-}
-
-.filter-sort select {
-  padding: 6px 9px;
-  border: 1px solid var(--kg-border);
-  border-radius: var(--kg-radius-sm);
-  background: var(--kg-bg-raised);
-  color: var(--kg-fg);
-  font-family: inherit;
-  font-size: 12px;
-  cursor: pointer;
-}
-
-/* ---------- Tarjeta de media ---------- */
-
-.media-card {
-  position: relative;
 }
 
 .media-card-delete {
@@ -422,9 +290,6 @@
   transition: opacity var(--kg-dur-fast) var(--kg-ease-out);
 }
 
-/* Solo aparece al pasar el ratón por la tarjeta: una X permanente en cada
-   una convertiría la rejilla en un campo de minas visual. Con el teclado
-   también sale, para que sea alcanzable sin ratón. */
 .media-card:hover .media-card-delete,
 .media-card-delete:focus-visible {
   opacity: 1;
@@ -438,8 +303,6 @@
 .media-card-tags {
   position: relative;
 }
-
-/* ---------- Lista de animaciones colocadas ---------- */
 
 .placed-items {
   margin-top: var(--kg-space-5);

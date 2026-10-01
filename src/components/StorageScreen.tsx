@@ -8,7 +8,7 @@ import {
   type MediaItem,
   type PendingImport,
 } from "../context/LibraryProvider";
-import { t } from "../i18n/es";
+import { t } from "../i18n/en";
 import MediaFilterBar, { DEFAULT_FILTERS, type MediaFilters } from "./MediaFilterBar";
 import MediaGrid from "./MediaGrid";
 import TagManager from "./tags/TagManager";
@@ -17,10 +17,8 @@ import WaveText from "./brand/WaveText";
 import { useDeleteShortcut } from "../hooks/useDeleteShortcut";
 import "./StorageScreen.css";
 
-/** Estado del flujo de borrado: confirmar → (si está colocada) reconfirmar. */
 interface DeleteState {
   item: MediaItem;
-  /** Cuántos elementos del escritorio la usan. `null` = aún no se sabe. */
   placedCount: number | null;
 }
 
@@ -46,7 +44,6 @@ function StorageScreen() {
     const result = items.filter((item) => {
       if (filters.type !== "all" && item.media_type !== filters.type) return false;
 
-      // Intersección: la media tiene que llevar TODAS las etiquetas marcadas.
       if (selectedTags.length > 0) {
         const own = item.tags.map((tag) => tag.toLowerCase());
         if (!selectedTags.every((tag) => own.includes(tag))) return false;
@@ -72,11 +69,6 @@ function StorageScreen() {
     });
   }, [items, filters]);
 
-  /**
-   * Intenta borrar. Si el backend responde que la media está colocada en el
-   * escritorio, no borra: devuelve el número para poder repreguntar. Es lo
-   * que evita dejar referencias colgantes en la plantilla.
-   */
   const attemptDelete = async (item: MediaItem, force: boolean) => {
     try {
       await deleteMedia(item.id, force);
@@ -100,21 +92,9 @@ function StorageScreen() {
         attemptDelete(item, false);
       }
     },
-    // `attemptDelete` se recrea en cada render pero solo se llama dentro del
-    // manejador, así que no hace falta memoizarla para que esto sea correcto.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [confirmBeforeDelete],
   );
 
-  /*
-   * Supr borra la media seleccionada.
-   *
-   * Pasa por `requestDelete`, la misma función que el botón X, y no por
-   * `deleteMedia` directamente: así hereda la confirmación, el ajuste
-   * `confirm_media_delete` y el aviso de "está colocada en N sitios" sin
-   * duplicar nada. Aquí sí se borra el archivo del disco, a diferencia del
-   * atajo del editor.
-   */
   const deleteSelected = useCallback(() => {
     const item = items.find((m) => m.id === selectedId);
     if (item) requestDelete(item);
@@ -189,7 +169,7 @@ function StorageScreen() {
           <p className="modal-body">
             {t.storage.largeImport.body(
               pendingImport.large
-                .map((f) => `«${fileNameOf(f.path)}» (${formatBytes(f.bytes)})`)
+                .map((f) => t.storage.largeImport.fileEntry(fileNameOf(f.path), formatBytes(f.bytes)))
                 .join(", "),
               formatBytes(pendingImport.large.reduce((sum, f) => sum + f.bytes, 0)),
             )}

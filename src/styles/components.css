@@ -1,17 +1,3 @@
-/*
- * Primitivas de interfaz compartidas: botones, tarjetas, campos, modales,
- * pills, sliders.
- *
- * Este archivo es la ÚNICA definición de cada primitiva. Antes `.primary-btn`
- * vivía en la hoja de la biblioteca, `.secondary-btn` en la del editor y
- * `.danger-btn` en la de la ventana de control: funcionaba solo porque Vite
- * empaqueta todo el CSS junto y acababan cargándose siempre. Que el estilo de
- * un botón dependa de qué pantalla se haya importado es un accidente, no un
- * diseño.
- */
-
-/* ---------- Botones ---------- */
-
 .kg-btn {
   display: inline-flex;
   align-items: center;
@@ -74,7 +60,6 @@
   background: var(--kg-danger-soft);
 }
 
-/* Botón discreto, sin fondo ni borde hasta que se pasa el ratón. */
 .kg-btn--ghost {
   color: var(--kg-fg-muted);
   font-weight: 500;
@@ -90,7 +75,6 @@
   font-size: 12px;
 }
 
-/* Botón cuadrado solo con icono o símbolo. */
 .kg-btn--icon {
   width: 34px;
   height: 34px;
@@ -104,51 +88,6 @@
   background: var(--kg-bg-raised);
   color: var(--kg-fg);
 }
-
-/* ---------- Tarjetas ---------- */
-
-.kg-card {
-  border: 1px solid var(--kg-border);
-  border-radius: var(--kg-radius-md);
-  background: var(--kg-bg-panel);
-  transition:
-    border-color var(--kg-dur-fast) var(--kg-ease-out),
-    box-shadow var(--kg-dur-med) var(--kg-ease-out),
-    transform var(--kg-dur-med) var(--kg-ease-out);
-}
-
-.kg-card--hoverable:hover {
-  border-color: var(--kg-border-strong);
-  box-shadow: var(--kg-shadow-2);
-  transform: translateY(-2px);
-}
-
-/* ---------- Campos ---------- */
-
-.kg-field {
-  padding: 8px 11px;
-  border: 1px solid var(--kg-border);
-  border-radius: var(--kg-radius-sm);
-  background: var(--kg-bg-input);
-  color: var(--kg-fg);
-  font-size: 13px;
-  transition: border-color var(--kg-dur-fast) var(--kg-ease-out);
-}
-
-.kg-field::placeholder {
-  color: var(--kg-fg-faint);
-}
-
-.kg-field:hover {
-  border-color: var(--kg-border-strong);
-}
-
-.kg-field:focus {
-  border-color: var(--kg-accent);
-  outline: none;
-}
-
-/* ---------- Pills (filtros por tipo, etiquetas) ---------- */
 
 .kg-pill {
   display: inline-flex;
@@ -182,8 +121,6 @@
   background: var(--kg-accent-soft);
   color: var(--kg-accent-strong);
 }
-
-/* ---------- Modal ---------- */
 
 .modal-backdrop {
   position: fixed;
@@ -229,17 +166,12 @@
   line-height: 1.7;
 }
 
-/* El margen superior no es opcional: sin él los botones quedan pegados al
-   contenido de arriba, y en el cuadro de etiquetas Cancelar se apoyaba
-   directamente sobre el borde de la última fila de la lista. */
 .modal-actions {
   display: flex;
   justify-content: flex-end;
   gap: var(--kg-space-2);
   margin-top: var(--kg-space-5);
 }
-
-/* ---------- Slider con lectura numérica ---------- */
 
 .kg-slider {
   display: block;
@@ -263,11 +195,6 @@
   accent-color: var(--kg-accent);
 }
 
-/*
- * La burbuja se coloca con `left` proporcional al valor y se centra con
- * translateX(-50%). Solo aparece al pasar el ratón, al enfocar con teclado o
- * mientras se arrastra: mostrarla siempre añadiría ruido a un panel estrecho.
- */
 .kg-slider-bubble {
   position: absolute;
   bottom: 100%;
@@ -289,8 +216,6 @@
 .kg-slider-track-wrap:focus-within .kg-slider-bubble {
   opacity: 1;
 }
-
-/* ---------- Estados vacíos ---------- */
 
 .empty-state {
   margin: 0;

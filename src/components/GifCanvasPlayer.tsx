@@ -12,15 +12,9 @@ interface GifCanvasPlayerProps {
   src: string;
   speedMultiplier: number;
   className?: string;
-  /** Se llama al decodificar, con las dimensiones reales del GIF. */
   onNaturalSize?: (width: number, height: number) => void;
 }
 
-/// El `<img>` nativo no expone ningún control de velocidad para GIF — se
-/// decodifican los frames una sola vez con gifuct-js y se reproducen a mano
-/// en un `<canvas>` con requestAnimationFrame, escalando el delay de cada
-/// frame por `speedMultiplier` en cada tick (permite cambiar la velocidad
-/// en vivo sin re-decodificar).
 function GifCanvasPlayer({
   src,
   speedMultiplier,
@@ -30,7 +24,6 @@ function GifCanvasPlayer({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const speedRef = useRef(speedMultiplier);
   speedRef.current = speedMultiplier;
-  // En una ref para que cambiar el callback no reinicie la decodificación.
   const onNaturalSizeRef = useRef(onNaturalSize);
   onNaturalSizeRef.current = onNaturalSize;
 

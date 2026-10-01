@@ -1,24 +1,16 @@
 import { useEffect, type ReactNode } from "react";
-import { t } from "../../i18n/es";
+import { t } from "../../i18n/en";
 
 interface Props {
   title: string;
   children?: ReactNode;
-  /** Texto del botón que confirma. Si se omite, solo se muestra Cancelar. */
   confirmLabel?: string;
-  /** Marca el botón de confirmar como destructivo (rojo). */
   destructive?: boolean;
   onConfirm?: () => void;
   onCancel: () => void;
-  /** Botones extra a la izquierda de Cancelar (p. ej. "Descartar"). */
   extraActions?: ReactNode;
 }
 
-/**
- * El único shell de modal de la app. Antes cada confirmación se dibujaba a
- * mano en su componente, así que ni el foco ni el Escape funcionaban igual en
- * dos sitios.
- */
 function Modal({
   title,
   children,
