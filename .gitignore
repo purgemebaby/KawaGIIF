@@ -36,6 +36,7 @@ skills-lock.json
 *.njsproj
 *.sln
 *.sw?
+.codegraph/*
 
 # Windows
 Thumbs.db

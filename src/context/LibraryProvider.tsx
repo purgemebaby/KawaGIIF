@@ -10,9 +10,9 @@ import { invoke } from "../lib/ipc";
 import { useTauriEvent } from "../hooks/useTauriEvent";
 import { open } from "@tauri-apps/plugin-dialog";
 
-export type MediaType = "gif" | "mp4" | "jpeg" | "png" | "webp";
+export type MediaType = "gif" | "mp4" | "jpeg" | "png" | "webp" | "svg";
 
-export const STATIC_TYPES: MediaType[] = ["jpeg", "png"];
+export const STATIC_TYPES: MediaType[] = ["jpeg", "png", "svg"];
 
 export interface MediaItem {
   id: string;
@@ -107,7 +107,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       filters: [
         {
           name: "Media",
-          extensions: ["gif", "mp4", "jpg", "jpeg", "png", "webp"],
+          extensions: ["gif", "mp4", "jpg", "jpeg", "png", "webp", "svg"],
         },
       ],
     });

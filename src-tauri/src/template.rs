@@ -272,6 +272,7 @@ fn release_slot_for_instance(app: &AppHandle, state: &EditorState, instance_id: 
 
     if let Some(slot) = slot {
         window_manager::hide_slot(app, slot);
+        emit_to_slot(app, slot, "slot-released", ());
     }
     if was_selected {
         notify_selection_cleared(app);
@@ -279,8 +280,40 @@ fn release_slot_for_instance(app: &AppHandle, state: &EditorState, instance_id: 
 }
 
 fn release_all_slots(app: &AppHandle, state: &EditorState) {
-    state.lock().slots.fill(None);
+    let freed = {
+        let mut editor = state.lock();
+        let freed = editor.occupied_slots();
+        editor.slots.fill(None);
+        freed
+    };
     window_manager::hide_all_overlay_slots(app);
+    for slot in freed {
+        emit_to_slot(app, slot, "slot-released", ());
+    }
+}
+
+fn slot_is_free(app: &AppHandle, slot: usize) -> bool {
+    app.state::<EditorState>()
+        .lock()
+        .slots
+        .get(slot)
+        .is_some_and(Option::is_none)
+}
+
+/**
+ * Called by an overlay page once it shows nothing: on startup for a free
+ * slot, and after `slot-released`. It's the page that reports it, not Rust
+ * on release, so the page has already dropped its media (a hidden video
+ * stops decoding) before it's put to sleep.
+ */
+#[tauri::command]
+pub fn overlay_idle(app: AppHandle, window: WebviewWindow) {
+    let Some(slot) = window_manager::slot_from_label(window.label()) else {
+        return;
+    };
+    if slot_is_free(&app, slot) {
+        window_manager::set_slot_dormant(&window, true, move || slot_is_free(&app, slot));
+    }
 }
 
 fn respawn_overlays_from(

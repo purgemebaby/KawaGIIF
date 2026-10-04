@@ -40,10 +40,6 @@ use template::EditorState;
 
 /**
  * Turns click-through off on every overlay.
- *
- * It's bound to a global shortcut, not to a key inside the overlay: with
- * click-through on, an overlay can't be clicked, so it can never get the
- * keyboard focus a local key listener would need.
  */
 fn release_all_click_through(app: &AppHandle) {
     for window in window_manager::overlay_windows(app) {
@@ -150,6 +146,7 @@ pub fn run() {
             template::nudge_overlay,
             template::fit_overlay_to_media,
             template::kill_all_overlays,
+            template::overlay_idle,
         ])
         .setup(move |app| {
             #[cfg(debug_assertions)]
@@ -181,7 +178,7 @@ pub fn run() {
             Ok(())
         })
         .build(tauri::generate_context!())
-        .expect("failed to build the Tauri application")
+        .expect("Failed to build the Tauri application")
         .run(|app, event| {
             if let RunEvent::ExitRequested { .. } = event {
                 handle_exit(app);

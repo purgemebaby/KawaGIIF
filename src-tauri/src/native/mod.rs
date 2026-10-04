@@ -1,5 +1,2 @@
-// Platform-specific code.
-// Only Windows exists for now; another OS would get its own file here with
-// the same functions.
-
+/* Platform-specific code. Only Windows exists for now */
 pub mod windows;

@@ -7,8 +7,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "tauri": "tauri"
-  },
+    "tauri": "tauri"  },
   "dependencies": {
     "@fontsource/modak": "^5.3.0",
     "@tauri-apps/api": "^2",

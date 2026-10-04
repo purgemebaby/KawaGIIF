@@ -1,6 +1,4 @@
 // System tray icon.
-// Builds the icon next to the clock and its right-click menu (open the
-// panel, kill all animations, quit). A left click shows or hides the panel.
 
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
@@ -10,17 +8,16 @@ use crate::template::{self, EditorState};
 use crate::window_manager;
 
 /* Personal Note for me:
-- tauri: the app framework.
-    - menu::Menu: a native menu made of items.
+- tauri.
+    - menu::Menu: Native menu made of items.
     - menu::MenuItem: one clickable entry, identified by an id string.
-    - menu::PredefinedMenuItem: built-in entries; here, the separator line.
+    - menu::PredefinedMenuItem: built-in entries.
     - tray::TrayIconBuilder: sets up and creates the tray icon.
     - tray::TrayIconEvent: what happened to the icon (click, hover, ...).
     - tray::MouseButton / MouseButtonState: which button, and pressed or released.
     - AppHandle: handle to the running app.
     - Manager: trait that adds `get_webview_window`, `state`, `default_window_icon`.
 - crate::template: the placed animations, for "Kill all animations".
-    - EditorState: the editor's shared state.
 - crate::window_manager: for the control window label.
 */
 

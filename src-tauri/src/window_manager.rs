@@ -1,5 +1,4 @@
-// Window manager.
-// Creates the control window and the fixed pool of transparent overlay
+// Window manager. Creates the control window and the fixed pool of transparent overlay
 // windows at startup, and moves, shows, hides and restyles the overlays
 // when animations are placed or removed.
 
@@ -92,11 +91,11 @@ pub fn overlay_windows(app: &AppHandle) -> impl Iterator<Item = WebviewWindow> +
 fn reapply_overlay_style(window: &WebviewWindow) {
     #[cfg(windows)]
     if let Ok(hwnd) = window.hwnd() {
-        native::force_hide_from_taskbar(hwnd);
+        native::force_hide_taskb(hwnd);
         native::force_borderless(hwnd);
         native::disable_dwm_focus_border(hwnd);
-        native::ensure_layered(hwnd);
-        native::clear_class_background(hwnd);
+        native::force_layered(hwnd);
+        native::force_clearbg(hwnd);
     }
     let _ = window.set_always_on_top(true);
 }
@@ -117,7 +116,7 @@ pub fn clamp_to_work_area(window: &WebviewWindow) -> bool {
         let Ok(hwnd) = window.hwnd() else {
             return false;
         };
-        let Some((wx, wy, ww, wh)) = native::work_area_for(hwnd) else {
+        let Some((wx, wy, ww, wh)) = native::force_work_area(hwnd) else {
             return false;
         };
         let (Ok(pos), Ok(size)) = (window.outer_position(), window.outer_size()) else {
@@ -150,14 +149,41 @@ pub fn set_overlay_click_through(window: &WebviewWindow, enabled: bool) {
     let _ = window.set_ignore_cursor_events(enabled);
     #[cfg(windows)]
     if let Ok(hwnd) = window.hwnd() {
-        native::ensure_layered(hwnd);
+        native::force_layered(hwnd);
     }
+}
+
+/**
+ * Puts the webview of a hidden overlay to sleep, or wakes it up
+ * (`native::set_webview_dormant`).
+ *
+ * WebView2 is only reachable on the main thread, so the work is queued
+ * there with `with_webview` and runs a moment later. By then the slot may
+ * have been handed out again, so `still_wanted` is asked at that moment,
+ * not now: sleep and wake requests run in order on the main thread, and a
+ * sleep that arrives after the slot was reassigned is dropped.
+ */
+pub fn set_slot_dormant(
+    window: &WebviewWindow,
+    dormant: bool,
+    still_wanted: impl FnOnce() -> bool + Send + 'static,
+) {
+    #[cfg(windows)]
+    {
+        let _ = window.with_webview(move |webview| {
+            if still_wanted() {
+                native::set_webview_dormant(&webview.controller(), dormant);
+            }
+        });
+    }
+    #[cfg(not(windows))]
+    let _ = (window, dormant, still_wanted);
 }
 
 fn raise(window: Option<WebviewWindow>) {
     #[cfg(windows)]
     if let Some(hwnd) = window.and_then(|w| w.hwnd().ok()) {
-        native::raise_to_top(hwnd);
+        native::top_everything(hwnd);
     }
 }
 
@@ -337,7 +363,8 @@ fn watch_overlay_events(app: &AppHandle, window: &WebviewWindow, slot: usize) {
  * when it appears: tao leaves `WS_EX_APPWINDOW` and `WS_EX_WINDOWEDGE` on a
  * new window, which puts it in the taskbar and draws a thin frame. The
  * window is raised once over the taskbar, and clamped in case an old
- * template placed it over the taskbar.
+ * template placed it over the taskbar. A free slot's webview may be
+ * asleep, so it is woken first.
  */
 pub fn show_slot(
     app: &AppHandle,
@@ -350,6 +377,7 @@ pub fn show_slot(
 ) -> crate::error::AppResult<()> {
     let window = slot_window(app, slot).ok_or(crate::error::AppError::MissingSlotWindow(slot))?;
 
+    set_slot_dormant(&window, false, || true);
     window.set_position(PhysicalPosition::new(x, y))?;
     window.set_size(PhysicalSize::new(width, height))?;
     set_overlay_click_through(&window, !interactive);
