@@ -1,82 +1,82 @@
 .ram-gauge {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--kg-space-1);
-  padding: var(--kg-space-4);
-  border: 1px solid var(--kg-border);
-  border-radius: var(--kg-radius-md);
-  background: var(--kg-bg-panel);
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: var(--kg-space-1);
+	padding: var(--kg-space-4);
+	border: 1px solid var(--kg-border);
+	border-radius: var(--kg-radius-md);
+	background: var(--kg-bg-panel);
 }
 
 .ram-gauge-dial {
-  width: 160px;
-  height: 120px;
+	width: 160px;
+	height: 120px;
 }
 
 .ram-gauge-track,
 .ram-gauge-fill {
-  fill: none;
-  stroke-width: 7;
-  stroke-linecap: round;
+	fill: none;
+	stroke-width: 7;
+	stroke-linecap: round;
 }
 
 .ram-gauge-track {
-  stroke: var(--kg-bg-input);
+	stroke: var(--kg-bg-input);
 }
 
 .ram-gauge-fill {
-  stroke: var(--kg-accent);
-  transition: stroke var(--kg-dur-med) var(--kg-ease-out);
+	stroke: var(--kg-accent);
+	transition: stroke var(--kg-dur-med) var(--kg-ease-out);
 }
 
 .ram-gauge-fill.is-high {
-  stroke: var(--kg-danger);
+	stroke: var(--kg-danger);
 }
 
 .ram-gauge-needle {
-  stroke: var(--kg-fg);
-  stroke-width: 2;
-  stroke-linecap: round;
+	stroke: var(--kg-fg);
+	stroke-width: 2;
+	stroke-linecap: round;
 }
 
 .ram-gauge-hub {
-  fill: var(--kg-fg);
+	fill: var(--kg-fg);
 }
 
 .ram-gauge-readout {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  margin-top: calc(-1 * var(--kg-space-4));
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	margin-top: calc(-1 * var(--kg-space-4));
 }
 
 .ram-gauge-readout strong {
-  font-size: 17px;
-  font-variant-numeric: tabular-nums;
+	font-size: 17px;
+	font-variant-numeric: tabular-nums;
 }
 
 .ram-gauge-readout small {
-  color: var(--kg-fg-faint);
-  font-size: 11px;
+	color: var(--kg-fg-faint);
+	font-size: var(--kg-text-xs);
 }
 
 .ram-gauge-app {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  margin-top: var(--kg-space-3);
-  padding-top: var(--kg-space-3);
-  border-top: 1px solid var(--kg-border);
-  width: 100%;
-  color: var(--kg-fg-muted);
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-  text-align: center;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 2px;
+	margin-top: var(--kg-space-3);
+	padding-top: var(--kg-space-3);
+	border-top: 1px solid var(--kg-border);
+	width: 100%;
+	color: var(--kg-fg-muted);
+	font-size: var(--kg-text-sm);
+	font-variant-numeric: tabular-nums;
+	text-align: center;
 }
 
 .ram-gauge-estimate {
-  color: var(--kg-fg-faint);
-  font-size: 10.5px;
+	color: var(--kg-fg-faint);
+	font-size: 10.5px;
 }

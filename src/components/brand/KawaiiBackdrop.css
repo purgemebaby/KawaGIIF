@@ -1,121 +1,118 @@
 .kawaii-backdrop {
-  --kawaii-angle: -25deg;
+	--kawaii-angle: -25deg;
 
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  overflow: hidden;
-  pointer-events: none;
+	position: absolute;
+	inset: 0;
+	z-index: 0;
+	overflow: hidden;
+	pointer-events: none;
 
-  -webkit-mask-image: radial-gradient(
-    ellipse 44% 40% at 50% 46%,
-    transparent 0%,
-    transparent 46%,
-    #000 100%
-  );
-  mask-image: radial-gradient(
-    ellipse 44% 40% at 50% 46%,
-    transparent 0%,
-    transparent 46%,
-    #000 100%
-  );
+	-webkit-mask-image: radial-gradient(
+		ellipse 44% 40% at 50% 46%,
+		transparent 0%,
+		transparent 46%,
+		#000 100%
+	);
+	mask-image: radial-gradient(
+		ellipse 44% 40% at 50% 46%,
+		transparent 0%,
+		transparent 46%,
+		#000 100%
+	);
 }
 
 .kawaii-rotor {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 240%;
-  height: 240%;
-  transform: translate(-50%, -50%) rotate(var(--kawaii-angle));
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	width: 240%;
+	height: 240%;
+	transform: translate(-50%, -50%) rotate(var(--kawaii-angle));
 }
 
 .kawaii-drift {
-  display: flex;
-  width: 200%;
-  height: 100%;
-  animation: kawaii-drift 120s linear infinite;
+	display: flex;
+	width: 200%;
+	height: 100%;
+	animation: kawaii-drift 120s linear infinite;
 }
 
 @keyframes kawaii-drift {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(-50%);
-  }
+	from {
+		transform: translateX(0);
+	}
+	to {
+		transform: translateX(-50%);
+	}
 }
 
 .kawaii-tile {
-  flex: 0 0 50%;
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  align-content: space-around;
-  gap: clamp(30px, 4.5vw, 62px) clamp(8px, 1.2vw, 18px);
+	flex: 0 0 50%;
+	display: grid;
+	grid-template-columns: repeat(7, 1fr);
+	align-content: space-around;
+	gap: clamp(30px, 4.5vw, 62px) clamp(8px, 1.2vw, 18px);
 }
 
 .kawaii-face {
-  position: relative;
-  display: inline-block;
-  color: var(--kg-fg-faint);
-  opacity: 0.15;
-  font-family: var(--kg-font-mono);
-  font-size: clamp(24px, 2.7vw, 38px);
-  white-space: nowrap;
-  text-align: center;
+	position: relative;
+	display: inline-block;
+	color: var(--kg-fg-faint);
+	opacity: 0.15;
+	font-family: var(--kg-font-mono);
+	font-size: clamp(24px, 2.7vw, 38px);
+	white-space: nowrap;
+	text-align: center;
 }
 
 .kawaii-face-open,
 .kawaii-face-wink {
-  display: block;
-  animation-name: inherit;
-  animation-duration: inherit;
-  animation-delay: inherit;
-  animation-iteration-count: infinite;
-  animation-timing-function: steps(1, end);
-  animation-fill-mode: both;
-}
-
-.kawaii-face-wink {
-  position: absolute;
-  inset: 0;
-  opacity: 0;
+	display: block;
+	animation-name: inherit;
+	animation-duration: inherit;
+	animation-delay: inherit;
+	animation-iteration-count: infinite;
+	animation-timing-function: steps(1, end);
+	animation-fill-mode: both;
 }
 
 .kawaii-face-open {
-  animation-name: kawaii-eyes-open;
+	animation-name: kawaii-eyes-open;
 }
 
 .kawaii-face-wink {
-  animation-name: kawaii-eyes-wink;
+	position: absolute;
+	inset: 0;
+	opacity: 0;
+	animation-name: kawaii-eyes-wink;
 }
 
 @keyframes kawaii-eyes-open {
-  0%,
-  87% {
-    opacity: 1;
-  }
-  88%,
-  94% {
-    opacity: 0;
-  }
-  95%,
-  100% {
-    opacity: 1;
-  }
+	0%,
+	87% {
+		opacity: 1;
+	}
+	88%,
+	94% {
+		opacity: 0;
+	}
+	95%,
+	100% {
+		opacity: 1;
+	}
 }
 
 @keyframes kawaii-eyes-wink {
-  0%,
-  87% {
-    opacity: 0;
-  }
-  88%,
-  94% {
-    opacity: 1;
-  }
-  95%,
-  100% {
-    opacity: 0;
-  }
+	0%,
+	87% {
+		opacity: 0;
+	}
+	88%,
+	94% {
+		opacity: 1;
+	}
+	95%,
+	100% {
+		opacity: 0;
+	}
 }

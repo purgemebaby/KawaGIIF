@@ -10,6 +10,8 @@ In order to be able to return several types of error and handle them with ?, we 
 The macro only automatizes the behaviour of the errors (display, ?)
 */
 
+
+
 #[derive(Debug, thiserror::Error)]
 pub enum AppError {
     #[error(transparent)]
@@ -26,7 +28,7 @@ pub enum AppError {
 
     #[error(transparent)]
     Autostart(#[from] tauri_plugin_autostart::Error),
-    
+
     #[error("No media with id {0}")]
     MediaNotFound(Uuid),
 
@@ -42,6 +44,7 @@ pub enum AppError {
     #[error("No overlay window for slot {0}")]
     MissingSlotWindow(usize),
 }
+
 
 
 // Rust communicates with the GUI thorugh JSON messages. Tauri needs that the AppError impl Serialize, so we need to do it manually

@@ -1,7 +1,4 @@
-// App entry point.
-// Registers the plugins, the shared state and every command the frontend can
-// call, creates the windows at startup, and decides what closing and quitting do.
-
+/* App entry point. Registers plugins, state and commands, creates the windows at startup and decides what closing and quitting do. */
 mod commands;
 mod config;
 mod error;
@@ -21,65 +18,33 @@ use system_stats::SysState;
 use template::EditorState;
 
 /* Personal Note for me:
-- tauri: the app framework.
-    - AppHandle: handle to the running app.
-    - Emitter: trait that adds `.emit_to()` to send an event to one window.
-    - EventTarget: says WHICH window an event goes to.
-    - Manager: trait that adds `state`, `get_webview_window`, `handle`, ...
-    - RunEvent: app-wide events from the event loop (e.g. "the app is about to exit").
-    - WebviewWindow: a native window with a web page inside.
-    - WindowEvent: events of one window (e.g. "the user clicked the X").
-- tauri_plugin_global_shortcut: keyboard shortcuts that work even when the app has no focus.
-    - Shortcut: a key combination.
-    - Modifiers / Code: the Ctrl/Alt/Shift part and the key part of it.
-    - ShortcutState: pressed or released.
-    - GlobalShortcutExt: trait that adds `.global_shortcut()` to register shortcuts.
-- library::LibraryState / system_stats::SysState / template::EditorState:
-  our shared state, registered once with `.manage()` so commands can use it.
+- tauri::RunEvent: app-wide events of the event loop (e.g. about to exit). WindowEvent is per window (e.g. X clicked).
+- tauri_plugin_global_shortcut: shortcuts that work even when the app has no focus.
+    - Shortcut / Modifiers / Code: a key combination, its Ctrl/Alt/Shift part and its key.
+    - GlobalShortcutExt: trait that adds `.global_shortcut()` to register them.
 */
 
-/**
- * Turns click-through off on every overlay.
- */
+
+
+/** Turns click-through off on every overlay. */
 fn release_all_click_through(app: &AppHandle) {
     for window in window_manager::overlay_windows(app) {
         window_manager::set_overlay_click_through(&window, false);
-        let _ = app.emit_to(
-            EventTarget::webview_window(window.label()),
-            "click-through-changed",
-            false,
-        );
+        let _ = app.emit_to(EventTarget::webview_window(window.label()), "click-through-changed", false);
     }
 }
 
-/**
- * The X button hides the app to the tray instead of quitting; the real exit
- * is "Quit" in the tray menu. If the editor is open with unsaved changes,
- * the window doesn't hide either: React gets `close-requested` and shows
- * the save / discard / cancel guard, so no edit is left in limbo.
- */
+/** The X button hides to the tray; with unsaved editor changes it emits `close-requested` instead so React can ask. */
 fn handle_control_close(control: &WebviewWindow) {
-    let pending_edit = {
-        let editor = control.state::<EditorState>();
-        let editor = editor.lock();
-        editor.is_editing() && editor.is_dirty()
-    };
+    let pending_edit: bool = control.state::<EditorState>().lock().has_unsaved_edits();
     if pending_edit {
-        let _ = control.emit_to(
-            EventTarget::webview_window(window_manager::CONTROL_LABEL),
-            "close-requested",
-            (),
-        );
+        let _ = control.emit_to(EventTarget::webview_window(window_manager::CONTROL_LABEL), "close-requested", ());
     } else {
         let _ = control.hide();
     }
 }
 
-/**
- * Every real exit ends here. Unsaved editor changes are discarded, because
- * no dialog can be shown while the process is shutting down, and
- * discarding keeps the disk matching what reopening the app will show.
- */
+/** Every real exit ends here; unsaved edits are discarded since no dialog can be shown while shutting down. */
 fn handle_exit(app: &AppHandle) {
     app.state::<EditorState>().lock().discard_changes();
     window_manager::hide_all_overlay_slots(app);
@@ -87,17 +52,15 @@ fn handle_exit(app: &AppHandle) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let release_shortcut = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::ALT), Code::Escape);
+    //global on purpose: a click-through overlay never gets keyboard focus, so a local Escape can't reach it
+    let release_shortcut: Shortcut = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::ALT), Code::Escape);
 
     tauri::Builder::default()
         .manage(EditorState::default())
         .manage(LibraryState::default())
         .manage(SysState::default())
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_autostart::init(
-            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
-            None,
-        ))
+        .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, None))
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(move |app, shortcut, event| {
@@ -108,14 +71,14 @@ pub fn run() {
                 .build(),
         )
         .invoke_handler(tauri::generate_handler![
-            commands::resize_overlay,
             commands::hide_control_window,
+            commands::set_control_minimizable,
+            commands::resize_overlay,
             commands::get_config,
             commands::set_launch_on_startup,
             commands::set_start_minimized_to_tray,
             commands::set_confirm_media_delete,
             commands::set_overlay_pool_size,
-            commands::set_control_minimizable,
             library::import_media,
             library::list_media,
             library::update_media_tags,
@@ -152,11 +115,11 @@ pub fn run() {
             #[cfg(debug_assertions)]
             system_stats::log_environment();
 
-            let handle = app.handle();
-            let control = window_manager::create_control_window(handle)?;
+            let handle: &AppHandle = app.handle();
+            let control: WebviewWindow = window_manager::create_control_window(handle)?;
             window_manager::create_overlay_pool(handle)?;
 
-            let control_for_close = control.clone();
+            let control_for_close: WebviewWindow = control.clone();
             control.on_window_event(move |event| {
                 if let WindowEvent::CloseRequested { api, .. } = event {
                     api.prevent_close();

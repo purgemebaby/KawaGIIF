@@ -70,6 +70,8 @@ use windows::Win32::UI::WindowsAndMessaging::{
     To access variables, use VAR.0
 */
 
+
+
 // Getters/Setters
 fn get_style(hwnd: HWND, index: WINDOW_LONG_PTR_INDEX) -> isize {
     unsafe { GetWindowLongPtrW(hwnd, index) }
@@ -99,6 +101,7 @@ fn set_dwm_attribute<T>(hwnd: HWND, attribute: DWMWINDOWATTRIBUTE, value: &T,) -
         )
     }
 }
+
 
 
 // Functions to force styles, behaviour and attributes of the windows
@@ -153,6 +156,7 @@ pub fn top_everything(hwnd: HWND) {
 }
 
 
+
 // DWM
 /**
  * Removes the accent border and the rounded corners that Windows 11 draws through DWM around a window.
@@ -165,7 +169,10 @@ pub fn disable_dwm_focus_border(hwnd: HWND) {
     for (name, result) in [("BORDER_COLOR", border), ("CORNER_PREFERENCE", corners)] {
         if let Err(e) = result { eprintln!("[kawagiif] DWM {name} failed: {e}"); }
     }
+    #[cfg(not(debug_assertions))]
+    let _ = (border, corners); // only logged in debug builds
 }
+
 
 
 // WebView2
@@ -211,4 +218,6 @@ pub fn set_webview_dormant(controller: &ICoreWebView2Controller, dormant: bool) 
     if let Err(e) = result {
         eprintln!("[kawagiif] WebView2 dormant={dormant} failed: {e}");
     }
+    #[cfg(not(debug_assertions))]
+    let _ = result; // only logged in debug builds
 }

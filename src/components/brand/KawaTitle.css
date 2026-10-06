@@ -1,44 +1,48 @@
 .kg-title-wrap {
-  position: relative;
-  display: inline-block;
-  line-height: 1;
-  filter: drop-shadow(0 0.09em 0.18em rgb(0 0 0 / 0.6));
+	position: relative;
+	display: inline-block;
+	line-height: 1;
+	filter: drop-shadow(0 0.09em 0.18em rgb(0 0 0 / 0.6));
 }
 
 .kg-title-layer {
-  display: block;
-  font-family: var(--kg-font-display);
-  font-weight: 400;
-  letter-spacing: 0.02em;
-  white-space: nowrap;
+	display: block;
+	font-family: var(--kg-font-display);
+	font-weight: 400;
+	letter-spacing: 0.02em;
+	white-space: nowrap;
 }
 
 .kg-title-keyline {
-  color: var(--kg-title-keyline);
-  -webkit-text-stroke: 0.16em var(--kg-title-keyline);
-  paint-order: stroke fill;
+	color: var(--kg-title-keyline);
+	-webkit-text-stroke: 0.16em var(--kg-title-keyline);
+	paint-order: stroke fill;
 }
 
 .kg-title-fill {
-  position: absolute;
-  inset: 0;
+	position: absolute;
+	inset: 0;
 }
 
 .kg-title-fill,
 .kg-title-fill .kg-wave > span {
-  background: linear-gradient(180deg, var(--kg-accent-2) 0%, var(--kg-accent) 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  -webkit-text-stroke: 0.075em var(--kg-title-outline);
-  paint-order: stroke fill;
+	background: linear-gradient(
+		180deg,
+		var(--kg-accent-2) 0%,
+		var(--kg-accent) 100%
+	);
+	-webkit-background-clip: text;
+	background-clip: text;
+	color: transparent;
+	-webkit-text-stroke: 0.075em var(--kg-title-outline);
+	paint-order: stroke fill;
 }
 
 .kg-title-sr {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
 }

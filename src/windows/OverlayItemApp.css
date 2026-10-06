@@ -1,95 +1,119 @@
 .overlay-shell {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 100vh;
-  cursor: move;
+	position: relative;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 100%;
+	height: 100vh;
+	cursor: move;
 }
 
 .overlay-media-wrap {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 100%;
+	height: 100%;
+	pointer-events: none;
 }
 
 .overlay-media-wrap img,
 .overlay-media-wrap video,
 .overlay-media-wrap .overlay-media {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  pointer-events: none;
+	width: 100%;
+	height: 100%;
+	object-fit: contain;
+	pointer-events: none;
 }
 
 @keyframes kg-march {
-  to {
-    background-position:
-      0 0,
-      0 0,
-      0 0,
-      0 0,
-      24px 0,
-      -24px 100%,
-      0 -24px,
-      100% 24px;
-  }
+	to {
+		background-position:
+			0 0,
+			0 0,
+			0 0,
+			0 0,
+			24px 0,
+			-24px 100%,
+			0 -24px,
+			100% 24px;
+	}
 }
 
 .overlay-shell.selected::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
+	content: '';
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
 
-  background-image:
-    linear-gradient(to bottom, rgb(var(--kg-accent-rgb) / 0.4), transparent 18px),
-    linear-gradient(to top, rgb(var(--kg-accent-rgb) / 0.4), transparent 18px),
-    linear-gradient(to right, rgb(var(--kg-accent-rgb) / 0.4), transparent 18px),
-    linear-gradient(to left, rgb(var(--kg-accent-rgb) / 0.4), transparent 18px),
-    repeating-linear-gradient(90deg, var(--kg-accent) 0 12px, transparent 12px 24px),
-    repeating-linear-gradient(90deg, var(--kg-accent) 0 12px, transparent 12px 24px),
-    repeating-linear-gradient(0deg, var(--kg-accent) 0 12px, transparent 12px 24px),
-    repeating-linear-gradient(0deg, var(--kg-accent) 0 12px, transparent 12px 24px);
-  background-size:
-    100% 100%,
-    100% 100%,
-    100% 100%,
-    100% 100%,
-    100% 1px,
-    100% 1px,
-    1px 100%,
-    1px 100%;
-  background-position:
-    0 0,
-    0 0,
-    0 0,
-    0 0,
-    0 0,
-    0 100%,
-    0 0,
-    100% 0;
-  background-repeat: no-repeat;
+	background-image:
+		linear-gradient(
+			to bottom,
+			rgb(var(--kg-accent-rgb) / 0.4),
+			transparent 18px
+		),
+		linear-gradient(to top, rgb(var(--kg-accent-rgb) / 0.4), transparent 18px),
+		linear-gradient(
+			to right,
+			rgb(var(--kg-accent-rgb) / 0.4),
+			transparent 18px
+		),
+		linear-gradient(to left, rgb(var(--kg-accent-rgb) / 0.4), transparent 18px),
+		repeating-linear-gradient(
+			90deg,
+			var(--kg-accent) 0 12px,
+			transparent 12px 24px
+		),
+		repeating-linear-gradient(
+			90deg,
+			var(--kg-accent) 0 12px,
+			transparent 12px 24px
+		),
+		repeating-linear-gradient(
+			0deg,
+			var(--kg-accent) 0 12px,
+			transparent 12px 24px
+		),
+		repeating-linear-gradient(
+			0deg,
+			var(--kg-accent) 0 12px,
+			transparent 12px 24px
+		);
+	background-size:
+		100% 100%,
+		100% 100%,
+		100% 100%,
+		100% 100%,
+		100% 1px,
+		100% 1px,
+		1px 100%,
+		1px 100%;
+	background-position:
+		0 0,
+		0 0,
+		0 0,
+		0 0,
+		0 0,
+		0 100%,
+		0 0,
+		100% 0;
+	background-repeat: no-repeat;
 
-  animation: kg-march 1100ms linear infinite;
+	animation: kg-march 1100ms linear infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .overlay-shell.selected::after {
-    animation: none;
-  }
+	.overlay-shell.selected::after {
+		animation: none;
+	}
 }
 
 .resize-handle {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  width: 18px;
-  height: 18px;
-  cursor: nwse-resize;
-  background: linear-gradient(135deg, transparent 50%, var(--kg-accent) 50%);
+	position: absolute;
+	right: 0;
+	bottom: 0;
+	width: 18px;
+	height: 18px;
+	cursor: nwse-resize;
+	background: linear-gradient(135deg, transparent 50%, var(--kg-accent) 50%);
 }
