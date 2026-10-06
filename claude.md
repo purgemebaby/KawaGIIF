@@ -2,42 +2,22 @@
 
 ## Objetivo del proyecto
 
-Una aplicación open source en Rust llamada KawaGiif que replica la funcionalidad de AnimaEngine (app de pago en Steam): mostrar animaciones, GIFs, imágenes y vídeos (MP4, WEBP y similares) como elementos superpuestos, transparentes y siempre visibles sobre el escritorio de Windows. El audio queda descartado explícitamente: es un visualizador puro, no un reproductor multimedia completo. El proyecto tiene doble finalidad: sacar una herramienta funcional y usarla como vehículo de aprendizaje de Rust y programación de sistemas, partiendo de conocimiento casi nulo de Rust.
-
-## Plataforma objetivo
-
-Windows, en exclusiva por ahora. Se descarta de momento el soporte para Linux (X11/Wayland tienen mecanismos completamente distintos para overlays y click-through, y Wayland en particular tiene soporte fragmentado entre compositores), aunque la arquitectura elegida no cierra la puerta a añadirlo más adelante.
+Una aplicación open source en Rust llamada KawaGiif que muestra animaciones, GIFs, imágenes y vídeos (MP4, WEBP...) como elementos superpuestos, transparentes y siempre visibles sobre el escritorio de Windows.
 
 ## Arquitectura elegida
 
-Backend en Rust puro + frontend en React, comunicados vía Tauri (framework que usa WRY como capa de WebView y TAO como gestor de ventanas). En Windows, el WebView es WebView2 (el motor Chromium que trae integrado el propio sistema operativo a través de Edge), lo cual resuelve de fábrica la decodificación de MP4/H.264, GIF y WEBP animado sin que tengas que escribir ni un decoder.
-
-La razón de esta elección frente a Electron: mismo patrón de "Rust/nativo + web para la UI" pero con instaladores de un dígito o bajos dos dígitos de MB y 30-60 MB de RAM en reposo, frente a los 80-200 MB de instalador y 150-300 MB de RAM de Electron. La razón frente a hacerlo todo nativo en Rust con `wgpu`/decoders propios: habría sido el camino con más aprendizaje "puro" de Rust, pero también meses extra de trabajo en shaders, sincronización de frames y bindings FFI a `ffmpeg`, antes de tener siquiera una ventana funcionando. Tauri es el punto intermedio: la lógica de sistema (ventanas, IPC, ficheros, llamadas nativas a Win32) se escribe en Rust real, mientras que el renderizado del contenido lo resuelve el motor web integrado.
+Backend Rust + frontend React, Tauri, Windows API. En Windows, el WebView es WebView2 (el motor Chromium que trae integrado el propio sistema operativo a través de Edge), que incluye la decodificación de MP4/H.264, GIF y WEBP animado.
 
 ## Funcionalidades a implementar (lista original)
 
 - Archivo de configuración persistente (biblioteca de assets, posición y ajustes de cada animación).
 - Arranque desde terminal (con argumentos vía CLI) o desde icono de escritorio.
-- Auto-arranque opcional al encender el PC, activable/desactivable desde ajustes.
-- Ventanas superpuestas sobre el resto de apps, sin aparecer como ventana normal en la barra de tareas ni en el Alt+Tab.
-- Arrastre manual de cada animación con el ratón para reposicionarla, y borrado individual vía menú contextual (clic derecho).
+- Auto-arranque opcional.
+- Ventanas superpuestas sobre el resto de apps.
+- Arrastre manual de cada animación con el ratón para reposicionarla, y borrado individual vía menú contextual
 - Control de FPS y de tamaño (resize) por cada asset.
-- Click-through / pass-through: que los clics atraviesen la animación sin interrumpir, por ejemplo, una partida de un juego competitivo.
-- Hide on hover: ocultar automáticamente la animación cuando el cursor se acerca a ella.
-
-## Limitaciones técnicas ya detectadas y su plan de solución
-
-Estas son cosas confirmadas investigando el estado actual de Tauri v2 en Windows, para que no pillen por sorpresa a mitad de desarrollo:
-
-**Click-through de ventana completa, no por región.** El `setIgnoreCursorEvents` de Tauri es un interruptor de ventana completa, no hay hit-testing por región dentro de una misma ventana. Como cada animación va a ser su propia ventana independiente, esto en realidad encaja bien con el diseño: se activa o desactiva el pass-through por ventana entera, sin necesitar granularidad de píxel.
-
-**Bug conocido de `skip_taskbar` en Windows (Tauri v2).** No siempre oculta el icono de la barra de tareas de forma fiable. El plan es no depender solo de la opción del framework, sino aplicar directamente el workaround a bajo nivel con la crate `windows`: quitar el estilo `WS_EX_APPWINDOW` y añadir `WS_EX_TOOLWINDOW` sobre el HWND de cada ventana tras crearla. **Confirmado en la práctica** (ver sección de estado más abajo): además, `skip_taskbar(true)` de Tauri reaplica su propio fix (poco fiable) cada vez que la ventana gana foco, pisando el workaround manual si solo se aplica una vez — hay que reforzarlo en cada evento de foco, no solo tras crear la ventana.
-
-**`always_on_top` es global a nivel de sistema**, no relativo solo a la propia app (queda por encima de cualquier ventana con foco, no solo de las de la propia app). Para este caso de uso esto es justo el comportamiento deseado, así que no requiere workaround, solo tenerlo presente.
-
-**Click-through y foco de teclado.** Un listener de `Escape` local a la ventana solo funciona si esa ventana tiene el foco de teclado — con click-through activo no hay forma de volver a clickearla para devolverle el foco, así que si el usuario interactúa con otra ventana mientras tanto, Escape deja de llegar. Solución: un atajo de teclado global (`tauri-plugin-global-shortcut`) que funciona sin importar qué ventana tenga el foco, como vía de recuperación robusta.
-
-**`data-tauri-drag-region` sigue gateado por el sistema de capabilities.** Aunque es un atributo HTML declarativo, invoca internamente el comando core `start_dragging`, que necesita el permiso `core:window:allow-start-dragging` explícito en el archivo de capabilities correspondiente — no es puramente del lado del navegador como podría parecer.
+- Click-through.
+- Hide on hover.
 
 ## Librerías y crates confirmadas
 
@@ -92,44 +72,56 @@ kawagiif/
 │   └── tauri.conf.json
 └── package.json
 ```
+# KawaGiif code style
 
-Nota: en el scaffold real generado por Tauri v2, la lógica de arranque (`tauri::Builder`, `.setup()`, etc.) vive en `src-tauri/src/lib.rs`, no en `main.rs` — `main.rs` queda como punto de entrada mínimo que solo llama a `<crate>_lib::run()`. El ejemplo de abajo sigue el estilo original de este documento (todo en un único archivo) por simplicidad expositiva.
+Reference files: `src-tauri/src/native/windows.rs`, `src-tauri/src/error.rs`, `src-tauri/src/library.rs`.
+When in doubt, copy what they do.
 
-## Ejemplo de `main.rs` mínimo
+## Rust
 
-```
-use tauri::{WebviewUrl, WebviewWindowBuilder};
+### File layout
+1. Header: a short `/* … */` block (1–3 lines) saying what the module does.
+2. Imports: external crates first, a blank line, then `crate::` imports.
+3. `/* Personal Note for me: … */` right under the imports, only when the module uses external crates or concepts that aren't obvious (`windows`, `webview2_com`, `sysinfo`, `thiserror`, Tauri plugins, `OnceLock`, error enums…). One indented bullet per item.
+4. Body, in this order:
+   - free helper functions used across the file.
+   - types, each immediately followed by its `impl` (no blank line between them).
+   - shared `State` type.
+   - command groups, each under a `// Group name` line comment (`//Media Commands`, `//Tag Commands`).
 
-#[tauri::command]
-fn create_animation_window(app: tauri::AppHandle, asset_path: String) -> Result<(), String> {
-    WebviewWindowBuilder::new(&app, &asset_path, WebviewUrl::App("player.html".into()))
-        .decorations(false)
-        .transparent(true)
-        .always_on_top(true)
-        .skip_taskbar(true)
-        .build()
-        .map_err(|e| e.to_string())?;
-    Ok(())
-}
+### Spacing
+- 1 blank line between items of the same group.
+- 3 blank lines between groups.
 
-fn main() {
-    tauri::Builder::default()
-        .plugin(tauri_plugin_autostart::init(
-            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
-            None,
-        ))
-        .invoke_handler(tauri::generate_handler![create_animation_window])
-        .run(tauri::generate_context!())
-        .expect("error al ejecutar la aplicación");
-}
-```
+### Comments
+- One line each. `/** … */` above structs, enums and free (module-level) functions. `///` above commands and
+  associated functions. `//` for short notes inside or between functions.
+- Keep the *why* only when it isn't obvious, cut to 1–2 lines.
 
-## Punto en el que estamos
+### Code
+- Trivial functions on one line: `fn media_dir() -> PathBuf { config::data_dir().join("media") }`.
+- Short match arms combined on one line: `"gif" => Some(Self::Gif), "mp4" => Some(Self::Mp4),`.
+- `let Some(x) = … else { continue; };` and `if cond { continue; }` on one line.
+- Signatures on one line when they fit.
+- Type annotations on `let` where they help reading (`let mut seen: HashSet<String> = …`).
+- Functions that act on one type live in its `impl`. Tauri commands must stay free functions.
+- Debug-only results, log under `#[cfg(debug_assertions)]`, and `let _ = x;`
 
-El prototipo de los 3 escollos técnicos (ventana transparente sin decoraciones, click-through con recuperación robusta vía atajo global, workaround de `skip_taskbar` reforzado en cada evento de foco, y arrastre de ventana) está **construido y verificado de punta a punta** — con capturas de pantalla y consultas directas a la API Win32 (`GetWindowLongPtr`/`GetProcess`), no solo inspección visual.
+### Rules that never change
+- Never hold a `State` lock while calling `window_manager` (window calls fire `Moved`/`Resized` synchronously and
+  re-lock → deadlock). Never hold 2 locks at once.
+- Renaming a command, a command argument or an event means an update of the React side in the same change.
 
-La v1 funcional completa (M1-M5) está **implementada**: ventana de control (Home/Storage/Editor/Ajustes) separada de las ventanas overlay de animación, biblioteca de media importable con tags y filtros, editor visual (el grid decorativo estilo blueprint se eliminó después por dar más problemas que valor), plantilla persistente en disco, bandeja del sistema con menú contextual, y gestión robusta de ventanas (close-to-tray, cierre en cascada al salir, botón de pánico "matar todas las animaciones" disponible tanto en Home como en el menú del tray).
+## React / TypeScript
 
-**Cambio de arquitectura importante descubierto durante la implementación**: las ventanas overlay de animación NO se crean dinámicamente cuando el usuario coloca una animación — se confirmó empíricamente (comparando el `EXSTYLE` crudo vía Win32) que cualquier ventana `transparent(true)` creada DESPUÉS de que la app terminó de arrancar (sea desde un command handler o despachada a `run_on_main_thread`) nace sin `WS_EX_LAYERED`, sin transparencia real. La solución fue precrear un **pool de ventanas overlay ocultas en `setup()`** (etiquetas `OV-SLOT-N`); colocar una animación asigna un slot libre del pool y lo reposiciona/muestra, en vez de crear una ventana nueva. El tamaño del pool es un ajuste (`overlay_pool_size`, 8 por defecto, máximo `window_manager::MAX_POOL` = 20) que se aplica al reiniciar, porque cada ventana es un proceso de render de WebView2 (~40-80 MB). Los slots **libres se duermen** (`overlay_idle` → `window_manager::set_slot_dormant` → `TrySuspend` + `MemoryUsageTargetLevel::Low` de WebView2) y `show_slot` los despierta: medido en release, un renderer ocioso baja de ~54 MB a ~11 MB de working set (≈ 150 MB menos con 4 slots libres). La memoria privada comprometida no baja: WebView2 la saca de la RAM física, no la libera.
+- Formatting comes from `.prettierrc.json`. Don't hand-format.
+- Naming: `PascalCase` components and files, `useX` hooks, `camelCase` everything else, `SCREAMING_CASE` constants.
+- File order: imports (external, then local, then CSS) → types → constants → helpers → component → `export default`.
+- 1 component per file unless a tiny private sub-component is only used there.
+- Reuse hooks and helpers (`useTauriEvent`, `useMediaUrl`, `lib/placed.ts`) instead of repeating logic.
+- Comments only where the logic isn't obvious, one line, same tone as the Rust ones.
 
-El plan detallado de esta v1, dividido en milestones incrementales (fundamentos → biblioteca → navegación/ajustes → editor → bandeja/cierre en cascada), vive fuera de este documento en el sistema de planes de la sesión de desarrollo — este archivo se mantiene como el resumen de arquitectura de referencia, no como el tracker de progreso.
+## CSS
+- Colors, spacing, radii and timing come from `src/styles/tokens.css` variables. No new hard-coded values when a
+  token exists.
+- 1 file per component next to it.

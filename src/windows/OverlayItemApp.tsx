@@ -1,17 +1,25 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { invoke } from '../lib/ipc';
 import { loadPlacedMedia } from '../lib/placed';
-import type { MediaType } from '../context/LibraryProvider';
-import GifCanvasPlayer from '../components/GifCanvasPlayer';
+import { isVideoType, type MediaType } from '../lib/media';
 import { useMediaUrl } from '../hooks/useMediaUrl';
 import { useTauriEvent } from '../hooks/useTauriEvent';
 import { useDeleteShortcut } from '../hooks/useDeleteShortcut';
+import GifCanvasPlayer from '../components/GifCanvasPlayer';
 import './OverlayItemApp.css';
 
 interface ItemValueChanged<T> {
 	instance_id: string;
 	value: T;
 }
+
+interface EditorStatus {
+	edit_mode: boolean;
+	selected: string | null;
+}
+
+const MIN_SIDE = 40;
+const IMAGE_TYPES: MediaType[] = ['jpeg', 'png', 'webp', 'svg'];
 
 function OverlayItemApp() {
 	const [instanceId, setInstanceId] = useState<string | null>(null);
@@ -32,6 +40,7 @@ function OverlayItemApp() {
 				setResolved(true);
 			});
 		query();
+		// Re-check when the window is shown again: a dormant slot may have missed `slot-assigned`.
 		const onVisibility = () => {
 			if (document.visibilityState === 'visible') query();
 		};
@@ -97,9 +106,7 @@ function OverlayItemApp() {
 
 	useEffect(() => {
 		let cancelled = false;
-		invoke<{ edit_mode: boolean; selected: string | null }>(
-			'get_editor_status',
-		).then((status) => {
+		invoke<EditorStatus>('get_editor_status').then((status) => {
 			if (cancelled) return;
 			setEditMode(status.edit_mode);
 			setSelected(status.selected !== null && status.selected === instanceId);
@@ -151,7 +158,7 @@ function OverlayItemApp() {
 		const scale = window.devicePixelRatio || 1;
 		const startWidth = Math.round(window.innerWidth * scale);
 		const startHeight = Math.round(window.innerHeight * scale);
-		const lockAspect = mediaType === 'mp4';
+		const lockAspect = isVideoType(mediaType);
 		const aspect = aspectRef.current ?? startWidth / startHeight;
 
 		let pendingW = startWidth;
@@ -172,11 +179,11 @@ function OverlayItemApp() {
 					Math.abs(dx) >= Math.abs(dy)
 						? startWidth + dx
 						: (startHeight + dy) * aspect;
-				pendingW = Math.max(40, Math.round(driven));
-				pendingH = Math.max(40, Math.round(pendingW / aspect));
+				pendingW = Math.max(MIN_SIDE, Math.round(driven));
+				pendingH = Math.max(MIN_SIDE, Math.round(pendingW / aspect));
 			} else {
-				pendingW = Math.max(40, Math.round(startWidth + dx));
-				pendingH = Math.max(40, Math.round(startHeight + dy));
+				pendingW = Math.max(MIN_SIDE, Math.round(startWidth + dx));
+				pendingH = Math.max(MIN_SIDE, Math.round(startHeight + dy));
 			}
 
 			if (!frame) frame = requestAnimationFrame(flush);
@@ -206,7 +213,7 @@ function OverlayItemApp() {
 			onMouseDown={select}
 		>
 			<div className="overlay-media-wrap" style={{ opacity }}>
-				{mediaUrl && mediaType === 'mp4' && (
+				{mediaUrl && isVideoType(mediaType) && (
 					<video
 						src={mediaUrl}
 						autoPlay
@@ -232,23 +239,19 @@ function OverlayItemApp() {
 						onNaturalSize={reportNaturalSize}
 					/>
 				)}
-				{mediaUrl &&
-					(mediaType === 'jpeg' ||
-						mediaType === 'png' ||
-						mediaType === 'webp' ||
-						mediaType === 'svg') && (
-						<img
-							src={mediaUrl}
-							alt=""
-							draggable={false}
-							onLoad={(e) =>
-								reportNaturalSize(
-									e.currentTarget.naturalWidth,
-									e.currentTarget.naturalHeight,
-								)
-							}
-						/>
-					)}
+				{mediaUrl && mediaType && IMAGE_TYPES.includes(mediaType) && (
+					<img
+						src={mediaUrl}
+						alt=""
+						draggable={false}
+						onLoad={(e) =>
+							reportNaturalSize(
+								e.currentTarget.naturalWidth,
+								e.currentTarget.naturalHeight,
+							)
+						}
+					/>
+				)}
 			</div>
 			{editMode && selected && (
 				<div className="resize-handle" onPointerDown={onResizeStart} />

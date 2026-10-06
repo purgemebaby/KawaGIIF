@@ -44,6 +44,7 @@ fn normalize_tags(raw: Vec<String>, known: &HashMap<String, String>) -> Vec<Stri
 }
 
 
+
 /**Define extensions accepted by the app*/
 #[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
@@ -180,11 +181,14 @@ impl LibraryState {
 }
 
 
+
 #[derive(Serialize)]
 pub struct TagCount {
     pub name: String,
     pub count: usize,
 }
+
+
 
 //Tag Commands
 ///Update media tags
@@ -250,7 +254,6 @@ pub fn rename_tag(app: AppHandle, library: State<LibraryState>, from: String, to
     Ok(touched)
 }
 
-
 ///Deletes tag from a `MediaItem` of the `LibraryIndex`
 #[tauri::command]
 pub fn delete_tag(app: AppHandle, lib: State<LibraryState>, name: String) -> AppResult<usize> {
@@ -275,7 +278,7 @@ pub fn delete_tag(app: AppHandle, lib: State<LibraryState>, name: String) -> App
 
 
 //Media Commands
-///Deletes a media item, without leaving placed animations pointing at it.*/
+///Deletes a media item, without leaving placed animations pointing at it.
 #[tauri::command]
 pub fn delete_media(app: AppHandle, lib: State<LibraryState>,
     editor: State<EditorState>, id: Uuid, force: bool,
@@ -316,13 +319,12 @@ pub fn get_media_path(library: State<LibraryState>, id: Uuid) -> AppResult<Strin
     Ok(LibraryIndex::media_dir().join(&item.stored_file_name).to_string_lossy().into_owned())
 }
 
-
 ///Import media file to the `LibraryIndex` (accept more than one file)
 #[tauri::command]
-pub fn import_media(app: AppHandle, lib: State<LibraryState>, path: Vec<PathBuf>,) -> AppResult<Vec<MediaItem>> {
+pub fn import_media(app: AppHandle, lib: State<LibraryState>, paths: Vec<PathBuf>,) -> AppResult<Vec<MediaItem>> {
     std::fs::create_dir_all(LibraryIndex::media_dir())?;
-    let mut imported = Vec::with_capacity(path.len());
-    for source in &path {
+    let mut imported = Vec::with_capacity(paths.len());
+    for source in &paths {
         if let Some(item) = MediaItem::from_source(source)? {
             imported.push(item);
         }
@@ -340,5 +342,3 @@ pub fn import_media(app: AppHandle, lib: State<LibraryState>, path: Vec<PathBuf>
 ///Obtains media file's size
 #[tauri::command]
 pub fn get_file_size(path: PathBuf) -> AppResult<u64> {Ok(std::fs::metadata(path)?.len())}
-
-

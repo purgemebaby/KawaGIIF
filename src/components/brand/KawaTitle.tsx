@@ -1,27 +1,26 @@
-import { t } from "../../i18n/en";
-import WaveText from "./WaveText";
-import "./KawaTitle.css";
+import { t } from '../../i18n/en';
+import WaveText from './WaveText';
+import './KawaTitle.css';
 
-interface Props {
-  size?: string;
-  animated?: boolean;
+interface KawaTitleProps {
+	size?: string;
 }
 
-function KawaTitle({ size = "72px", animated = true }: Props) {
-  const text = t.app.name;
-  const content = animated ? <WaveText>{text}</WaveText> : text;
+function KawaTitle({ size = '72px' }: KawaTitleProps) {
+	const text = t.app.name;
+	const content = <WaveText>{text}</WaveText>;
 
-  return (
-    <div className="kg-title-wrap" style={{ fontSize: size }}>
-      <span className="kg-title-layer kg-title-keyline" aria-hidden="true">
-        {content}
-      </span>
-      <span className="kg-title-layer kg-title-fill" aria-hidden="true">
-        {content}
-      </span>
-      <span className="kg-title-sr">{text}</span>
-    </div>
-  );
+	return (
+		<div className="kg-title-wrap" style={{ fontSize: size }}>
+			<span className="kg-title-layer kg-title-keyline" aria-hidden="true">
+				{content}
+			</span>
+			<span className="kg-title-layer kg-title-fill" aria-hidden="true">
+				{content}
+			</span>
+			<span className="kg-title-sr">{text}</span>
+		</div>
+	);
 }
 
 export default KawaTitle;

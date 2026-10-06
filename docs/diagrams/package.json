@@ -1,0 +1,7 @@
+{
+  "name": "kawagiif-diagrams",
+  "private": true,
+  "type": "module",
+  "scripts": { "build": "node generate.mjs" },
+  "devDependencies": { "@moona3k/excalidraw-export": "latest" }
+}
