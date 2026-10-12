@@ -4,8 +4,11 @@ Every function here expects a valid HWND of a window owned by this process,
 called from the main thread.
 */
 
+use std::collections::BTreeSet;
 use std::ffi::c_void;
 use std::mem::size_of;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::OnceLock;
 
 use webview2_com::Microsoft::Web::WebView2::Win32::{
     ICoreWebView2Controller, ICoreWebView2_19, ICoreWebView2_3,
@@ -13,7 +16,8 @@ use webview2_com::Microsoft::Web::WebView2::Win32::{
 };
 use webview2_com::TrySuspendCompletedHandler;
 use windows::core::Interface;
-use windows::Win32::Foundation::{COLORREF, HWND};
+use windows::Win32::Foundation::{COLORREF, HWND, LPARAM, LRESULT, WPARAM};
+use windows::Win32::UI::Accessibility::{SetWinEventHook, UnhookWinEvent, HWINEVENTHOOK};
 use windows::Win32::Graphics::Dwm::{
     DwmSetWindowAttribute, 
     DWMWA_BORDER_COLOR, DWMWA_COLOR_NONE, 
@@ -21,24 +25,27 @@ use windows::Win32::Graphics::Dwm::{
 };
 
 use windows::Win32::Graphics::Gdi::{
-    GetMonitorInfoW, MonitorFromWindow, MONITORINFO, MONITOR_DEFAULTTONEAREST,
+    EnumFontFamiliesExW, GetDC, GetMonitorInfoW, MonitorFromWindow, ReleaseDC,
+    DEFAULT_CHARSET, LOGFONTW, MONITORINFO, MONITOR_DEFAULTTONEAREST, TEXTMETRICW,
 };
+
+use windows::Win32::UI::Shell::{DefSubclassProc, RemoveWindowSubclass, SetWindowSubclass};
 
 use windows::Win32::UI::WindowsAndMessaging::{
     GetWindowLongPtrW, SetClassLongPtrW, SetWindowLongPtrW, SetWindowPos, 
-    GCLP_HBRBACKGROUND, GWL_EXSTYLE, GWL_STYLE, 
+    EVENT_SYSTEM_FOREGROUND, GCLP_HBRBACKGROUND, GWL_EXSTYLE, GWL_STYLE,
     HWND_TOPMOST, SET_WINDOW_POS_FLAGS,
     SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER,
-    WINDOW_LONG_PTR_INDEX, WS_BORDER, WS_CAPTION, WS_DLGFRAME, WS_SYSMENU, WS_THICKFRAME,
+    WINDOW_LONG_PTR_INDEX, WINEVENT_OUTOFCONTEXT, WINEVENT_SKIPOWNPROCESS, WM_NCACTIVATE, WM_NCCALCSIZE, WM_NCDESTROY, WM_NCPAINT, WS_BORDER, WS_CAPTION, WS_DLGFRAME, WS_SYSMENU, WS_THICKFRAME,
     WS_EX_APPWINDOW, WS_EX_CLIENTEDGE, WS_EX_DLGMODALFRAME, WS_EX_LAYERED, WS_EX_STATICEDGE, WS_EX_TOOLWINDOW, WS_EX_WINDOWEDGE,
 };
+#[cfg(debug_assertions)]
+use windows::Win32::UI::WindowsAndMessaging::WS_EX_TRANSPARENT;
 
 /* Personal Note for me:
 - windows: Official bindings to the WinAPI.
     - core::Interface: trait that adds `.cast::<T>()` to ask a COM object for another interface version.
-    - Win32::Foundation:
-        - HWND: "handle to a window", window's ID.
-        - COLORREF: a color in the 0x00BBGGRR format Win32 uses.
+    - Win32::Foundation - HWND: "handle to a window", window's ID. and COLORREF: 0x00BBGGRR format.
 
     - Win32::Graphics::Dwm (Desktop Window Manager, compositor):
         - DwmSetWindowAttribute: how DWM draws a window.
@@ -50,27 +57,33 @@ use windows::Win32::UI::WindowsAndMessaging::{
         - MonitorFromWindow: which monitor a window is on.
         - MONITOR_DEFAULTTONEAREST: if it's between monitors, pick the closest one.
         - GetMonitorInfoW: a monitor's full and usable (work area) rectangles.
+        - EnumFontFamiliesExW: calls our function once per installed font (system-wide and per-user ones).
+        - LOGFONTW: describes a font
 
     - Win32::UI::WindowsAndMessaging (window creation, styles and stacking):
         - GetWindowLongPtrW / SetWindowLongPtrW: read / write a window's style bits.
         - WINDOW_LONG_PTR_INDEX: type of "which value to read/write".
         - SetClassLongPtrW + GCLP_HBRBACKGROUND: change the background brush of a window class.
         - SetWindowPos: move, resize or reorder a window.
-        - SET_WINDOW_POS_FLAGS: type of SetWindowPos options.
         - SWP_NOMOVE / SWP_NOSIZE / SWP_NOZORDER / SWP_NOACTIVATE: keep position / size / order / focus.
         - SWP_FRAMECHANGED: "styles changed, recompute and redraw the frame".
         - HWND_TOPMOST: put the window at the top of the always-on-top band.
         - WS_CAPTION / WS_SYSMENU / WS_THICKFRAME / WS_BORDER / WS_DLGFRAME:
           title bar, system menu, resize border, thin border, dialog frame.
         - WS_EX_LAYERED: per-px transparency.
-        - WS_EX_TOOLWINDOW / WS_EX_APPWINDOW: hide from / force into the taskbar and Alt+Tab.
-        - WS_EX_WINDOWEDGE / WS_EX_CLIENTEDGE / WS_EX_STATICEDGE / WS_EX_DLGMODALFRAME:
-        different kinds of 3D edges a window can draw.
+        - WS_EX_TOOLWINDOW / WS_EX_APPWINDOW: hide from / force into the taskbar and Alt+Tab. 
 
+
+    - Win32::UI::Shell (window subclassing, in comctl32):
+        - SetWindowSubclass: puts our own message handler in front of the window's existing one (tao's), without replacing it.
+        - DefSubclassProc: passes a message on to the next handler in the chain.
     To access variables, use VAR.0
 */
 
 
+const GUARD_SUBCLASS_ID: usize = 0x4B47_4E43;
+static ON_FOREGROUND: OnceLock<Box<dyn Fn() + Send + Sync>> = OnceLock::new();
+static FOREGROUND_HOOK: AtomicUsize = AtomicUsize::new(0);
 
 // Getters/Setters
 fn get_style(hwnd: HWND, index: WINDOW_LONG_PTR_INDEX) -> isize {
@@ -100,6 +113,34 @@ fn set_dwm_attribute<T>(hwnd: HWND, attribute: DWMWINDOWATTRIBUTE, value: &T,) -
             size_of::<T>() as u32,
         )
     }
+}
+
+/** Subclass handler of `guard_non_client`. An overlay has no non-client area, so none of it is ever painted. */
+unsafe extern "system" fn non_client_guard(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM, _id: usize, _data: usize) -> LRESULT {
+    match msg {
+        WM_NCACTIVATE => unsafe { DefSubclassProc(hwnd, msg, wparam, LPARAM(-1)) },
+        WM_NCPAINT => LRESULT(0),
+        WM_NCCALCSIZE if wparam.0 != 0 => LRESULT(0),
+        WM_NCDESTROY => unsafe {
+            let _ = RemoveWindowSubclass(hwnd, Some(non_client_guard), GUARD_SUBCLASS_ID);
+            DefSubclassProc(hwnd, msg, wparam, lparam) // tao's handler still needs it to remove its own subclass
+        },
+        _ => unsafe { DefSubclassProc(hwnd, msg, wparam, lparam) },
+    }
+}
+
+/** `SetWinEventHook` callback*/
+unsafe extern "system" fn on_foreground_changed(_hook: HWINEVENTHOOK, _event: u32, _hwnd: HWND, _object: i32, _child: i32, _thread: u32, _time: u32) {
+    if let Some(callback) = ON_FOREGROUND.get() { callback(); }
+}
+
+/** `EnumFontFamiliesExW` callback*/
+unsafe extern "system" fn collect_font_family(font: *const LOGFONTW, _metrics: *const TEXTMETRICW, _font_type: u32, lparam: LPARAM) -> i32 {
+    let (font, families) = unsafe { (&*font, &mut *(lparam.0 as *mut BTreeSet<String>)) };
+    let len: usize = font.lfFaceName.iter().position(|&c| c == 0).unwrap_or(font.lfFaceName.len());
+    let name: String = String::from_utf16_lossy(&font.lfFaceName[..len]);
+    if !name.starts_with('@') && !name.is_empty() { families.insert(name); }
+    1
 }
 
 
@@ -155,6 +196,64 @@ pub fn top_everything(hwnd: HWND) {
     set_window_pos(hwnd, Some(HWND_TOPMOST), SET_WINDOW_POS_FLAGS(0));
 }
 
+/**
+ * Stops Windows from painting a title bar on an overlay. tao puts `WS_CAPTION` back whenever it changes a window flag, and
+ * activating a window with it repaints the non-client area (a white strip on Windows 11).
+ */
+pub fn guard_non_client(hwnd: HWND) {
+    unsafe { let _ = SetWindowSubclass(hwnd, Some(non_client_guard), GUARD_SUBCLASS_ID, 0); }
+}
+
+/**
+ * Calls `callback` every time another app's window becomes the foreground one .
+ */
+pub fn watch_foreground(callback: impl Fn() + Send + Sync + 'static) {
+    if ON_FOREGROUND.set(Box::new(callback)).is_err() { return; }
+    let hook: HWINEVENTHOOK = unsafe {
+        SetWinEventHook(EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_FOREGROUND, None, Some(on_foreground_changed), 0, 0, WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS)
+    };
+    #[cfg(debug_assertions)]
+    if hook.0.is_null() { eprintln!("[kawagiif] SetWinEventHook failed: only the keeper raises the overlays"); }
+    FOREGROUND_HOOK.store(hook.0 as usize, Ordering::Relaxed);
+}
+
+/** Removes the hook of `watch_foreground`; called on exit. */
+pub fn unwatch_foreground() {
+    let hook: usize = FOREGROUND_HOOK.swap(0, Ordering::Relaxed);
+    if hook != 0 { unsafe { let _ = UnhookWinEvent(HWINEVENTHOOK(hook as *mut c_void)); } }
+}
+
+#[cfg(debug_assertions)]
+pub fn style_flags(hwnd: HWND) -> String {
+    let style: isize = get_style(hwnd, GWL_STYLE);
+    let ex: isize = get_style(hwnd, GWL_EXSTYLE);
+    let caption: isize = WS_CAPTION.0 as isize;
+    let checks: [(&str, bool); 4] = [
+        ("CAPTION", style & caption == caption), // WS_CAPTION is WS_BORDER | WS_DLGFRAME, so both bits must be set
+        ("THICKFRAME", style & WS_THICKFRAME.0 as isize != 0),
+        ("LAYERED", ex & WS_EX_LAYERED.0 as isize != 0),
+        ("TRANSPARENT", ex & WS_EX_TRANSPARENT.0 as isize != 0),
+    ];
+    checks.iter().filter(|(_, on)| *on).map(|(name, _)| *name).collect::<Vec<_>>().join("|")
+}
+
+
+
+// Fonts
+/**
+ * Every installed font family, sorted and without duplicates. GDI lists system-wide (HKLM) and per-user (HKCU) fonts.
+ */
+pub fn list_font_families() -> Vec<String> {
+    let mut families: BTreeSet<String> = BTreeSet::new();
+    let filter: LOGFONTW = LOGFONTW { lfCharSet: DEFAULT_CHARSET, ..Default::default() }; // empty name + default charset = all families
+    unsafe {
+        let hdc = GetDC(None);
+        EnumFontFamiliesExW(hdc, &filter, Some(collect_font_family), LPARAM(std::ptr::from_mut(&mut families) as isize), 0);
+        ReleaseDC(None, hdc);
+    }
+    families.into_iter().collect()
+}
+
 
 
 // DWM
@@ -177,8 +276,7 @@ pub fn disable_dwm_focus_border(hwnd: HWND) {
 
 // WebView2
 /**
- * Puts a hidden overlay's web page to sleep, or wakes it up. Every overlay window is its own WebView2 renderer process. Going dormant force to ask
- *  to use as little memory as it can, and suspends it. Waking runs the same steps backwards.
+ * Puts a hidden overlay's web page to sleep, or wakes it up. Every overlay window is its own WebView2 renderer process. Going dormant force to ask to use as little memory as it can, and suspends it. Waking runs the same steps backwards.
  */
 pub fn set_webview_dormant(controller: &ICoreWebView2Controller, dormant: bool) {
     let result: Result<(), windows::core::Error> = (|| 

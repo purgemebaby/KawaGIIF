@@ -16,8 +16,16 @@ dist-ssr
 src-tauri/target/
 src-tauri/gen/schemas/
 
-# Local Claude Code state, machine-specific
-.claude/
+# Claude Code: agents, hooks, scripts, the kg-swarm skill and settings.json are shared; the rest is machine-specific
+.claude/*
+!.claude/agents/
+!.claude/hooks/
+!.claude/scripts/
+!.claude/settings.json
+!.claude/skills/
+.claude/skills/*
+!.claude/skills/kg-swarm/
+.claude/hooks/.state/
 .agents/
 skills-lock.json
 

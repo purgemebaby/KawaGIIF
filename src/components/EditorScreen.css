@@ -48,7 +48,7 @@
 .properties-panel h3 {
 	margin: 0 0 var(--kg-space-3);
 	color: var(--kg-fg-faint);
-	font-size: 10px;
+	font-size: var(--kg-text-2xs);
 	font-weight: 600;
 	text-transform: uppercase;
 	letter-spacing: 0.06em;
@@ -106,7 +106,7 @@
 	background: var(--kg-bg-input);
 	color: var(--kg-fg-faint);
 	font-family: var(--kg-font-mono);
-	font-size: 9px;
+	font-size: var(--kg-text-3xs);
 }
 
 .editor-canvas-hint {

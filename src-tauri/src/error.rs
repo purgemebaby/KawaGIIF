@@ -43,6 +43,9 @@ pub enum AppError {
 
     #[error("No overlay window for slot {0}")]
     MissingSlotWindow(usize),
+
+    #[error("Only GIF, PNG or JPEG images are allowed")]
+    UnsupportedImage,
 }
 
 

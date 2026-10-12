@@ -1,4 +1,4 @@
-/* App entry point. Registers plugins, state and commands, creates the windows at startup and decides what closing and quitting do. */
+/* App entry point. Registers plugins, states and commands, creates the windows at startup and decides what closing and quitting do. */
 mod commands;
 mod config;
 mod error;
@@ -40,13 +40,14 @@ fn handle_control_close(control: &WebviewWindow) {
     if pending_edit {
         let _ = control.emit_to(EventTarget::webview_window(window_manager::CONTROL_LABEL), "close-requested", ());
     } else {
-        let _ = control.hide();
+        window_manager::hide_control(control.app_handle());
     }
 }
 
 /** Every real exit ends here; unsaved edits are discarded since no dialog can be shown while shutting down. */
 fn handle_exit(app: &AppHandle) {
     app.state::<EditorState>().lock().discard_changes();
+    window_manager::stop_watching_foreground_changes();
     window_manager::hide_all_overlay_slots(app);
 }
 
@@ -79,6 +80,12 @@ pub fn run() {
             commands::set_start_minimized_to_tray,
             commands::set_confirm_media_delete,
             commands::set_overlay_pool_size,
+            commands::set_loading_indicator,
+            commands::reset_loading_indicator,
+            commands::get_loading_indicator,
+            commands::list_system_fonts,
+            commands::set_ui_font,
+            commands::set_font_scale,
             library::import_media,
             library::list_media,
             library::update_media_tags,
@@ -92,6 +99,7 @@ pub fn run() {
             #[cfg(debug_assertions)]
             system_stats::debug_memory_breakdown,
             template::load_template,
+            template::show_boot_overlays,
             template::get_working_template,
             template::has_unsaved_changes,
             template::list_placed_items,
@@ -130,13 +138,19 @@ pub fn run() {
             #[cfg(debug_assertions)]
             control.open_devtools();
 
-            template::spawn_saved_template_on_boot(handle, &handle.state::<EditorState>());
+            template::load_saved_template_on_boot(&handle.state::<EditorState>());
             app.global_shortcut().register(release_shortcut)?;
             tray::setup(handle)?;
             window_manager::spawn_topmost_keeper(handle);
+            window_manager::watch_foreground_changes(handle);
 
-            if !config::load().start_minimized_to_tray {
+            //no visible loading screen in the tray, so the overlays come up right away
+            if config::load().start_minimized_to_tray {
+                window_manager::hide_control(handle);
+                template::show_saved_overlays(handle);
+            } else {
                 let _ = control.show();
+                template::spawn_boot_fallback(handle);
             }
             Ok(())
         })

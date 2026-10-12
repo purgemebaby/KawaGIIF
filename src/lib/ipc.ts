@@ -32,15 +32,19 @@ const MOCK_CONFIG = {
 	launch_on_startup: false,
 	start_minimized_to_tray: false,
 	confirm_media_delete: true,
-	overlay_pool_size: 8,
+	overlay_pool_size: 4,
+	ui_font: null,
+	font_scale: 1,
 };
 
 const MOCK_RESPONSES: Record<string, unknown> = {
 	list_media: MOCK_MEDIA,
 	list_all_tags: MOCK_TAGS,
 	get_config: MOCK_CONFIG,
-	get_working_template: { schema_version: 2, items: [] },
-	load_template: { schema_version: 2, items: [] },
+	get_loading_indicator: null,
+	list_system_fonts: ['Segoe UI', 'Arial', 'Consolas'],
+	get_working_template: { items: [] },
+	load_template: { items: [] },
 	list_placed_items: [],
 	has_unsaved_changes: false,
 	get_placed_media: null,

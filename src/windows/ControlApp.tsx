@@ -34,11 +34,14 @@ function ControlApp() {
 		setNavCollapsed(next);
 	}, [navCollapsed]);
 
-	const bootWork = useMemo(
-		() =>
-			Promise.all([invoke('get_config'), invoke('list_media')]).catch(
-				() => null,
-			),
+	// what the UI needs before it's usable; the loading bar advances as each one finishes
+	const bootSteps = useMemo(
+		() => [
+			invoke('get_config'),
+			invoke('list_media'),
+			invoke('list_placed_items'),
+			document.fonts.ready,
+		],
 		[],
 	);
 
@@ -94,10 +97,11 @@ function ControlApp() {
 			<div className="control-shell">
 				{booting && (
 					<LoadingScreen
-						work={bootWork}
+						steps={bootSteps}
 						onDone={() => {
 							hasBooted = true;
 							setBooting(false);
+							invoke('show_boot_overlays');
 						}}
 					/>
 				)}

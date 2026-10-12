@@ -7,29 +7,26 @@ use crate::template::{self, EditorState};
 use crate::window_manager;
 
 /* Personal Note for me:
-- tauri::menu: Menu is a native menu; MenuItem a clickable entry identified by an id string; PredefinedMenuItem the
+- tauri::menu: Menu is a native menu and MenuItem a clickable entry identified by an id string; PredefinedMenuItem the
   built-in ones (separator).
-- tauri::tray: TrayIconBuilder creates the icon; TrayIconEvent says what happened to it (click, hover...), with
-  MouseButton / MouseButtonState telling which button and pressed or released.
+- tauri::tray: TrayIconBuilder creates the icon and TrayIconEvent says what happened to it (click, hover...).
 */
 
 
-
-fn show_control(app: &AppHandle) {
-    if let Some(window) = app.get_webview_window(window_manager::CONTROL_LABEL) {
-        let _ = window.show();
-        let _ = window.set_focus();
-    }
-}
-
+/** Recovers main app window (identified by `CONTROL_LABEL`) and depending of its visibility,
+the function will hide the main app window or show it.*/
 fn toggle_control(app: &AppHandle) {
     if let Some(window) = app.get_webview_window(window_manager::CONTROL_LABEL) {
-        if window.is_visible().unwrap_or(false) { let _ = window.hide(); } else { show_control(app); }
+        if window.is_visible().unwrap_or(false) {
+            window_manager::hide_control(app); 
+        } else {
+            window_manager::show_control(app);
+        }
     }
 }
 
 
-
+//Tray displayable menu of commands and toggle control
 pub fn setup(app: &AppHandle) -> tauri::Result<()> {
     let open = MenuItem::with_id(app, "open", "Open panel", true, None::<&str>)?;
     let kill = MenuItem::with_id(app, "kill_all", "Kill all animations", true, None::<&str>)?;
@@ -44,17 +41,15 @@ pub fn setup(app: &AppHandle) -> tauri::Result<()> {
         .menu(&menu)
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| match event.id.as_ref() {
-            "open" => show_control(app),
+            "open" => window_manager::show_control(app),
             "kill_all" => template::kill_all_overlays(app.clone(), app.state::<EditorState>()),
             "quit" => app.exit(0),
             _ => {}
         })
         .on_tray_icon_event(|tray, event| {
-            if let TrayIconEvent::Click { button: MouseButton::Left, button_state: MouseButtonState::Up, .. } = event {
-                toggle_control(tray.app_handle());
-            }
-        })
-        .build(app)?;
-
+            if let TrayIconEvent::Click{ 
+                button: MouseButton::Left,
+                button_state: MouseButtonState::Up, .. } = event {toggle_control(tray.app_handle());}
+        }).build(app)?;
     Ok(())
 }

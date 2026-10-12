@@ -159,12 +159,36 @@ export const t = {
 			hint:
 				'KawaGIIF reserves one window per animation at startup, used or not, ' +
 				"because Windows doesn't allow creating transparent ones later. Unused ones " +
-				'sleep and cost little; raise it to place more. Between 1 and 20. ' +
+				'sleep but still cost about 20 MB each; raise it to place more. Between 1 and 20. ' +
 				'Takes effect after restarting the app.',
 		},
 		confirmDelete: {
 			label: 'Confirm before deleting files',
 			hint: "Ask before removing a file from the library. Deleting can't be undone.",
+		},
+		font: {
+			label: 'Interface font',
+			hint: 'Font and text size of the whole app. The title and the loading screen keep their own font.',
+			systemDefault: 'System default',
+			search: 'Search fonts',
+			noMatches: 'No fonts match',
+			sizeLabel: 'Text size',
+			preview: 'The quick brown fox jumps over the lazy dog 0123456789',
+			sizes: {
+				small: 'Small',
+				default: 'Default',
+				large: 'Large',
+				larger: 'Larger',
+			},
+		},
+		loadingIndicator: {
+			label: 'Loading animation',
+			hint: 'Replace the ball that walks along the loading bar with your own GIF, PNG or JPEG. Recommended: square, 68x68 px (shown at 34 px).',
+			choose: 'Choose image…',
+			reset: 'Reset to default',
+			filter: 'Image',
+			warning:
+				'This image is large or not square. It will be scaled down to fit, so it may look small or blurry.',
 		},
 		ram: {
 			label: 'Memory',

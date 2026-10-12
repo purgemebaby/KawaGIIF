@@ -14,7 +14,6 @@ export interface PlacedMedia {
 }
 
 export interface Template {
-	schema_version: number;
 	items: PlacedMedia[];
 }
 
