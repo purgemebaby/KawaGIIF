@@ -52,7 +52,7 @@
 }
 
 .ram-gauge-readout strong {
-	font-size: 17px;
+	font-size: var(--kg-text-heading);
 	font-variant-numeric: tabular-nums;
 }
 
@@ -78,5 +78,5 @@
 
 .ram-gauge-estimate {
 	color: var(--kg-fg-faint);
-	font-size: 10.5px;
+	font-size: var(--kg-text-xs);
 }

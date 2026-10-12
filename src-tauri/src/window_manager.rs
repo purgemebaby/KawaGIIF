@@ -23,6 +23,8 @@ pub const CONTROL_LABEL: &str = "control";
 const OV_LABEL: &str = "OV-SLOT-";
 pub const MAX_POOL: u32 = 20;
 const KEEPER_INTERVAL: Duration = Duration::from_secs(2);
+//every webview shares one WebView2 environment, so they must all get the same args; the first part is wry's default
+const BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --process-per-site";
 
 
 
@@ -73,6 +75,21 @@ fn raise(window: Option<WebviewWindow>) {
     let _ = window;
 }
 
+/**
+ * Raises every visible overlay to the top of the topmost band, then the control window last while edit mode keeps it
+ * topmost. Needed because tao only calls `SetWindowPos` when the always-on-top flag changes, so the taskbar (also topmost)
+ * stays above overlays until one is raised explicitly. `restyle` re-forces the styles first (`force_borderless` redraws the frame).
+ */
+fn raise_visible_overlays(app: &AppHandle, restyle: bool) {
+    for window in overlay_windows(app).filter(|w| w.is_visible().unwrap_or(false)) {
+        if restyle { reapply_overlay_style(&window); }
+        raise(Some(window));
+    }
+    if let Some(control) = app.get_webview_window(CONTROL_LABEL).filter(|c| c.is_always_on_top().unwrap_or(false)) {
+        raise(Some(control));
+    }
+}
+
 /** Keeps an overlay inside the whole rectangle of its monitor (taskbar included, on purpose). Returns `true` if it moved. */
 pub fn clamp_to_work_area(window: &WebviewWindow) -> bool {
     #[cfg(windows)]
@@ -95,18 +112,20 @@ pub fn clamp_to_work_area(window: &WebviewWindow) -> bool {
 
 /**
  * Turns click-through on or off for an overlay; use this instead of `set_ignore_cursor_events` alone.
- * Tauri drops `WS_EX_LAYERED` when turning it off (opaque grey frame), so `force_layered` restores it right after.
+ * Tauri drops `WS_EX_LAYERED` when turning it off (opaque grey frame) and re-adds `WS_CAPTION` (white strip on
+ * activation), so `force_layered` and `force_borderless` restore them right after.
  */
 pub fn set_overlay_click_through(window: &WebviewWindow, enabled: bool) {
     let _ = window.set_ignore_cursor_events(enabled);
     #[cfg(windows)]
     if let Ok(hwnd) = window.hwnd() {
         native::force_layered(hwnd);
+        native::force_borderless(hwnd);
     }
 }
 
 /**
- * Puts a hidden overlay's webview to sleep, or wakes it (`native::set_webview_dormant`).
+ * Puts a hidden window's webview (an overlay or the control window) to sleep, or wakes it (`native::set_webview_dormant`).
  * WebView2 is only reachable on the main thread, so `still_wanted` is checked there, when the work runs: the slot may
  * have been reassigned meanwhile and a late sleep must be dropped.
  */
@@ -132,8 +151,12 @@ pub fn log_overlay_state(app: &AppHandle, moment: &str) {
         println!("[kawagiif] {line}");
     }
     for window in overlay_windows(app).filter(|w| w.is_visible().unwrap_or(false)) {
+        #[cfg(windows)]
+        let styles: String = window.hwnd().map(native::style_flags).unwrap_or_default();
+        #[cfg(not(windows))]
+        let styles: String = String::new();
         println!(
-            "[kawagiif]   {}: pos={:?} size={:?}",
+            "[kawagiif]   {}: pos={:?} size={:?} styles={styles}",
             window.label(),
             window.outer_position().map(|p| (p.x, p.y)).ok(),
             window.inner_size().map(|s| (s.width, s.height)).ok(),
@@ -150,6 +173,7 @@ pub fn log_overlay_state(_app: &AppHandle, _moment: &str) {}
 /** Creates the control window hidden (`setup()` shows it). Not transparent, so the `WS_EX_LAYERED` issue doesn't apply. */
 pub fn create_control_window(app: &AppHandle) -> tauri::Result<WebviewWindow> {
     WebviewWindowBuilder::new(app, CONTROL_LABEL, WebviewUrl::App("index.html".into()))
+        .additional_browser_args(BROWSER_ARGS)
         .title("KawaGiif")
         .inner_size(960.0, 640.0)
         .min_inner_size(720.0, 480.0)
@@ -173,6 +197,7 @@ pub fn create_control_window(app: &AppHandle) -> tauri::Result<WebviewWindow> {
 pub fn create_overlay_pool(app: &AppHandle) -> tauri::Result<()> {
     for (slot, label) in slot_labels().iter().enumerate() {
         let window = WebviewWindowBuilder::new(app, label, WebviewUrl::App("overlay.html".into()))
+            .additional_browser_args(BROWSER_ARGS)
             .title("")
             .position(0.0, 0.0)
             .inner_size(200.0, 200.0)
@@ -189,28 +214,46 @@ pub fn create_overlay_pool(app: &AppHandle) -> tauri::Result<()> {
 
         set_overlay_click_through(&window, true);
         reapply_overlay_style(&window);
+        #[cfg(windows)]
+        if let Ok(hwnd) = window.hwnd() { native::guard_non_client(hwnd); }
         watch_overlay_events(app, &window, slot);
     }
     Ok(())
 }
 
 /**
- * Re-raises the visible overlays every `KEEPER_INTERVAL`: click-through overlays never get focus, so a borderless game
- * going topmost would bury them (exclusive fullscreen is out of reach). Window calls run on the main thread; the
- * loop ends when the event loop is gone.
+ * Restyles and re-raises the visible overlays every `KEEPER_INTERVAL` (`raise_visible_overlays`): click-through overlays
+ * never get focus, so a borderless game going topmost would bury them (exclusive fullscreen is out of reach). A topmost app that
+ * re-raises itself constantly can still win for up to one interval. Window calls run on the main thread; the loop ends
+ * when the event loop is gone.
  */
 pub fn spawn_topmost_keeper(app: &AppHandle) {
     let app = app.clone();
     std::thread::spawn(move || loop {
         std::thread::sleep(KEEPER_INTERVAL);
         let handle = app.clone();
-        let dispatched = app.run_on_main_thread(move || {
-            for window in overlay_windows(&handle) {
-                if window.is_visible().unwrap_or(false) { reapply_overlay_style(&window); }
-            }
-        });
-        if dispatched.is_err() { break; }
+        if app.run_on_main_thread(move || raise_visible_overlays(&handle, true)).is_err() { break; }
     });
+}
+
+/**
+ * Instant re-raise every time another app takes the foreground (taskbar click, Start, a game). Raise only: restyling on
+ * every focus change would redraw the frames (`SWP_FRAMECHANGED`) and risk flicker; the keeper restyles.
+ */
+pub fn watch_foreground_changes(app: &AppHandle) {
+    #[cfg(windows)]
+    {
+        let app = app.clone();
+        native::watch_foreground(move || raise_visible_overlays(&app, false));
+    }
+    #[cfg(not(windows))]
+    let _ = app;
+}
+
+/** Removes the hook of `watch_foreground_changes`. */
+pub fn stop_watching_foreground_changes() {
+    #[cfg(windows)]
+    native::unwatch_foreground();
 }
 
 /**
@@ -231,6 +274,25 @@ fn watch_overlay_events(app: &AppHandle, window: &WebviewWindow, slot: usize) {
         WindowEvent::Resized(size) => crate::template::update_slot_geometry(&app, slot, None, Some((size.width, size.height))),
         _ => {}
     });
+}
+
+
+
+// Control window
+/** Hides the control window and puts its webview to sleep: hidden, it still costs ~155 MB (docs/profiling.md). */
+pub fn hide_control(app: &AppHandle) {
+    let Some(control) = app.get_webview_window(CONTROL_LABEL) else { return; };
+    let _ = control.hide();
+    let check = control.clone();
+    set_slot_dormant(&control, true, move || !check.is_visible().unwrap_or(false)); //shown again meanwhile → stay awake
+}
+
+/** Wakes the control window's webview, then shows and focuses it. */
+pub fn show_control(app: &AppHandle) {
+    let Some(control) = app.get_webview_window(CONTROL_LABEL) else { return; };
+    set_slot_dormant(&control, false, || true);
+    let _ = control.show();
+    let _ = control.set_focus();
 }
 
 

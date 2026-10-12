@@ -10,15 +10,15 @@ use crate::error::AppResult;
 - std::sync::OnceLock: a value computed once, the first time it's needed, then reused forever.
 */
 
-
-
-fn default_overlay_pool_size() -> u32 { 8 }
+fn default_overlay_pool_size() -> u32 { 4 }
 
 fn default_true() -> bool { true }
 
+fn default_font_scale() -> f32 { 1.0 }
+
 fn config_path() -> PathBuf { data_dir().join("config.toml") }
 
-/** `%LOCALAPPDATA%\KawaGiif`, not roaming `%APPDATA%`: the media library can grow to hundreds of MB. Cached. */
+/** `%LOCALAPPDATA%\KawaGiif*/
 pub fn data_dir() -> &'static Path {
     static DIR: OnceLock<PathBuf> = OnceLock::new();
     DIR.get_or_init(|| dirs::data_local_dir().expect("could not resolve %LOCALAPPDATA%").join("KawaGiif"))
@@ -63,6 +63,15 @@ pub struct AppConfig {
     pub confirm_media_delete: bool,
     #[serde(default = "default_overlay_pool_size")]
     pub overlay_pool_size: u32,
+    /// File name (inside the data folder) of the custom loading-screen image; `None` means the default ball.
+    #[serde(default)]
+    pub loading_indicator: Option<String>,
+    /// Font family of the UI text; `None` means the system default.
+    #[serde(default)]
+    pub ui_font: Option<String>,
+    /// Multiplier of every UI font size (1.0 = default).
+    #[serde(default = "default_font_scale")]
+    pub font_scale: f32,
 }
 impl Default for AppConfig {
     fn default() -> Self {
@@ -71,6 +80,9 @@ impl Default for AppConfig {
             start_minimized_to_tray: false,
             confirm_media_delete: true,
             overlay_pool_size: default_overlay_pool_size(),
+            loading_indicator: None,
+            ui_font: None,
+            font_scale: default_font_scale(),
         }
     }
 }

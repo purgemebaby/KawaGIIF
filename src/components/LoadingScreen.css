@@ -27,7 +27,6 @@
 }
 
 .loading-bar {
-	--walker-size: 34px;
 	position: relative;
 	width: min(360px, 60vw);
 	height: 8px;
@@ -44,19 +43,14 @@
 .loading-walker {
 	position: absolute;
 	bottom: 100%;
-	width: var(--walker-size);
-	height: var(--walker-size);
+	width: var(--kg-walker-size);
+	height: var(--kg-walker-size);
 	margin-bottom: 2px;
-	border: 2px solid var(--kg-title-outline);
-	border-radius: 50%;
-	background:
-		radial-gradient(
-			circle at 34% 30%,
-			rgb(255 255 255 / 0.75) 0%,
-			transparent 42%
-		),
-		linear-gradient(180deg, var(--kg-accent-2), var(--kg-accent));
 	animation: kg-walker-bob 620ms ease-in-out infinite;
+}
+
+.loading-walker--image {
+	object-fit: contain;
 }
 
 @keyframes kg-walker-bob {

@@ -81,7 +81,7 @@
 	padding: 0;
 	border-radius: var(--kg-radius-sm);
 	color: var(--kg-fg-muted);
-	font-size: 16px;
+	font-size: var(--kg-text-icon);
 }
 
 .kg-btn--icon:hover:not(:disabled) {
@@ -147,7 +147,7 @@
 
 .modal-title {
 	margin: 0 0 var(--kg-space-3);
-	font-size: 17px;
+	font-size: var(--kg-text-heading);
 	font-weight: 600;
 }
 
@@ -222,4 +222,17 @@
 	padding: var(--kg-space-5) 0;
 	color: var(--kg-fg-faint);
 	font-size: var(--kg-text-md);
+}
+
+/* The default loading-screen walker; also its preview in Settings. */
+.kg-walker-ball {
+	border: 2px solid var(--kg-title-outline);
+	border-radius: 50%;
+	background:
+		radial-gradient(
+			circle at 34% 30%,
+			rgb(255 255 255 / 0.75) 0%,
+			transparent 42%
+		),
+		linear-gradient(180deg, var(--kg-accent-2), var(--kg-accent));
 }

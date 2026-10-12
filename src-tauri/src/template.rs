@@ -1,8 +1,8 @@
-/* Placed animations ("the template"). Keeps which media is placed where and with what settings, saves and restores it
-(`template.json`), and decides which overlay window of the pool shows each animation. */
+/* Keeps which media is placed where and with what settings, saves and restores it (`template.json`), and decides which overlay window of the pool shows each animation.*/
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, MutexGuard, PoisonError};
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, EventTarget, Manager, PhysicalPosition, PhysicalSize, State, WebviewWindow};
@@ -15,43 +15,23 @@ use crate::window_manager;
 
 /* Personal Note for me:
 - tauri::Emitter + EventTarget: `emit_to(EventTarget::webview_window(label), ..)` sends an event to one window only.
-- tauri::WebviewWindow: as a command argument it is the window that called the command.
-- std::sync::PoisonError: what a Mutex returns after a panic while locked; we just take the data anyway.
 */
 
-
-
-const CURRENT_TEMPLATE_SCHEMA: u32 = 2;
 const SPAWN_BOX: u32 = 220;
 const MAX_SPAWN_SIDE: f64 = 480.0;
 const MIN_SIDE: u32 = 40;
 const SAVE_DEBOUNCE: Duration = Duration::from_millis(400);
-
-
-
-fn schema_version() -> u32 { CURRENT_TEMPLATE_SCHEMA }
+const BOOT_FALLBACK: Duration = Duration::from_secs(15);
+static BOOT_SHOWN: AtomicBool = AtomicBool::new(false); //the boot placement already ran (or the editor took over)
 
 fn template_path() -> PathBuf { config::data_dir().join("template.json") }
 
-/** Reads `template.json`. v1 stored logical pixels, v2 stores physical ones (what `Moved`/`Resized` report), so v1 is scaled. */
-fn load_template_from_disk(app: &AppHandle) -> Template {
-    let mut tpl: Template = std::fs::read_to_string(template_path())
+/** Reads `template.json` (positions and sizes in physical pixels, what `Moved`/`Resized` report). A missing or broken file gives an empty template. */
+fn load_template_from_disk() -> Template {
+    std::fs::read_to_string(template_path())
         .ok()
         .and_then(|contents| serde_json::from_str(&contents).ok())
-        .unwrap_or_default();
-
-    if tpl.schema_version < CURRENT_TEMPLATE_SCHEMA {
-        let scale = app.primary_monitor().ok().flatten().map_or(1.0, |m| m.scale_factor());
-        let scaled = |v: f64| (v * scale).round();
-        for item in &mut tpl.items {
-            item.x = scaled(f64::from(item.x)) as i32;
-            item.y = scaled(f64::from(item.y)) as i32;
-            item.width = scaled(f64::from(item.width)) as u32;
-            item.height = scaled(f64::from(item.height)) as u32;
-        }
-        tpl.schema_version = CURRENT_TEMPLATE_SCHEMA;
-    }
-    tpl
+        .unwrap_or_default()
 }
 
 fn save_template_to_disk(tpl: &Template) -> AppResult<()> {
@@ -106,8 +86,6 @@ pub struct PlacedMedia {
 
 #[derive(Serialize, Deserialize, Clone, Default, PartialEq)]
 pub struct Template {
-    #[serde(default = "schema_version")]
-    pub schema_version: u32,
     #[serde(default)]
     pub items: Vec<PlacedMedia>,
 }
@@ -328,15 +306,35 @@ pub fn purge_media_references(app: &AppHandle, state: &EditorState, media_id: &U
     Ok(())
 }
 
-/**
- * Restores the saved template at startup, click-through (live wallpaper without opening the editor). Running out of
- * slots must not fail: the pool size is a setting, and an error here would panic `setup()`. Extra items stay saved.
- */
-pub fn spawn_saved_template_on_boot(app: &AppHandle, state: &EditorState) {
-    let tpl = load_template_from_disk(app);
-    release_all_slots(app, state);
+/** Loads the saved template at startup without showing it: `show_saved_overlays` does that once the loading screen ends. */
+pub fn load_saved_template_on_boot(state: &EditorState) {
+    let tpl = load_template_from_disk();
+    let mut editor = state.lock();
+    editor.saved = tpl.clone();
+    editor.working = tpl;
+}
 
-    let skipped = tpl.items.iter().filter(|item| place_item_in_slot(app, state, item, false).is_err()).count();
+/** Shows the loaded template if the loading screen never reports (hidden window, crashed page). */
+pub fn spawn_boot_fallback(app: &AppHandle) {
+    let app = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(BOOT_FALLBACK);
+        show_saved_overlays(&app);
+    });
+}
+
+/**
+ * Places the saved template click-through (live wallpaper without opening the editor), once per run. Running out of
+ * slots must not fail: the pool size is a setting. Extra items stay saved.
+ */
+pub fn show_saved_overlays(app: &AppHandle) {
+    if BOOT_SHOWN.swap(true, Ordering::SeqCst) { return; }
+
+    let state = app.state::<EditorState>();
+    let tpl: Template = state.lock().saved.clone();
+    release_all_slots(app, &state);
+
+    let skipped = tpl.items.iter().filter(|item| place_item_in_slot(app, &state, item, false).is_err()).count();
     if skipped > 0 {
         eprintln!(
             "[kawagiif] {skipped} saved animation(s) were not placed: the template has {} items and the pool holds {}. \
@@ -345,12 +343,6 @@ pub fn spawn_saved_template_on_boot(app: &AppHandle, state: &EditorState) {
             window_manager::pool_size(),
         );
     }
-
-    let mut editor = state.lock();
-    editor.saved = tpl.clone();
-    editor.working = tpl;
-    drop(editor);
-
     window_manager::log_overlay_state(app, "startup, template restored");
 }
 
@@ -384,7 +376,8 @@ pub fn update_slot_geometry(app: &AppHandle, slot: usize, pos: Option<(i32, i32)
 /// they come up click-through and `set_edit_mode(true)` makes them interactive.
 #[tauri::command]
 pub fn load_template(app: AppHandle, state: State<EditorState>) -> AppResult<Template> {
-    let tpl = load_template_from_disk(&app);
+    BOOT_SHOWN.store(true, Ordering::SeqCst);
+    let tpl = load_template_from_disk();
     respawn_overlays_from(&app, &state, &tpl, false)?;
     {
         let mut editor = state.lock();
@@ -394,6 +387,10 @@ pub fn load_template(app: AppHandle, state: State<EditorState>) -> AppResult<Tem
     notify_placed_items_changed(&app);
     Ok(tpl)
 }
+
+/// The loading screen ended: show the saved template (only the first call of a run does anything).
+#[tauri::command]
+pub fn show_boot_overlays(app: AppHandle) { show_saved_overlays(&app); }
 
 #[tauri::command]
 pub fn get_working_template(state: State<EditorState>) -> Template { state.lock().working.clone() }

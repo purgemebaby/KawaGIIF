@@ -36,7 +36,7 @@
 	background: var(--kg-bg-raised);
 	color: var(--kg-fg-muted);
 	font-family: inherit;
-	font-size: 12.5px;
+	font-size: var(--kg-text-body);
 	cursor: pointer;
 	transition:
 		background var(--kg-dur-fast) var(--kg-ease-out),

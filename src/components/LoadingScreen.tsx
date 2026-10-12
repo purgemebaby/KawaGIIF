@@ -1,33 +1,45 @@
 import { useEffect, useState } from 'react';
+import { useLoadingIndicator } from '../hooks/useLoadingIndicator';
 import KawaTitle from './brand/KawaTitle';
 import './LoadingScreen.css';
 
-const MIN_DURATION_MS = 5000;
+// short floor so a fast boot doesn't flash; the real length comes from `steps`
+const MIN_DURATION_MS = 1200;
+// share of the bar per second the walker may move, so it never jumps ahead of the work
+const MAX_SPEED_PER_S = 0.9;
 
 interface LoadingScreenProps {
 	onDone: () => void;
-	work: Promise<unknown>;
+	steps: Promise<unknown>[];
 }
 
-function LoadingScreen({ onDone, work }: LoadingScreenProps) {
+function LoadingScreen({ onDone, steps }: LoadingScreenProps) {
 	const [progress, setProgress] = useState(0);
 	const [leaving, setLeaving] = useState(false);
+	const { url: walkerUrl, ready: walkerReady } = useLoadingIndicator();
+	const [walkerFailed, setWalkerFailed] = useState(false);
 
 	useEffect(() => {
 		const start = performance.now();
+		let last = start;
 		let frame = 0;
-		let workDone = false;
-		work.finally(() => {
-			workDone = true;
-		});
+		let shown = 0;
+		let finished = 0;
+		// a failed step still counts as finished: the app opens anyway
+		const markDone = () => {
+			finished += 1;
+		};
+		for (const step of steps) step.then(markDone, markDone);
 
-		const tick = () => {
-			const elapsed = performance.now() - start;
-			const byTime = elapsed / MIN_DURATION_MS;
-			const target = workDone ? byTime : Math.min(byTime, 0.92);
-			setProgress(Math.min(target, 1));
+		const tick = (now: number) => {
+			const elapsed = now - start;
+			const byWork = steps.length ? finished / steps.length : 1;
+			const target = Math.min(byWork, elapsed / MIN_DURATION_MS);
+			shown = Math.min(target, shown + ((now - last) / 1000) * MAX_SPEED_PER_S);
+			last = now;
+			setProgress(shown);
 
-			if (elapsed >= MIN_DURATION_MS && workDone) {
+			if (shown >= 1) {
 				setLeaving(true);
 				return;
 			}
@@ -36,7 +48,11 @@ function LoadingScreen({ onDone, work }: LoadingScreenProps) {
 		frame = requestAnimationFrame(tick);
 
 		return () => cancelAnimationFrame(frame);
-	}, [work]);
+	}, [steps]);
+
+	const walkerStyle = {
+		left: `calc(${progress * 100}% - ${progress} * var(--kg-walker-size))`,
+	};
 
 	return (
 		<div
@@ -58,12 +74,22 @@ function LoadingScreen({ onDone, work }: LoadingScreenProps) {
 					className="loading-bar-fill"
 					style={{ width: `${progress * 100}%` }}
 				/>
-				<div
-					className="loading-walker"
-					style={{
-						left: `calc(${progress * 100}% - ${progress} * var(--walker-size))`,
-					}}
-				/>
+				{walkerReady &&
+					(walkerUrl && !walkerFailed ? (
+						<img
+							className="loading-walker loading-walker--image"
+							src={walkerUrl}
+							alt=""
+							draggable={false}
+							style={walkerStyle}
+							onError={() => setWalkerFailed(true)}
+						/>
+					) : (
+						<div
+							className="loading-walker kg-walker-ball"
+							style={walkerStyle}
+						/>
+					))}
 			</div>
 		</div>
 	);

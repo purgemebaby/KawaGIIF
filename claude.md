@@ -1,127 +1,111 @@
-# KawaGiif — Resumen del proyecto
+# KawaGiif
 
-## Objetivo del proyecto
+KawaGiif shows GIFs, images and videos (GIF, WEBP, PNG, JPEG, MP4) as transparent, always-on-top, click-through overlays
+on the Windows desktop. Tauri v2: Rust backend, React UI inside WebView2. Open-source, light enough to stay on all day next to games. Priorities, in order: **stay out of the way** (click-through, no taskbar/Alt+Tab entry, low RAM/CPU) → **keep simple code the owner can read**. Measure before optimizing. Don't add a dependency that a few lines of code can replace.
 
-Una aplicación open source en Rust llamada KawaGiif que muestra animaciones, GIFs, imágenes y vídeos (MP4, WEBP...) como elementos superpuestos, transparentes y siempre visibles sobre el escritorio de Windows.
+## Stack
 
-## Arquitectura elegida
+Tauri 2.11 (tao 0.35) · `windows` 0.61 (**must equal the version Tauri uses**, check with `cargo tree`, or `HWND` types
+clash) · `webview2-com` 0.38 · React 19 · Vite 8 · TypeScript 6 · plugins: dialog, autostart, global-shortcut.
 
-Backend Rust + frontend React, Tauri, Windows API. En Windows, el WebView es WebView2 (el motor Chromium que trae integrado el propio sistema operativo a través de Edge), que incluye la decodificación de MP4/H.264, GIF y WEBP animado.
+## Commands
 
-## Funcionalidades a implementar (lista original)
+```shell
+npm run tauri dev                    # the real app (hot reload). Needed for anything Win32/transparency
+npm run dev                          # UI only, in a browser, with mocked backend data (src/lib/ipc.ts)
+npx tauri build --no-bundle          # release exe: src-tauri/target/release/kawagiif.exe (measure with this one)
 
-- Archivo de configuración persistente (biblioteca de assets, posición y ajustes de cada animación).
-- Arranque desde terminal (con argumentos vía CLI) o desde icono de escritorio.
-- Auto-arranque opcional.
-- Ventanas superpuestas sobre el resto de apps.
-- Arrastre manual de cada animación con el ratón para reposicionarla, y borrado individual vía menú contextual
-- Control de FPS y de tamaño (resize) por cada asset.
-- Click-through.
-- Hide on hover.
+cargo clippy                         # in src-tauri
+npx tsc --noEmit
+npm run build
 
-## Librerías y crates confirmadas
+powershell -ExecutionPolicy Bypass -File docs/profile.ps1   # RAM per scenario, release build, app closed
+cd docs/diagrams; npm run build                             # regenerate the 3 diagrams
+```
 
-### Backend (Rust, dentro de `src-tauri`)
-
-- `tauri` (v2) como framework principal.
-- `windows` (bindings oficiales de Microsoft) para las llamadas Win32 a bajo nivel que Tauri no cubre bien (el workaround de `skip_taskbar`, y cualquier ajuste fino de `GWL_EXSTYLE`). Importante: fijar la misma versión mayor.menor que usa Tauri internamente (verificable con `cargo tree`), si no el `HWND` propio y el que devuelve `window.hwnd()` son tipos incompatibles para el compilador.
-- `tauri-plugin-autostart` para el arranque automático con el sistema.
-- `tauri-plugin-global-shortcut` para atajos de teclado globales (ya en uso: recuperación de click-through vía `Ctrl+Alt+Escape`, y a futuro mostrar/ocultar todas las animaciones a la vez).
-- `serde` + `toml` para configuración; `serde` + `serde_json` para índices/plantillas con estructuras anidadas (biblioteca de media, plantilla del editor).
-- `dirs` para localizar la ruta correcta de datos en Windows — usar `data_local_dir()` (`%LOCALAPPDATA%`), no `config_dir()` (`%APPDATA%`, roaming): no es apto para una carpeta de media que puede acumular cientos de MB.
-- `uuid` (feature v4) para IDs de media y de instancias de ventana colocadas.
-- `tauri-plugin-dialog` para el diálogo nativo "Abrir archivo" al importar media a la biblioteca.
-- `clap` para el análisis de argumentos cuando se lanza desde terminal (quedó fuera del alcance de la v1 inicial).
-- `muda` NO hace falta como dependencia directa — `tauri::menu::{Menu, MenuItem, PredefinedMenuItem}` ya envuelve todo lo necesario para el menú contextual del ícono de bandeja del sistema.
-
-### Frontend
-
-- React, renderizado dentro del WebView2 que aporta Tauri.
-- Etiquetas HTML nativas (`<video>`, `<img>`) para WEBP animado y MP4, sin necesidad de librerías adicionales de reproducción. Para GIF con velocidad de reproducción ajustable no alcanza el `<img>` nativo (el navegador no expone ningún control de FPS): se decodifica con `gifuct-js` y se reproduce en `<canvas>` con `requestAnimationFrame`.
-
-## Estructura de carpetas real
+## Project map
 
 ```
-kawagiif/
-├── index.html / overlay.html     # Una entrada de Vite por clase de ventana
-├── src/                          # Frontend React
-│   ├── main.tsx                  # Entrada de la ventana de control
-│   ├── entries/overlay.tsx       # Entrada de las ventanas overlay
-│   ├── windows/                  # ControlApp y OverlayItemApp
-│   ├── components/               # Pantallas y piezas de UI
-│   ├── context/LibraryProvider.tsx
-│   ├── hooks/                    # useTauriEvent, useEditorSync, useMediaUrl, ...
-│   ├── lib/                      # ipc.ts (invoke/listen + modo navegador), placed.ts
-│   ├── i18n/en.ts                # Todos los textos visibles (inglés)
-│   └── styles/                   # tokens, base, motion, components, overlay
-├── src-tauri/                    # Backend Rust
-│   ├── src/
-│   │   ├── main.rs               # Solo llama a kawagiif_lib::run()
-│   │   ├── lib.rs                # Builder, plugins, comandos, setup, salida
-│   │   ├── window_manager.rs     # Ventana de control y pool de overlays
-│   │   ├── template.rs           # Animaciones colocadas, slots, template.json
-│   │   ├── library.rs            # Biblioteca de media y etiquetas
-│   │   ├── config.rs             # config.toml, carpeta de datos, escritura atómica
-│   │   ├── commands.rs           # Comandos sueltos (ajustes, ventana de control)
-│   │   ├── error.rs              # AppError compartido por todos los comandos
-│   │   ├── tray.rs               # Icono y menú de la bandeja
-│   │   ├── system_stats.rs       # Medidor de RAM
-│   │   └── native/windows.rs     # Llamadas Win32 (unsafe)
-│   ├── capabilities/             # control.json, overlay.json (ventanas OV-SLOT-*)
-│   ├── Cargo.toml
-│   └── tauri.conf.json
-└── package.json
+index.html / overlay.html        one Vite entry per window class
+src/                             React frontend
+  main.tsx                       control window entry (applies font settings before rendering)
+  entries/overlay.tsx            overlay entry: keep this bundle light, never import control-only code
+  windows/                       ControlApp (screens, boot, exit guard) and OverlayItemApp (media, drag, resize)
+  components/                    screens (Home, Storage, Editor, Settings, Loading) and pieces; settings/ holds one file per settings row
+  context/LibraryProvider.tsx    media library state shared by the control window
+  hooks/                         useTauriEvent, useEditorSync, useMediaUrl, useDismiss, useLoadingIndicator, ...
+  lib/                           ipc.ts (invoke/listen + browser mocks), media.ts, placed.ts, appearance.ts
+  i18n/en.ts                     every visible string (`t.*`)
+  styles/                        tokens, base, motion, components, index (control), overlay
+src-tauri/src/
+  lib.rs                         builder, plugins, command registry, setup, exit
+  window_manager.rs              control window, overlay pool, raising, dormant webviews, BROWSER_ARGS
+  template.rs                    placed animations, slots, template.json, boot placement, edit mode
+  library.rs                     media library and tags (library_index.json)
+  config.rs                      config.toml, data folder, write_atomic
+  commands.rs                    settings, appearance, loading indicator, control window
+  tray.rs · system_stats.rs · error.rs (AppError)
+  native/windows.rs              every unsafe Win32 / WebView2 call
+src-tauri/capabilities/          control.json, overlay.json (OV-SLOT-*)
 ```
-# KawaGiif code style
 
-Reference files: `src-tauri/src/native/windows.rs`, `src-tauri/src/error.rs`, `src-tauri/src/library.rs`.
-When in doubt, copy what they do.
+User data: `%LOCALAPPDATA%\KawaGiif` → `config.toml`, `library_index.json`, `template.json`, `media/`, `loading-indicator-*`.
 
-## Rust
+## Windows / WebView2 rules (do not break)
 
-### File layout
-1. Header: a short `/* … */` block (1–3 lines) saying what the module does.
-2. Imports: external crates first, a blank line, then `crate::` imports.
-3. `/* Personal Note for me: … */` right under the imports, only when the module uses external crates or concepts that aren't obvious (`windows`, `webview2_com`, `sysinfo`, `thiserror`, Tauri plugins, `OnceLock`, error enums…). One indented bullet per item.
-4. Body, in this order:
-   - free helper functions used across the file.
-   - types, each immediately followed by its `impl` (no blank line between them).
-   - shared `State` type.
-   - command groups, each under a `// Group name` line comment (`//Media Commands`, `//Tag Commands`).
+- tao re-adds `WS_CAPTION` and drops `WS_EX_LAYERED` on style changes (white strip, grey frame). After any click-through change
+  call `force_layered` + `force_borderless` (`set_overlay_click_through` does); each overlay also has a non-client subclass.
+- tao only calls `SetWindowPos(TOPMOST)` when the flag changes, so the taskbar can bury overlays: the keeper (every 2 s) and the
+  foreground hook raise them explicitly.
+- Every webview shares 1 WebView2 env, so they all need the **same** `BROWSER_ARGS` (`--process-per-site` makes them share 1 renderer).
+- Hidden windows go dormant (`set_webview_dormant`) and are woken before showing. Hidden costs RAM otherwise.
+- Write files with `config::write_atomic`. Don't touch tools or files outside the repo.
 
-### Spacing
-- 1 blank line between items of the same group.
-- 3 blank lines between groups.
+## Visual design
 
-### Comments
-- One line each. `/** … */` above structs, enums and free (module-level) functions. `///` above commands and
-  associated functions. `//` for short notes inside or between functions.
-- Keep the *why* only when it isn't obvious, cut to 1–2 lines.
+- Dark, soft, "kawaii": surfaces `--kg-bg-*`, accent purple `#a97bff` (`--kg-accent`), pink `--kg-accent-2`, danger `--kg-danger`.
+- Fonts: **Modak** (`--kg-font-display`) only for the title and loading screen, never scaled or user-changed. Everything else uses the
+  user's UI font (`--kg-font-ui`, set through `fontStack` in `lib/appearance.ts`) and `--kg-font-scale`, which multiplies every `--kg-text-*`.
+- Everything visual comes from `src/styles/tokens.css` (colors, space, shadows, durations, text sizes). Motion lives in `motion.css`.
+  No hard-coded `font-size`, color or spacing when a token exists. Visible strings go through `src/i18n/en.ts`, in English.
 
-### Code
+## Clean code and performance
+
+- Small functions that do one thing, early returns, no dead or commented-out code, no duplicated logic (reuse the existing helpers).
+  Names say _what_, comments say _why_. Fix the cause, not the symptom.
+- Commands return `AppResult`, never `unwrap`/`expect`. Handle every error path the user can reach.
+- `docs/profile.ps1`.
+
+### Rust
+
+**Comments:** one line each. `/** … */` above structs, enums and free functions; `///` above commands and associated functions;
+`//` for short notes. Keep the _why_ only when it isn't obvious, cut to 1–2 lines.
+
+**Code**
+
 - Trivial functions on one line: `fn media_dir() -> PathBuf { config::data_dir().join("media") }`.
-- Short match arms combined on one line: `"gif" => Some(Self::Gif), "mp4" => Some(Self::Mp4),`.
-- `let Some(x) = … else { continue; };` and `if cond { continue; }` on one line.
-- Signatures on one line when they fit.
-- Type annotations on `let` where they help reading (`let mut seen: HashSet<String> = …`).
-- Functions that act on one type live in its `impl`. Tauri commands must stay free functions.
-- Debug-only results, log under `#[cfg(debug_assertions)]`, and `let _ = x;`
+- Renaming a command, a command argument or an event means updating the React side in the same change.
 
-### Rules that never change
-- Never hold a `State` lock while calling `window_manager` (window calls fire `Moved`/`Resized` synchronously and
-  re-lock → deadlock). Never hold 2 locks at once.
-- Renaming a command, a command argument or an event means an update of the React side in the same change.
+### React / TypeScript
 
-## React / TypeScript
+- Formatting comes from `.prettierrc.json` (tabs, single quotes, 80 columns). Don't hand-format.
+- `PascalCase` components and files, `useX` hooks, `camelCase` the rest, `SCREAMING_CASE` constants.
+- One component per file unless a tiny private sub-component is used only there. A new settings row is its own file in `components/settings/`.
+- Reuse `useTauriEvent`, `useMediaUrl`, `useDismiss`, `lib/placed.ts`, `lib/media.ts` instead of repeating logic.
+- Comments only where the logic isn't obvious, one line.
 
-- Formatting comes from `.prettierrc.json`. Don't hand-format.
-- Naming: `PascalCase` components and files, `useX` hooks, `camelCase` everything else, `SCREAMING_CASE` constants.
-- File order: imports (external, then local, then CSS) → types → constants → helpers → component → `export default`.
-- 1 component per file unless a tiny private sub-component is only used there.
-- Reuse hooks and helpers (`useTauriEvent`, `useMediaUrl`, `lib/placed.ts`) instead of repeating logic.
-- Comments only where the logic isn't obvious, one line, same tone as the Rust ones.
+## How agents work here
 
-## CSS
-- Colors, spacing, radii and timing come from `src/styles/tokens.css` variables. No new hard-coded values when a
-  token exists.
-- 1 file per component next to it.
+- **Context7 first.** Before implementing something new or fixing a bug that involves a library, fetch the current docs with the Context7 MCP: `resolve-library-id`, then `query-docs` with one concept per query.
+- **See UI changes before calling them done.**
+  - Control-window layout: run `npm run dev`, then capture headless with the installed Firefox and **an isolated profile** and read the PNG:
+    `firefox.exe --headless --no-remote -profile <tempdir> --screenshot out.png --window-size=960,640 http://localhost:1420`.
+    The capture is taken at page load, so it shows the loading screen; other screens need a way past it
+    (a dev-only URL flag would fix this). Also check `720,480` and the largest font scale.
+- **Done means:** `cargo clippy`, `npx tsc --noEmit`, `npm run build` and Prettier pass without warnings. No commits unless asked. No `--no-verify`. Stay inside the repo. Sub-agents (`kg-coder`, `kg-thinker`, `kg-reviewer`) can't browse: web searches go through main agent.
+
+## Conventions
+
+- Repo content (code, comments, docs, commits) is English.
+- Commit messages: `type(scope): summary`, then a bulleted body.
+- After changing commands, windows or the boot flow, update `docs/Rust-Guide.md` and regenerate `docs/diagrams/`.

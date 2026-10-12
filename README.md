@@ -49,9 +49,9 @@ Work that is already decided but not done yet. Detailed specs for M8 and M9 live
 ### M9: new settings
 
 - [ ] New `AppConfig` fields with `#[serde(default)]`, so old `config.toml` files keep loading.
-- [ ] UI font picker fed by the Windows registry (HKLM and HKCU), each option previewed in its own font; the title and loading screen keep their display font.
-- [ ] UI font size setting.
-- [ ] Pick any library GIF/PNG/WEBP/JPEG as the loading indicator, falling back to the default if that media is deleted.
+- [x] UI font picker fed by the installed Windows fonts (GDI enumeration, includes per-user fonts), each option previewed in its own font; the title and loading screen keep their display font.
+- [x] UI font size setting (Small, Default, Large, Larger), applied to every UI text through one CSS scale variable.
+- [x] Custom loading-screen image from Settings: its own file picker (GIF, PNG or JPEG), copied into the app folder so deleting library media never breaks it, shown inside a 34x34 box with a warning for big or non-square files, and a reset back to the default ball.
 - [ ] Soft limit on placed animations, derived from free RAM and a measured per-animation cost, with a user override.
 - [ ] Replace the 4 settings setters (`set_launch_on_startup`, `set_start_minimized_to_tray`, `set_confirm_media_delete`, `set_overlay_pool_size`) with one typed `set_setting` command (a Rust enum) when the new settings land.
 
@@ -62,11 +62,21 @@ Work that is already decided but not done yet. Detailed specs for M8 and M9 live
 - [ ] Right-click menu on the animation itself, with "delete".
 - [ ] Per-asset FPS control (today only the playback rate can be changed).
 - [ ] Global shortcut to show or hide every animation at once.
+- [ ] Choose the media storage folder from Settings. Postponed: needs a plan for missing or revoked write permissions.
 
 ### Known bugs
 
+- [x] A thin white strip showed at the top of the overlays on Windows 11 when switching between edit mode and other tabs (tao re-adds `WS_CAPTION`; fixed with a window subclass that blocks the non-client paint).
 - [ ] Launching a second instance crashes it with `0xC0000409`; likely `global_shortcut().register` failing in `setup()`. Planned fix: `tauri-plugin-single-instance`.
-- [ ] Sleeping overlay slots leave RAM, but their committed private memory doesn't drop.
+- [x] Sleeping overlay slots still cost ~22 MB each: every window was its own renderer. All windows now share one (`--process-per-site`), see [docs/profiling.md](docs/profiling.md).
+- [x] Overlays fell behind the taskbar after a focus change: the keeper never re-raised them (tao skips `SetWindowPos` when the topmost flag doesn't change). They are now raised every 2 s and on every foreground change.
+
+### Performance
+
+- [x] Control window sleeps while hidden in the tray; default pool size 4. Measured −35 % to −60 % private memory ([docs/profiling.md](docs/profiling.md)).
+- [x] Overlays appear when the loading screen ends; the loading screen follows real boot steps instead of a fixed 5 s.
+- [ ] Lighter GIF player: decode frames on demand (WebCodecs `ImageDecoder`) instead of keeping every frame decoded.
+- [ ] Destroy the control window on hide and recreate it on show, if its memory in the shared renderer matters.
 
 ## Recommended IDE setup
 

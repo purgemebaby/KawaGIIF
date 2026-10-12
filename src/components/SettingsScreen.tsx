@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { invoke } from '../lib/ipc';
 import { t } from '../i18n/en';
+import FontRow from './settings/FontRow';
+import LoadingIndicatorRow from './settings/LoadingIndicatorRow';
 import RamGauge from './settings/RamGauge';
 
 interface AppConfig {
@@ -8,6 +10,8 @@ interface AppConfig {
 	start_minimized_to_tray: boolean;
 	confirm_media_delete: boolean;
 	overlay_pool_size: number;
+	ui_font: string | null;
+	font_scale: number;
 }
 
 // must match window_manager::MAX_POOL in Rust
@@ -122,6 +126,19 @@ function SettingsScreen() {
 						}}
 					/>
 				</label>
+
+				<FontRow
+					font={config.ui_font}
+					scale={config.font_scale}
+					onFontChange={(family) =>
+						update('ui_font', family, 'set_ui_font', { family })
+					}
+					onScaleChange={(scale) =>
+						update('font_scale', scale, 'set_font_scale', { scale })
+					}
+				/>
+
+				<LoadingIndicatorRow />
 			</div>
 		</div>
 	);

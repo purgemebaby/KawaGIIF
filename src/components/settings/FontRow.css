@@ -1,0 +1,136 @@
+.settings-row.settings-row-font {
+	cursor: default;
+}
+
+.font-row-body {
+	display: flex;
+	flex-direction: column;
+	gap: var(--kg-space-3);
+	flex: 1;
+	min-width: 0;
+}
+
+.font-row-controls {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--kg-space-3);
+}
+
+.font-picker {
+	position: relative;
+}
+
+.font-picker-button {
+	min-width: 180px;
+	justify-content: space-between;
+}
+
+.font-picker-popover {
+	position: absolute;
+	z-index: 30;
+	top: calc(100% + var(--kg-space-1));
+	left: 0;
+	width: 280px;
+	padding: var(--kg-space-2);
+	border: 1px solid var(--kg-border);
+	border-radius: var(--kg-radius-md);
+	background: var(--kg-bg-raised);
+	box-shadow: var(--kg-shadow-2);
+	animation: kg-fade-up var(--kg-dur-fast) var(--kg-ease-out);
+}
+
+.font-picker-search {
+	width: 100%;
+	margin-bottom: var(--kg-space-2);
+	padding: 7px 9px;
+	border: 1px solid var(--kg-border);
+	border-radius: var(--kg-radius-sm);
+	background: var(--kg-bg-input);
+	color: var(--kg-fg);
+	font-family: inherit;
+	font-size: var(--kg-text-sm);
+}
+
+.font-picker-search:focus {
+	border-color: var(--kg-accent);
+	outline: none;
+}
+
+.font-picker-list {
+	max-height: 240px;
+	overflow-y: auto;
+}
+
+.font-picker-item {
+	display: block;
+	width: 100%;
+	padding: 7px 10px;
+	border: none;
+	border-radius: var(--kg-radius-sm);
+	background: none;
+	color: var(--kg-fg-muted);
+	font-size: var(--kg-text-md);
+	text-align: left;
+	cursor: pointer;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	/* Hundreds of fonts: skip the work for rows that are scrolled out of view. */
+	content-visibility: auto;
+	contain-intrinsic-size: auto 32px;
+}
+
+.font-picker-item:hover {
+	background: var(--kg-bg-panel);
+	color: var(--kg-fg);
+}
+
+.font-picker-item.selected {
+	color: var(--kg-accent-strong);
+	font-weight: 600;
+}
+
+.font-picker-empty {
+	margin: 0;
+	padding: var(--kg-space-2) var(--kg-space-3);
+	color: var(--kg-fg-faint);
+	font-size: var(--kg-text-sm);
+}
+
+.font-size-group {
+	display: inline-flex;
+	border: 1px solid var(--kg-border);
+	border-radius: var(--kg-radius-sm);
+	overflow: hidden;
+}
+
+.font-size-option {
+	padding: 6px 12px;
+	border: none;
+	background: var(--kg-bg-raised);
+	color: var(--kg-fg-muted);
+	font-family: inherit;
+	font-size: var(--kg-text-sm);
+	cursor: pointer;
+}
+
+.font-size-option + .font-size-option {
+	border-left: 1px solid var(--kg-border);
+}
+
+.font-size-option:hover {
+	color: var(--kg-fg);
+}
+
+.font-size-option.selected {
+	background: var(--kg-accent-soft);
+	color: var(--kg-accent-strong);
+	font-weight: 600;
+}
+
+.font-row-preview {
+	margin: 0;
+	color: var(--kg-fg-muted);
+	font-size: var(--kg-text-md);
+}

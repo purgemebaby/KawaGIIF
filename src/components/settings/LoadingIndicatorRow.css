@@ -1,0 +1,21 @@
+.settings-row.settings-row-indicator {
+	cursor: default;
+}
+
+.settings-indicator-preview {
+	flex: none;
+	width: var(--kg-walker-size);
+	height: var(--kg-walker-size);
+	margin-top: 2px;
+	object-fit: contain;
+}
+
+.settings-row .settings-indicator-actions {
+	flex-direction: row;
+	gap: var(--kg-space-2);
+	margin-top: var(--kg-space-2);
+}
+
+.settings-row small.settings-error {
+	color: var(--kg-danger);
+}

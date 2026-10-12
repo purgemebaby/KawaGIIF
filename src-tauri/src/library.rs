@@ -115,19 +115,12 @@ impl MediaItem {
 
 
 /**Struct of the local data catalogue in JSON format that stores `MediaItem`*/
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Default)]
 pub struct LibraryIndex {
-    #[serde(default = "LibraryIndex::schema_version")]
-    schema_version: u32,
     #[serde(default)]
     items: Vec<MediaItem>,
 }
-impl Default for LibraryIndex {
-    fn default() -> Self { Self { schema_version: Self::schema_version(), items: Vec::new() }}
-}
 impl LibraryIndex {
-    /// Current schema version of `library_index.json`, asked by `serde`'s default and by `Default`.
-    fn schema_version() -> u32 { 2 }
     /// Returns `PathBuf` to media folder at `%LOCALAPPDATA%\KawaGIIF\media`
     fn media_dir() -> PathBuf { config::data_dir().join("media") }
     /// Returns `PathBuf` to `%LOCALAPPDATA%\KawaGIIF\library_index.json`
