@@ -108,9 +108,14 @@ Windows moves the window itself → `WindowEvent::Moved` →
 `clamp_to_work_area` (if it had to correct, a new `Moved` comes) →
 `template::update_slot_geometry(slot, pos)` → updates `working` →
 `emit_to(control, "overlay-geometry-changed", instance_id)` →
-`useEditorSync` marks it as moved → `EditorScreen.syncMinimizable` →
-`has_unsaved_changes` → `set_control_minimizable(!dirty)`.
+`useEditorSync` marks it as moved (the editor's Save/Undo summary).
 Resizing: the overlay's handle sends `resize_overlay(w, h)` per animation frame → `Resized` → same path. Arrow keys → `nudge_overlay(dx, dy)`.
+
+### 4.3b Edit mode: active vs suspended
+
+`set_edit_mode` only records the intent (the editor screen is open). `template::refresh_edit_activity` decides whether editing is *active*: intent, and the control window visible and not minimized (`window_manager::control_is_open`), and one of our windows in the foreground (`native::foreground_is_ours`, fed by `watch_any_foreground`).
+When it is not active, editing is *suspended*: overlays go click-through again, the selection outline and resize handle are hidden, and the control window stops being topmost. The working copy and the selection stay, and editing resumes when the app is foregrounded again. Nothing is saved or discarded automatically.
+Losing the foreground suspends after 150 ms (`refresh_edit_activity_soon`), because clicking from one of our windows to another briefly has no foreground window of ours; resuming, hiding and minimizing apply at once. `edit-mode-changed` carries the *active* state.
 
 ### 4.4 Save / discard
 
@@ -163,7 +168,7 @@ focus, so the focus hook alone would never fire for it.
 | `close-requested`            | `lib::handle_control_close`                      | control      | `ControlApp`                                         |
 | `slot-assigned`              | `place_item_in_slot` (`emit_to_slot`)            | one overlay  | `OverlayItemApp` (`"self"`)                          |
 | `slot-released`              | `release_slot_for_instance`, `release_all_slots` | one overlay  | `OverlayItemApp` (`"self"`) → `overlay_idle`         |
-| `edit-mode-changed`          | `place_item_in_slot`, `set_edit_mode`            | one overlay  | `OverlayItemApp` (`"self"`)                          |
+| `edit-mode-changed`          | `place_item_in_slot`, `refresh_edit_activity`    | one overlay  | `OverlayItemApp` (`"self"`)                          |
 | `pickup-ended`               | `carry_with_cursor` (button released)            | one overlay  | `useSwing` (`"self"`)                                |
 | `item-opacity-changed`       | `update_item` via `set_item_opacity`             | one overlay  | `OverlayItemApp` (`"self"`)                          |
 | `item-playback-rate-changed` | `update_item` via `set_item_playback_rate`       | one overlay  | `OverlayItemApp` (`"self"`)                          |
@@ -183,7 +188,6 @@ focus, so the focus hook alone would never fire for it.
 |---|---|---|
 | `hide_control_window` | — | `()` |
 | `resize_overlay` | `width: u32, height: u32` (caller window) | `AppResult<()>` |
-| `set_control_minimizable` | `enabled: bool` | `AppResult<()>` |
 | `get_config` | — | `AppConfig` |
 | `set_launch_on_startup` | `enabled: bool` | `AppResult<()>` |
 | `set_start_minimized_to_tray` | `enabled: bool` | `AppResult<()>` |
@@ -224,11 +228,11 @@ focus, so the focus hook alone would never fire for it.
 | `list_placed_items` | — | `Vec<PlacedItemSummary>` |
 | `save_template` | — | `AppResult<()>` |
 | `discard_template_changes` | — | `AppResult<()>` |
-| `set_edit_mode` | `enabled: bool` | `()` |
+| `set_edit_mode` | `enabled: bool` | `()` (sets the editor intent only; see 4.3b) |
 | `select_overlay` | `instance_id: Option<Uuid>` | `()` |
 | `get_placed_media` | `instance_id: Uuid` | `Option<PlacedMedia>` |
 | `get_slot_info` | (caller window) | `Option<SlotInfo { instance_id, arrival }>` (not consumed; the overlay plays its entrance once per instance) |
-| `get_editor_status` | — | `EditorStatus` |
+| `get_editor_status` | — | `EditorStatus` (`edit_mode` = editing is active right now, not just intended) |
 | `set_item_opacity` | `instance_id: Uuid, opacity: f32` | `()` |
 | `set_item_playback_rate` | `instance_id: Uuid, playback_rate: f32` | `()` |
 | `spawn_placed_media` | `media_id: Uuid, at: SpawnAt` (`{kind:"center",monitor}` or `{kind:"cursor"}`) | `AppResult<SpawnedOverlay>` |

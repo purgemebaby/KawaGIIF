@@ -15,7 +15,7 @@ export function backend() {
 		'.manage(EditorState, LibraryState, SysState)', 'plugins: dialog, autostart, global-shortcut', 'generate_handler![ every command ]', 'setup(): control win, pool, tray, keeper',
 		'handle_control_close: X -> close-requested', 'handle_exit: discard edits, hide overlays', 'release_all_click_through (Ctrl+Alt+Esc)'] });
 	const cmd = s.box(C, 120, W, { title: 'commands.rs', sub: 'entry point: small commands', color: TEAL, bg: '#e3fafc', items: [
-		'hide_control_window / set_control_minimizable', 'resize_overlay(width, height)', 'get_config', 'set_launch_on_startup (autostart)', 'set_start_minimized_to_tray',
+		'hide_control_window', 'resize_overlay(width, height)', 'get_config', 'set_launch_on_startup (autostart)', 'set_start_minimized_to_tray',
 		'set_confirm_media_delete', 'set_overlay_pool_size (on restart)',
 		'set/reset/get_loading_indicator', 'list_system_fonts / set_ui_font / set_font_scale'] });
 

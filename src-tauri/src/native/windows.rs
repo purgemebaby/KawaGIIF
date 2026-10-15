@@ -33,7 +33,7 @@ use windows::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_LBUTTON, 
 use windows::Win32::UI::Shell::{DefSubclassProc, RemoveWindowSubclass, SetWindowSubclass};
 
 use windows::Win32::UI::WindowsAndMessaging::{
-    GetSystemMetrics, GetWindowLongPtrW, SetClassLongPtrW, SetWindowLongPtrW, SetWindowPos, SM_SWAPBUTTON,
+    GetForegroundWindow, GetSystemMetrics, GetWindowLongPtrW, GetWindowThreadProcessId, SetClassLongPtrW, SetWindowLongPtrW, SetWindowPos, SM_SWAPBUTTON,
     EVENT_SYSTEM_FOREGROUND, GCLP_HBRBACKGROUND, GWL_EXSTYLE, GWL_STYLE,
     HWND_TOPMOST, SET_WINDOW_POS_FLAGS,
     SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER,
@@ -88,6 +88,8 @@ use windows::Win32::UI::WindowsAndMessaging::WS_EX_TRANSPARENT;
 const GUARD_SUBCLASS_ID: usize = 0x4B47_4E43;
 static ON_FOREGROUND: OnceLock<Box<dyn Fn() + Send + Sync>> = OnceLock::new();
 static FOREGROUND_HOOK: AtomicUsize = AtomicUsize::new(0);
+static ON_ANY_FOREGROUND: OnceLock<Box<dyn Fn() + Send + Sync>> = OnceLock::new();
+static ANY_FOREGROUND_HOOK: AtomicUsize = AtomicUsize::new(0);
 
 // Getters/Setters
 fn get_style(hwnd: HWND, index: WINDOW_LONG_PTR_INDEX) -> isize {
@@ -136,6 +138,11 @@ unsafe extern "system" fn non_client_guard(hwnd: HWND, msg: u32, wparam: WPARAM,
 /** `SetWinEventHook` callback*/
 unsafe extern "system" fn on_foreground_changed(_hook: HWINEVENTHOOK, _event: u32, _hwnd: HWND, _object: i32, _child: i32, _thread: u32, _time: u32) {
     if let Some(callback) = ON_FOREGROUND.get() { callback(); }
+}
+
+/** `SetWinEventHook` callback of `watch_any_foreground`*/
+unsafe extern "system" fn on_any_foreground_changed(_hook: HWINEVENTHOOK, _event: u32, _hwnd: HWND, _object: i32, _child: i32, _thread: u32, _time: u32) {
+    if let Some(callback) = ON_ANY_FOREGROUND.get() { callback(); }
 }
 
 /** `EnumFontFamiliesExW` callback*/
@@ -208,23 +215,49 @@ pub fn guard_non_client(hwnd: HWND) {
     unsafe { let _ = SetWindowSubclass(hwnd, Some(non_client_guard), GUARD_SUBCLASS_ID, 0); }
 }
 
+/** Hooks `EVENT_SYSTEM_FOREGROUND` with `callback` and returns the hook handle (0 if Windows refused). */
+fn hook_foreground(callback: unsafe extern "system" fn(HWINEVENTHOOK, u32, HWND, i32, i32, u32, u32), flags: u32) -> usize {
+    let hook: HWINEVENTHOOK = unsafe {
+        SetWinEventHook(EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_FOREGROUND, None, Some(callback), 0, 0, flags)
+    };
+    #[cfg(debug_assertions)]
+    if hook.0.is_null() { eprintln!("[kawagiif] SetWinEventHook failed: foreground changes are not watched"); }
+    hook.0 as usize
+}
+
+/** Removes the hook stored in `slot`, if any. */
+fn unhook(slot: &AtomicUsize) {
+    let hook: usize = slot.swap(0, Ordering::Relaxed);
+    if hook != 0 { unsafe { let _ = UnhookWinEvent(HWINEVENTHOOK(hook as *mut c_void)); } }
+}
+
 /**
  * Calls `callback` every time another app's window becomes the foreground one .
  */
 pub fn watch_foreground(callback: impl Fn() + Send + Sync + 'static) {
     if ON_FOREGROUND.set(Box::new(callback)).is_err() { return; }
-    let hook: HWINEVENTHOOK = unsafe {
-        SetWinEventHook(EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_FOREGROUND, None, Some(on_foreground_changed), 0, 0, WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS)
-    };
-    #[cfg(debug_assertions)]
-    if hook.0.is_null() { eprintln!("[kawagiif] SetWinEventHook failed: only the keeper raises the overlays"); }
-    FOREGROUND_HOOK.store(hook.0 as usize, Ordering::Relaxed);
+    FOREGROUND_HOOK.store(hook_foreground(on_foreground_changed, WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS), Ordering::Relaxed);
 }
 
-/** Removes the hook of `watch_foreground`; called on exit. */
+/** Like `watch_foreground`, but also fires when one of our own windows becomes the foreground one (separate hook). */
+pub fn watch_any_foreground(callback: impl Fn() + Send + Sync + 'static) {
+    if ON_ANY_FOREGROUND.set(Box::new(callback)).is_err() { return; }
+    ANY_FOREGROUND_HOOK.store(hook_foreground(on_any_foreground_changed, WINEVENT_OUTOFCONTEXT), Ordering::Relaxed);
+}
+
+/** Removes the hooks of `watch_foreground` and `watch_any_foreground`; called on exit. */
 pub fn unwatch_foreground() {
-    let hook: usize = FOREGROUND_HOOK.swap(0, Ordering::Relaxed);
-    if hook != 0 { unsafe { let _ = UnhookWinEvent(HWINEVENTHOOK(hook as *mut c_void)); } }
+    unhook(&FOREGROUND_HOOK);
+    unhook(&ANY_FOREGROUND_HOOK);
+}
+
+/** Whether the foreground window belongs to this process (no foreground window, as during a window switch, counts as no). */
+pub fn foreground_is_ours() -> bool {
+    let mut process: u32 = 0;
+    let window: HWND = unsafe { GetForegroundWindow() };
+    if window.0.is_null() { return false; }
+    unsafe { GetWindowThreadProcessId(window, Some(std::ptr::from_mut(&mut process))); }
+    process == std::process::id()
 }
 
 /** Whether the primary mouse button is held right now, anywhere on screen (respects swapped buttons). */

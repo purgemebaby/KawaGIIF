@@ -5,7 +5,31 @@ use std::collections::HashSet;
 use std::sync::{Mutex, MutexGuard, PoisonError};
 use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System};
 
+// System contains info about processes
+
+
 const BYTES_PER_MB: u64 = 1024 * 1024;
+
+#[derive(Serialize)]
+pub struct SystemStats {
+    pub total_ram_mb: u64,
+    pub used_ram_mb: u64,
+    pub available_ram_mb: u64,
+    pub app_ram_mb: u64,
+}
+
+
+pub struct SysState(Mutex<System>);
+impl Default for SysState {
+    fn default() -> Self { Self(Mutex::new(System::new())) }
+}
+impl SysState {
+    fn lock(&self) -> MutexGuard<'_, System> {
+        self.0.lock()
+        .unwrap_or_else(PoisonError::into_inner)
+    }
+}
+
 
 /// Update RAM usage metrics from OS processes
 fn refresh_process_memory(sys: &mut System) {
@@ -35,21 +59,7 @@ fn app_ram_mb(sys: &System) -> u64 {
 }
 
 
-#[derive(Serialize)]
-pub struct SystemStats {
-    pub total_ram_mb: u64,
-    pub used_ram_mb: u64,
-    pub available_ram_mb: u64,
-    pub app_ram_mb: u64,
-}
 
-pub struct SysState(Mutex<System>);
-impl Default for SysState {
-    fn default() -> Self { Self(Mutex::new(System::new())) }
-}
-impl SysState {
-    fn lock(&self) -> MutexGuard<'_, System> { self.0.lock().unwrap_or_else(PoisonError::into_inner) }
-}
 
 
 // Stats commands

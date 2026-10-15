@@ -74,7 +74,6 @@ pub fn run() {
         )
         .invoke_handler(tauri::generate_handler![
             commands::hide_control_window,
-            commands::set_control_minimizable,
             commands::resize_overlay,
             commands::get_config,
             commands::set_launch_on_startup,
@@ -133,11 +132,15 @@ pub fn run() {
             window_manager::create_overlay_pool(handle)?;
 
             let control_for_close: WebviewWindow = control.clone();
-            control.on_window_event(move |event| {
-                if let WindowEvent::CloseRequested { api, .. } = event {
+            let app_for_events: AppHandle = handle.clone();
+            control.on_window_event(move |event| match event {
+                WindowEvent::CloseRequested { api, .. } => {
                     api.prevent_close();
                     handle_control_close(&control_for_close);
                 }
+                // minimize/restore (a resize) and focus changes decide whether editing is live
+                WindowEvent::Resized(_) | WindowEvent::Focused(_) => template::refresh_edit_activity_soon(&app_for_events),
+                _ => {}
             });
 
             #[cfg(debug_assertions)]

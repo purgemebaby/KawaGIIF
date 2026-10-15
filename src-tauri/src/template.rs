@@ -2,7 +2,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Mutex, MutexGuard, PoisonError};
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, EventTarget, Manager, PhysicalPosition, PhysicalSize, State, WebviewWindow};
@@ -24,6 +24,8 @@ const MAX_SPAWN_SIDE: f64 = 480.0;
 const MIN_SIDE: u32 = 40;
 const SAVE_DEBOUNCE: Duration = Duration::from_millis(400);
 const BOOT_FALLBACK: Duration = Duration::from_secs(15);
+const SUSPEND_DELAY: Duration = Duration::from_millis(150); //a click between our own windows passes through "no foreground window"
+static ACTIVITY_GENERATION: AtomicU64 = AtomicU64::new(0); //bumped on every window/foreground change; a pending suspension runs only while it is the latest
 static BOOT_SHOWN: AtomicBool = AtomicBool::new(false); //the boot placement already ran (or the editor took over)
 
 fn template_path() -> PathBuf { config::data_dir().join("template.json") }
@@ -101,7 +103,7 @@ pub struct PlacedItemSummary {
     pub selected: bool,
 }
 
-/**Lets a window ask for the editor state: an event sent before it starts listening is lost.*/
+/**Lets a window ask for the editor state: an event sent before it starts listening is lost. `edit_mode` is whether editing is live right now (not suspended).*/
 #[derive(Serialize)]
 pub struct EditorStatus {
     pub edit_mode: bool,
@@ -150,7 +152,8 @@ pub struct Editor {
     working: Template,
     saved: Template,
     selected: Option<Uuid>,
-    edit_mode: bool,
+    edit_mode: bool, //the editor screen is open (the intent)
+    edit_active: bool, //what `refresh_edit_activity` last applied: edit_mode, control window open and app in the foreground
     slots: Vec<Option<Uuid>>,
     arrivals: Vec<Arrival>, //per slot, read by `get_slot_info`
     save_generation: u64, //last move waiting for `schedule_save`
@@ -215,6 +218,7 @@ impl Default for EditorState {
             saved: Template::default(),
             selected: None,
             edit_mode: false,
+            edit_active: false,
             slots: vec![None; window_manager::pool_size()],
             arrivals: vec![Arrival::Reload; window_manager::pool_size()],
             save_generation: 0,
@@ -231,8 +235,8 @@ impl EditorState {
 
 // Slot orchestration
 /**
- * Takes a free pool window, shows the animation in it and tells it (`slot-assigned`) plus the current edit mode,
- * since `set_edit_mode` only notifies slots occupied at that moment. `arrival` is stored before the window wakes, so
+ * Takes a free pool window, shows the animation in it and tells it (`slot-assigned`) plus whether editing is live
+ * (`interactive`), since `refresh_edit_activity` only notifies slots occupied at that moment. `arrival` is stored before the window wakes, so
  * the overlay reads it with `get_slot_info` even if it slept through the event.
  */
 fn place_item_in_slot(app: &AppHandle, state: &EditorState, item: &PlacedMedia, interactive: bool, arrival: Arrival) -> AppResult<usize> {
@@ -408,19 +412,19 @@ pub fn update_slot_geometry(app: &AppHandle, slot: usize, pos: Option<(i32, i32)
 
 // Template Commands
 /// Reloads the template from disk and places it again (windows may be showing nothing after "kill all");
-/// they come up click-through and `set_edit_mode(true)` makes them interactive. When the overlays already show exactly
-/// that template (the usual case when opening the editor) nothing is re-placed: re-placing made every overlay fetch
-/// and decode its GIF again, freezing all windows for ~400 ms.
+/// they come up click-through unless editing is live, and `set_edit_mode(true)` makes them interactive. When the overlays
+/// already show exactly that template (the usual case when opening the editor) nothing is re-placed: re-placing made
+/// every overlay fetch and decode its GIF again, freezing all windows for ~400 ms.
 #[tauri::command]
 pub fn load_template(app: AppHandle, state: State<EditorState>) -> AppResult<Template> {
     BOOT_SHOWN.store(true, Ordering::SeqCst);
     let tpl = load_template_from_disk();
-    let already_shown: bool = {
+    let (already_shown, interactive): (bool, bool) = {
         let editor = state.lock();
         let shown: HashSet<Uuid> = editor.slots.iter().flatten().copied().collect();
-        editor.working == tpl && shown == tpl.items.iter().map(|item| item.instance_id).collect()
+        (editor.working == tpl && shown == tpl.items.iter().map(|item| item.instance_id).collect(), editor.edit_active)
     };
-    if !already_shown { respawn_overlays_from(&app, &state, &tpl, false)?; }
+    if !already_shown { respawn_overlays_from(&app, &state, &tpl, interactive)?; }
     {
         let mut editor = state.lock();
         editor.working = tpl.clone();
@@ -450,12 +454,12 @@ pub fn save_template(state: State<EditorState>) -> AppResult<()> {
 
 #[tauri::command]
 pub fn discard_template_changes(app: AppHandle, state: State<EditorState>) -> AppResult<()> {
-    let (saved, edit_mode) = {
+    let (saved, interactive) = {
         let mut editor = state.lock();
         editor.discard_changes();
-        (editor.saved.clone(), editor.edit_mode)
+        (editor.saved.clone(), editor.edit_active)
     };
-    respawn_overlays_from(&app, &state, &saved, edit_mode)?;
+    respawn_overlays_from(&app, &state, &saved, interactive)?;
     notify_placed_items_changed(&app);
     Ok(())
 }
@@ -487,44 +491,77 @@ pub fn list_placed_items(state: State<EditorState>, library: State<LibraryState>
         .collect()
 }
 
-/// Enters or leaves edit mode. Leaving clears the selection (pool windows are never recreated, so the outline would stay).
-/// Overlays toggle click-through and get their styles reapplied (interactive ones gain focus and Tauri redoes its
-/// `skip_taskbar` fix). Everything is topmost, so overlays are raised first and the control window last to end on top.
+/// Opens or closes the editor (the intent). Closing clears the selection (pool windows are never recreated, so the outline
+/// would stay); a suspended editor (app in the background) keeps it. The windows follow through `refresh_edit_activity`.
 #[tauri::command]
 pub fn set_edit_mode(app: AppHandle, state: State<EditorState>, enabled: bool) {
-    let occupied = {
+    {
         let mut editor = state.lock();
         editor.edit_mode = enabled;
         if !enabled { editor.selected = None; }
-        editor.occupied_slots()
-    };
+    }
     if !enabled { notify_selection_cleared(&app); }
+    // on the main thread like every other refresh, so two of them can never apply out of order
+    let handle = app.clone();
+    let _ = app.run_on_main_thread(move || refresh_edit_activity(&handle));
+}
+
+/** Makes the windows match `edit_mode && control open && app in front`, only when that changed; no lock is held during window calls. */
+pub fn refresh_edit_activity(app: &AppHandle) {
+    let in_use: bool = window_manager::control_is_open(app) && window_manager::app_is_foreground();
+    let state = app.state::<EditorState>();
+    let (active, occupied) = {
+        let mut editor = state.lock();
+        let active: bool = editor.edit_mode && in_use;
+        if active == editor.edit_active { return; }
+        editor.edit_active = active;
+        (active, editor.occupied_slots())
+    };
 
     for &slot in &occupied {
-        if let Some(window) = window_manager::slot_window(&app, slot) {
-            window_manager::set_overlay_click_through(&window, !enabled);
+        if let Some(window) = window_manager::slot_window(app, slot) {
+            window_manager::set_overlay_click_through(&window, !active);
         }
-        window_manager::reassert_slot_style(&app, slot);
-        emit_to_slot(&app, slot, "edit-mode-changed", enabled);
+        window_manager::reassert_slot_style(app, slot);
+        emit_to_slot(app, slot, "edit-mode-changed", active);
     }
 
     if let Some(control) = app.get_webview_window(window_manager::CONTROL_LABEL) {
-        let _ = control.set_always_on_top(enabled);
+        let _ = control.set_always_on_top(active);
     }
-    if enabled {
+    if active {
         for &slot in &occupied {
-            window_manager::raise_slot(&app, slot);
+            window_manager::raise_slot(app, slot);
         }
-        window_manager::raise_control(&app);
+        window_manager::raise_control(app);
     }
 
-    window_manager::log_overlay_state(&app, if enabled { "enter editor" } else { "leave editor" });
+    window_manager::log_overlay_state(app, if active { "editing resumed" } else { "editing suspended" });
 }
 
+/** Like `refresh_edit_activity`, but losing the foreground waits `SUSPEND_DELAY` (a click between our windows briefly has none). */
+pub fn refresh_edit_activity_soon(app: &AppHandle) {
+    let generation: u64 = ACTIVITY_GENERATION.fetch_add(1, Ordering::SeqCst) + 1;
+    if !window_manager::control_is_open(app) || window_manager::app_is_foreground() {
+        refresh_edit_activity(app);
+        return;
+    }
+    if !app.state::<EditorState>().lock().edit_active { return; }
+
+    let app = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(SUSPEND_DELAY);
+        if ACTIVITY_GENERATION.load(Ordering::SeqCst) != generation { return; }
+        let handle = app.clone();
+        let _ = app.run_on_main_thread(move || refresh_edit_activity(&handle));
+    });
+}
+
+/// Whether editing is live right now, which is what an overlay needs to know (not whether the editor screen is open).
 #[tauri::command]
 pub fn get_editor_status(state: State<EditorState>) -> EditorStatus {
     let editor = state.lock();
-    EditorStatus { edit_mode: editor.edit_mode, selected: editor.selected }
+    EditorStatus { edit_mode: editor.edit_active, selected: editor.selected }
 }
 
 #[tauri::command]
@@ -630,7 +667,8 @@ pub fn spawn_placed_media(app: AppHandle, state: State<EditorState>, media_id: U
     let instance_id = item.instance_id;
 
     let carried: bool = matches!(at, SpawnAt::Cursor);
-    let slot = place_item_in_slot(&app, &state, &item, true, if carried { Arrival::Carried } else { Arrival::Pop })?;
+    let interactive: bool = state.lock().edit_active;
+    let slot = place_item_in_slot(&app, &state, &item, interactive, if carried { Arrival::Carried } else { Arrival::Pop })?;
     state.lock().working.items.push(item);
     if carried {
         let handle = app.clone();

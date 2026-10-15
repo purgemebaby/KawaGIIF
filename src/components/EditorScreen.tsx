@@ -3,7 +3,6 @@ import { invoke } from '../lib/ipc';
 import type { Template } from '../lib/placed';
 import { useEditorSync } from '../hooks/useEditorSync';
 import { useDeleteShortcut } from '../hooks/useDeleteShortcut';
-import { useTauriEvent } from '../hooks/useTauriEvent';
 import { useMonitors } from '../hooks/useMonitors';
 import { primaryMonitorIndex } from '../lib/monitors';
 import { t } from '../i18n/en';
@@ -46,20 +45,8 @@ function EditorScreen() {
 		})();
 		return () => {
 			invoke('set_edit_mode', { enabled: false });
-			invoke('set_control_minimizable', { enabled: true });
 		};
 	}, []);
-
-	const syncMinimizable = useCallback(async () => {
-		const dirty = await invoke<boolean>('has_unsaved_changes');
-		await invoke('set_control_minimizable', { enabled: !dirty });
-	}, []);
-
-	useEffect(() => {
-		syncMinimizable();
-	}, [syncMinimizable, movedInstanceIds]);
-
-	useTauriEvent('placed-items-changed', syncMinimizable);
 
 	const openSaveConfirm = async () => {
 		const working = await invoke<Template>('get_working_template');
@@ -83,7 +70,6 @@ function EditorScreen() {
 		savedIdsRef.current = instanceIdsOf(working);
 		resetMoved();
 		setShowSaveConfirm(false);
-		await syncMinimizable();
 	};
 
 	const confirmUndo = async () => {
@@ -92,7 +78,6 @@ function EditorScreen() {
 		savedIdsRef.current = instanceIdsOf(saved);
 		resetMoved();
 		setShowUndoConfirm(false);
-		await syncMinimizable();
 	};
 
 	const hasChanges =

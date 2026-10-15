@@ -202,7 +202,6 @@ function ControlApp() {
 		} else {
 			await invoke('discard_template_changes');
 		}
-		await invoke('set_control_minimizable', { enabled: true });
 		const exit = pendingExit;
 		setPendingExit(null);
 		runExit(exit);

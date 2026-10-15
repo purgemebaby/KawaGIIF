@@ -268,18 +268,21 @@ pub fn spawn_topmost_keeper(app: &AppHandle) {
 /**
  * Instant re-raise every time another app takes the foreground (taskbar click, Start, a game). Raise only: restyling on
  * every focus change would redraw the frames (`SWP_FRAMECHANGED`) and risk flicker; the keeper restyles.
+ * A second hook also sees our own windows taking the foreground, so editing resumes when the app returns to the front.
  */
 pub fn watch_foreground_changes(app: &AppHandle) {
     #[cfg(windows)]
     {
-        let app = app.clone();
-        native::watch_foreground(move || raise_visible_overlays(&app, false));
+        let raising = app.clone();
+        native::watch_foreground(move || raise_visible_overlays(&raising, false));
+        let editing = app.clone();
+        native::watch_any_foreground(move || crate::template::refresh_edit_activity_soon(&editing));
     }
     #[cfg(not(windows))]
     let _ = app;
 }
 
-/** Removes the hook of `watch_foreground_changes`. */
+/** Removes the hooks of `watch_foreground_changes`. */
 pub fn stop_watching_foreground_changes() {
     #[cfg(windows)]
     native::unwatch_foreground();
@@ -314,14 +317,32 @@ pub fn hide_control(app: &AppHandle) {
     let _ = control.hide();
     let check = control.clone();
     set_slot_dormant(&control, true, move || !check.is_visible().unwrap_or(false)); //shown again meanwhile → stay awake
+    let handle = app.clone();
+    after_queued(&control, move |_| crate::template::refresh_edit_activity(&handle));
 }
 
-/** Wakes the control window's webview, then shows and focuses it. */
+/** Wakes the control window's webview, then shows, restores and focuses it. */
 pub fn show_control(app: &AppHandle) {
     let Some(control) = app.get_webview_window(CONTROL_LABEL) else { return; };
     set_slot_dormant(&control, false, || true);
     let _ = control.show();
+    let _ = control.unminimize();
     let _ = control.set_focus();
+    let handle = app.clone();
+    after_queued(&control, move |_| crate::template::refresh_edit_activity(&handle));
+}
+
+/** Whether the control window is on screen: visible and not minimized. */
+pub fn control_is_open(app: &AppHandle) -> bool {
+    app.get_webview_window(CONTROL_LABEL).is_some_and(|c| c.is_visible().unwrap_or(false) && !c.is_minimized().unwrap_or(false))
+}
+
+/** Whether one of our windows is the foreground one (always true off Windows, where nothing tracks it). */
+pub fn app_is_foreground() -> bool {
+    #[cfg(windows)]
+    return native::foreground_is_ours();
+    #[cfg(not(windows))]
+    true
 }
 
 

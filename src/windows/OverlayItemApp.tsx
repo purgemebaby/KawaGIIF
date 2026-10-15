@@ -189,10 +189,13 @@ function OverlayItemApp() {
 		if (instanceId) invoke('remove_placed_media', { instanceId });
 	}, [instanceId]);
 
-	useDeleteShortcut(selected, removeSelf);
+	// A suspended editor (app in the background) keeps the selection but shows and handles nothing.
+	const editing = editMode && selected;
+
+	useDeleteShortcut(editing, removeSelf);
 
 	useEffect(() => {
-		if (!selected) return;
+		if (!editing) return;
 		const onKeyDown = (e: KeyboardEvent) => {
 			const step = e.shiftKey ? 10 : 1;
 			let dx = 0;
@@ -207,7 +210,7 @@ function OverlayItemApp() {
 		};
 		window.addEventListener('keydown', onKeyDown);
 		return () => window.removeEventListener('keydown', onKeyDown);
-	}, [selected]);
+	}, [editing]);
 
 	const select = () => {
 		if (instanceId) invoke('select_overlay', { instanceId });
@@ -277,7 +280,7 @@ function OverlayItemApp() {
 
 	return (
 		<div
-			className={selected ? 'overlay-shell selected' : 'overlay-shell'}
+			className={editing ? 'overlay-shell selected' : 'overlay-shell'}
 			data-tauri-drag-region
 			onMouseDown={select}
 		>
@@ -330,7 +333,7 @@ function OverlayItemApp() {
 					)}
 				</div>
 			</div>
-			{editMode && selected && (
+			{editing && (
 				<div className="resize-handle" onPointerDown={onResizeStart} />
 			)}
 		</div>

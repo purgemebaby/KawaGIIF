@@ -1,6 +1,6 @@
 /* Small commands that don't belong to a bigger module: the control window, overlay resizing and settings. */
 use std::path::PathBuf;
-use tauri::{AppHandle, Manager, PhysicalSize, WebviewWindow};
+use tauri::{AppHandle, PhysicalSize, WebviewWindow};
 use tauri_plugin_autostart::ManagerExt;
 use uuid::Uuid;
 
@@ -32,15 +32,6 @@ fn loading_indicator_path() -> Option<PathBuf> {
 // Control window commands
 #[tauri::command]
 pub fn hide_control_window(app: AppHandle) { window_manager::hide_control(&app); }
-
-/// Minimizing during an unsaved edit leaves no visible way back (overlays stay interactive), so the editor locks it.
-#[tauri::command]
-pub fn set_control_minimizable(app: AppHandle, enabled: bool) -> AppResult<()> {
-    if let Some(window) = app.get_webview_window(window_manager::CONTROL_LABEL) {
-        window.set_minimizable(enabled)?;
-    }
-    Ok(())
-}
 
 #[tauri::command]
 pub fn resize_overlay(window: WebviewWindow, width: u32, height: u32) -> AppResult<()> {
