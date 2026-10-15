@@ -6,7 +6,7 @@ on the Windows desktop. Tauri v2: Rust backend, React UI inside WebView2. Open-s
 ## Stack
 
 Tauri 2.11 (tao 0.35) · `windows` 0.61 (**must equal the version Tauri uses**, check with `cargo tree`, or `HWND` types
-clash) · `webview2-com` 0.38 · React 19 · Vite 8 · TypeScript 6 · plugins: dialog, autostart, global-shortcut.
+clash) · `webview2-com` 0.38 · React 19 · Vite 8 · TypeScript 6 · Motion 14 (springs, overlay bundle only) · plugins: dialog, autostart, global-shortcut.
 
 ## Commands
 
@@ -31,15 +31,16 @@ src/                             React frontend
   main.tsx                       control window entry (applies font settings before rendering)
   entries/overlay.tsx            overlay entry: keep this bundle light, never import control-only code
   windows/                       ControlApp (screens, boot, exit guard) and OverlayItemApp (media, drag, resize)
-  components/                    screens (Home, Storage, Editor, Settings, Loading) and pieces; settings/ holds one file per settings row
+  components/                    screens (Home, Storage, Editor, Settings, Loading), SectionTabs (tiles morph into tabs), pieces; settings/ holds one file per settings row
   context/LibraryProvider.tsx    media library state shared by the control window
-  hooks/                         useTauriEvent, useEditorSync, useMediaUrl, useDismiss, useLoadingIndicator, ...
-  lib/                           ipc.ts (invoke/listen + browser mocks), media.ts, placed.ts, appearance.ts
+  hooks/                         useTauriEvent, useEditorSync, useMediaUrl, useDismiss, useLoadingIndicator, useMediaSelection, useMonitors, useSwing (overlay pickup), ...
+  lib/                           ipc.ts (invoke/listen + browser mocks), media.ts, placed.ts, appearance.ts, monitors.ts, zoom.ts
   i18n/en.ts                     every visible string (`t.*`)
   styles/                        tokens, base, motion, components, index (control), overlay
 src-tauri/src/
   lib.rs                         builder, plugins, command registry, setup, exit
-  window_manager.rs              control window, overlay pool, raising, dormant webviews, BROWSER_ARGS
+  window_manager.rs              control window (fixed 960×640, max 1920×1080), overlay pool, raising, dormant webviews, BROWSER_ARGS
+  monitors.rs                    monitor list (work areas), centring a box on a monitor
   template.rs                    placed animations, slots, template.json, boot placement, edit mode
   library.rs                     media library and tags (library_index.json)
   config.rs                      config.toml, data folder, write_atomic

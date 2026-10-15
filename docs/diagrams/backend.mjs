@@ -20,13 +20,13 @@ export function backend() {
 		'set/reset/get_loading_indicator', 'list_system_fonts / set_ui_font / set_font_scale'] });
 
 	const libr = s.box(A, 560, W, { title: 'library.rs', sub: 'domain + state: the catalogue', color: GREEN, bg: '#ebfbee', items: [
-		'LibraryState( Mutex<LibraryIndex> )', 'MediaItem { id, tags, ... }', 'import_media(paths: Vec<PathBuf>)', 'delete_media(id, force) -> REFERENCED:n',
+		'LibraryState( Mutex<LibraryIndex> )', 'MediaItem { id, tags, ... }', 'import_media(paths: Vec<PathBuf>)', 'delete_media(ids, force): batch, only our copies',
 		'tags: list_all_tags / rename_tag / delete_tag', 'get_media_path, notify_library_changed'] });
 	const tpl = s.box(B, 560, W, { title: 'template.rs', sub: 'domain + state: the brain', color: GREEN, bg: '#ebfbee', items: [
-		'EditorState( Mutex<Editor> )', 'Editor { working, saved, selected,', '          edit_mode, slots }', 'spawn_placed_media / remove_placed_media',
+		'EditorState( Mutex<Editor> )', 'Editor { working, saved, selected,', '          edit_mode, slots }', 'spawn_placed_media(at) / move_overlay_to_monitor',
 		'place_item_in_slot (alloc_slot / free_slot)', 'save_template / discard_template_changes', 'update_slot_geometry (called on drag)', 'purge_media_references, load_saved_template_on_boot', 'show_saved_overlays (after the loading screen)'] });
 	const wm = s.box(C, 560, W, { title: 'window_manager.rs', sub: 'window ops: the stage hand', color: BLUE, bg: '#e7f5ff', items: [
-		'create_control_window / create_overlay_pool', 'pool OV-SLOT-0..N  (pool_size())', 'show_slot / hide_slot / raise_slot', 'set_slot_dormant (free slot sleeps)',
+		'create_control_window (sized to monitor) / pool', 'pool OV-SLOT-0..N  (pool_size())', 'show_slot / hide_slot / raise_slot', 'set_slot_dormant (free slot sleeps)',
 		'set_overlay_click_through, clamp_to_work_area', 'reapply_overlay_style (focus, show, 2 s)', 'spawn_topmost_keeper (thread)', 'watch_overlay_events -> template'] });
 
 	const cfg = s.box(A, 1060, W, { title: 'config.rs', sub: 'foundation: settings + atomic writes', color: GRAY, bg: '#f1f3f5', items: [

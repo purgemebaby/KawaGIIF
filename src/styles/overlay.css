@@ -18,6 +18,12 @@ body,
 	height: 100%;
 }
 
+/* transforms (pop, swing) may poke past the window edge: clip them instead of showing scrollbars */
+html,
+body {
+	overflow: hidden;
+}
+
 body {
 	user-select: none;
 	-webkit-user-select: none;

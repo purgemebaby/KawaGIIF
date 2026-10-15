@@ -9,8 +9,7 @@ export const t = {
 		storage: 'Library',
 		editor: 'Editor',
 		settings: 'Settings',
-		open: 'Open the menu',
-		close: 'Close the menu',
+		backHome: 'Back to Home',
 		title: 'Main navigation',
 	},
 
@@ -68,15 +67,28 @@ export const t = {
 				`You're about to import ${list}. Together they take ${total} on disk, and KawaGIIF keeps its own copy of each file. Continue?`,
 			confirm: 'Import anyway',
 		},
+		select: {
+			start: 'Select',
+			all: 'Select all',
+			done: 'Done',
+			count: (n: number) => `${n} selected`,
+			delete: (n: number) => `Delete (${n})`,
+			toggle: (name: string) => `Select “${name}”`,
+		},
 		deleteConfirm: {
-			title: 'Delete this file?',
-			body: (name: string) =>
-				`“${name}” will be removed from the library and its file deleted from disk. This can't be undone.`,
-			placedBody: (name: string, count: number) =>
+			title: (name: string, count: number) =>
+				count === 1 ? `Delete “${name}”?` : `Delete ${count} files?`,
+			body: (count: number) =>
 				count === 1
-					? `“${name}” is placed on the desktop. If you delete it, it will disappear from there too.`
-					: `“${name}” is placed in ${count} spots on the desktop. If you delete it, it will disappear from all of them.`,
-			confirm: 'Delete anyway',
+					? 'KawaGIIF will remove it from your library and delete its own copy. Your original file stays where it is.'
+					: 'KawaGIIF will remove them from your library and delete its own copies. Your original files stay where they are.',
+			placed: (count: number) =>
+				count === 1
+					? "It's showing on your desktop right now and will disappear from there too."
+					: 'Some of them are showing on your desktop right now and will disappear from there too.',
+			keep: 'Keep',
+			confirm: (count: number) =>
+				count === 1 ? 'Delete' : `Delete ${count} files`,
 		},
 	},
 
@@ -108,14 +120,23 @@ export const t = {
 		save: 'Save',
 		sidebarTitle: 'Files',
 		sidebarEmpty: 'Import files from the Library first.',
-		sidebarHint: 'Drag onto the desktop to place it',
+		sidebarHint:
+			'Click to place it in the middle of the monitor, or drag it onto the desktop',
 		canvasHint: [
-			'Drag an animation from the list onto the desktop to place it.',
+			'Click an animation in the list to place it in the middle of the monitor, or drag it onto the desktop.',
 			"Click an animation that's already placed to select and edit it.",
 		],
 		placedTitle: 'Placed',
 		placedEmpty: "You haven't placed any animations yet.",
 		removeItem: 'Remove from desktop',
+		monitor: {
+			label: 'Monitor',
+			targetHint: 'New animations appear in the middle of this monitor.',
+			moveHint: 'Moves the animation to the middle of the chosen monitor.',
+			option: (n: number, width: number, height: number) =>
+				`Monitor ${n} · ${width}×${height}`,
+			primary: '(main)',
+		},
 		saveConfirm: {
 			title: 'Apply the changes?',
 			added: (n: number) => `${n} added`,
@@ -164,7 +185,7 @@ export const t = {
 		},
 		confirmDelete: {
 			label: 'Confirm before deleting files',
-			hint: "Ask before removing a file from the library. Deleting can't be undone.",
+			hint: "Ask before removing a file from the library. Only KawaGIIF's copy is deleted, never your original. Files showing on the desktop always ask.",
 		},
 		font: {
 			label: 'Interface font',
@@ -180,6 +201,15 @@ export const t = {
 				large: 'Large',
 				larger: 'Larger',
 			},
+		},
+		zoom: {
+			label: 'Interface zoom',
+			hint:
+				'Make everything bigger or smaller. Shortcuts: Ctrl + plus, Ctrl + minus, Ctrl + 0 to reset, ' +
+				'or Ctrl + mouse wheel.',
+			zoomIn: 'Zoom in',
+			zoomOut: 'Zoom out',
+			reset: 'Reset',
 		},
 		loadingIndicator: {
 			label: 'Loading animation',

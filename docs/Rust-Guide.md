@@ -34,7 +34,7 @@ in this order:
    A `#[tauri::command]` that isn't here doesn't exist in the frontend.
 
 4. **`setup()`** runs once, on the main thread, before the event loop:
-   1. `window_manager::create_control_window` (hidden).
+   1. `window_manager::create_control_window` (hidden), at a fixed 960×640 logical px (`CONTROL_BASE`), centred. Sizing it to the monitor cost ~30 % fps in view transitions. It cannot grow past 1920×1080 logical px (`MAX_CONTROL`, fewer pixels composited per frame), and right after it is built the saved `ui_zoom` is applied with the webview zoom (`Webview::set_zoom`, WebView2's ZoomFactor).
    2. `window_manager::create_overlay_pool`: Creates **all** overlay windows (`OV-SLOT-0..N`), hidden.
    3. `template::load_saved_template_on_boot`: Reads `template.json` into the editor without showing it. `show_saved_overlays` places the animations click-through once the loading screen ends (`show_boot_overlays`), right away when starting in the tray, or after 15 s as a fallback.
    4. Registers the `Ctrl+Alt+Esc` shortcut.
@@ -59,6 +59,7 @@ Read the modules top to bottom. Each one only calls the ones below it.
 | Domain + state | `template.rs`                              | Placed animations, editor state, slot assignment |
 | Domain + state | `library.rs`                               | Imported media, tags                             | the catalogue |
 | Window ops     | `window_manager.rs`                        | Pool of windows, show/hide/move, styles          |
+| Window ops     | `monitors.rs`                              | Monitor list, centring a box in a work area      |
 | OS             | `native/windows.rs`                        | Raw Win32 (`unsafe`)                             |
 | Foundations    | `config.rs`, `error.rs`, `system_stats.rs` | Settings file, atomic writes, error type, RAM    |
 
@@ -85,17 +86,21 @@ A transparent window created after startup is born without `WS_EX_LAYERED`
 `watch_overlay_events`) → `load_saved_template_on_boot` → (loading screen ends →
 `show_boot_overlays`) → `show_saved_overlays` → for each saved item
 `place_item_in_slot(.., interactive=false)` → `show_slot` → `emit_to(slot, "slot-assigned")`.
-In each overlay, `OverlayItemApp` already asked `get_instance_id_for_window`
+In each overlay, `OverlayItemApp` already asked `get_slot_info`
 on mount and also listens to `slot-assigned` → `loadPlacedMedia` →
 `get_placed_media` + `list_media` → `useMediaUrl` → `get_media_path` →
-`convertFileSrc` → `asset://` URL → `<video>/<img>/GifCanvasPlayer`.
+`convertFileSrc` → `asset://` URL → `<video>/<img>/GifCanvasPlayer` (decodes GIF frames on demand: the first frame shows at once).
 
 ### 4.2 Placing an animation from the editor
 
-1. `MediaSidebar` mousedown → `invoke("spawn_placed_media", {mediaId})`.
-2. Rust builds a `PlacedMedia` (220×220 at 120,120), `place_item_in_slot(.., true)`, pushes it to `working.items`, emits `placed-items-changed`, returns `{instance_id, window_label}`.
-3. React calls `Window.getByLabel(label).startDragging()` → the user drags the new window immediately.
-4. The overlay loads the media; on first `loadedmetadata`/`load` it calls `fit_overlay_to_media(naturalWidth, naturalHeight)` → Rust resizes to the real aspect ratio once (`auto_sized = true`).
+1. `MediaSidebar` mousedown, then either:
+   - **click** (released within 5 px) → `invoke("spawn_placed_media", {mediaId, at: {kind: "center", monitor}})`, where `monitor` is the index picked in the editor toolbar (`list_monitors`, primary by default);
+   - **drag** (moved more than 5 px) → `at: {kind: "cursor"}`.
+2. Rust builds a `PlacedMedia`: a 220×220 box scaled by the monitor's DPI, centred in that monitor's work area or hanging below the cursor. Then `place_item_in_slot(.., true, Arrival::Pop | Arrival::Carried)`, pushes it to `working.items`, emits `placed-items-changed`, returns `{instance_id, window_label}`. A cursor spawn is then carried under the cursor by `window_manager::carry_with_cursor` (a Rust thread, ~120 Hz, until the button is released), which emits `pickup-ended` at the end. The overlay learns how it arrived from `get_slot_info`: a sleeping slot misses events sent while it wakes, so the arrival is stored, not pushed. On release the arrival switches from `Carried` to `Pop` before `pickup-ended`, so the overlay can also ask whether the carry is over. While carried, `CARRIED_SLOT` keeps that overlay above the control window.
+3. Drag only: no `startDragging` (its modal move loop blocked the `Moved` events). The overlay's `useSwing` shows the media small (about 150 px, `CARRY_SIDE`) hanging from its top edge, swinging on springs driven by `onMoved`; on `pickup-ended` it stops following moves and grows to full size with the elastic pop.
+4. The overlay loads the media; on first `loadedmetadata`/`load` it calls `fit_overlay_to_media(naturalWidth, naturalHeight)` → Rust resizes to the real aspect ratio once (`auto_sized = true`), keeping the window's centre.
+
+Moving to another monitor: Properties → Monitor → `move_overlay_to_monitor(instance_id, monitor)` → `set_position` at the centre of that work area (re-centred if the DPI change resized it) → the usual `Moved` path below.
 
 ### 4.3 Dragging / resizing an overlay
 
@@ -113,14 +118,17 @@ Resizing: the overlay's handle sends `resize_overlay(w, h)` per animation frame 
 - Discard: `discard_template_changes` → `working = saved` → `respawn_overlays_from(saved, edit_mode)` → `placed-items-changed`.
 - Leaving the editor (or pressing X) while dirty: `ControlApp.requestExit` asks `has_unsaved_changes` → modal Save/Discard/Cancel. The X goes through Rust first: `handle_control_close` emits `close-requested` instead of hiding.
 
-### 4.5 Deleting media that is placed
+### 4.5 Deleting media (one or several)
 
-`StorageScreen` → `deleteMedia(id, false)` → `delete_media` →
-`count_references_to_media > 0` → `Err(MediaReferenced(n))` → React parses
-`REFERENCED:n`, asks the user → `delete_media(id, force=true)` → removes the
-file and the index entry → `template::purge_media_references` (removes from
-`working` _and_ `saved`, frees slots, rewrites `template.json`) →
-`library-changed` + `placed-items-changed`.
+`StorageScreen.requestDelete(ids)` → `count_placed_media(ids)` → if the
+confirmation setting is on **or** any of them is placed, one modal (with the
+desktop warning when placed) → `delete_media(ids, force=true)`; otherwise
+`delete_media(ids, false)` directly. Rust removes the index entries and only
+**our copies** in `media/` (never the user's original), saves the index once →
+`template::purge_media_references(ids)` (removes from `working` _and_ `saved`,
+frees slots, rewrites `template.json` once) → `library-changed` +
+`placed-items-changed`. `force=false` with placed references still returns
+`MediaReferenced(n)` as a safety net.
 
 ---
 
@@ -156,6 +164,7 @@ focus, so the focus hook alone would never fire for it.
 | `slot-assigned`              | `place_item_in_slot` (`emit_to_slot`)            | one overlay  | `OverlayItemApp` (`"self"`)                          |
 | `slot-released`              | `release_slot_for_instance`, `release_all_slots` | one overlay  | `OverlayItemApp` (`"self"`) → `overlay_idle`         |
 | `edit-mode-changed`          | `place_item_in_slot`, `set_edit_mode`            | one overlay  | `OverlayItemApp` (`"self"`)                          |
+| `pickup-ended`               | `carry_with_cursor` (button released)            | one overlay  | `useSwing` (`"self"`)                                |
 | `item-opacity-changed`       | `update_item` via `set_item_opacity`             | one overlay  | `OverlayItemApp` (`"self"`)                          |
 | `item-playback-rate-changed` | `update_item` via `set_item_playback_rate`       | one overlay  | `OverlayItemApp` (`"self"`)                          |
 | `click-through-changed`      | `lib::release_all_click_through`                 | each overlay | (not consumed yet)                                   |
@@ -186,6 +195,7 @@ focus, so the focus hook alone would never fire for it.
 | `list_system_fonts` | — | `Vec<String>` (sorted families; empty off Windows) |
 | `set_ui_font` | `family: Option<String>` (None or blank = system default) | `AppResult<()>` |
 | `set_font_scale` | `scale: f32` (clamped 0.85 to 1.3) | `AppResult<()>` |
+| `set_ui_zoom` | `zoom: f32` (caller window) | `AppResult<f32>` (clamps to 0.7–1.5, saves `ui_zoom` in config.toml, applies the webview zoom, returns the applied value) |
 
 **library.rs**
 | Command | Args | Returns |
@@ -196,9 +206,14 @@ focus, so the focus hook alone would never fire for it.
 | `list_all_tags` | — | `Vec<TagCount>` |
 | `rename_tag` | `from: String, to: String` | `AppResult<usize>` |
 | `delete_tag` | `name: String` | `AppResult<usize>` |
-| `delete_media` | `id: Uuid, force: bool` | `AppResult<usize>` |
+| `delete_media` | `ids: Vec<Uuid>, force: bool` | `AppResult<usize>` (files deleted) |
 | `get_media_path` | `id: Uuid` | `AppResult<String>` |
 | `get_file_size` | `path: PathBuf` | `AppResult<u64>` |
+
+**monitors.rs**
+| Command | Args | Returns |
+|---|---|---|
+| `list_monitors` | — | `AppResult<Vec<MonitorInfo>>` (work areas, physical px; index valid for this run) |
 
 **template.rs**
 | Command | Args | Returns |
@@ -212,11 +227,13 @@ focus, so the focus hook alone would never fire for it.
 | `set_edit_mode` | `enabled: bool` | `()` |
 | `select_overlay` | `instance_id: Option<Uuid>` | `()` |
 | `get_placed_media` | `instance_id: Uuid` | `Option<PlacedMedia>` |
-| `get_instance_id_for_window` | (caller window) | `Option<Uuid>` |
+| `get_slot_info` | (caller window) | `Option<SlotInfo { instance_id, arrival }>` (not consumed; the overlay plays its entrance once per instance) |
 | `get_editor_status` | — | `EditorStatus` |
 | `set_item_opacity` | `instance_id: Uuid, opacity: f32` | `()` |
 | `set_item_playback_rate` | `instance_id: Uuid, playback_rate: f32` | `()` |
-| `spawn_placed_media` | `media_id: Uuid` | `AppResult<SpawnedOverlay>` |
+| `spawn_placed_media` | `media_id: Uuid, at: SpawnAt` (`{kind:"center",monitor}` or `{kind:"cursor"}`) | `AppResult<SpawnedOverlay>` |
+| `move_overlay_to_monitor` | `instance_id: Uuid, monitor: usize` | `AppResult<Option<PlacedMedia>>` |
+| `count_placed_media` | `ids: Vec<Uuid>` | `usize` (placed animations showing any of them) |
 | `remove_placed_media` | `instance_id: Uuid` | `()` |
 | `fit_overlay_to_media` | `instance_id, natural_width, natural_height` | `()` |
 | `nudge_overlay` | `dx: i32, dy: i32` (caller window) | `AppResult<()>` |

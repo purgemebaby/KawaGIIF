@@ -16,6 +16,8 @@ fn default_true() -> bool { true }
 
 fn default_font_scale() -> f32 { 1.0 }
 
+fn default_ui_zoom() -> f32 { 1.0 }
+
 fn config_path() -> PathBuf { data_dir().join("config.toml") }
 
 /** `%LOCALAPPDATA%\KawaGiif*/
@@ -72,6 +74,9 @@ pub struct AppConfig {
     /// Multiplier of every UI font size (1.0 = default).
     #[serde(default = "default_font_scale")]
     pub font_scale: f32,
+    /// WebView2 zoom of the control window (1.0 = 100 %).
+    #[serde(default = "default_ui_zoom")]
+    pub ui_zoom: f32,
 }
 impl Default for AppConfig {
     fn default() -> Self {
@@ -83,6 +88,7 @@ impl Default for AppConfig {
             loading_indicator: None,
             ui_font: None,
             font_scale: default_font_scale(),
+            ui_zoom: default_ui_zoom(),
         }
     }
 }

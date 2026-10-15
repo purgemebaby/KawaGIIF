@@ -17,6 +17,8 @@ use crate::native::windows as native;
 
 const FONT_SCALE_MIN: f32 = 0.85;
 const FONT_SCALE_MAX: f32 = 1.3;
+const UI_ZOOM_MIN: f32 = 0.7;
+const UI_ZOOM_MAX: f32 = 1.5;
 
 /** Full path of the stored loading indicator file. Only a plain `loading-indicator-*` name counts, so a hand-edited config can't point outside the data folder. */
 fn loading_indicator_path() -> Option<PathBuf> {
@@ -139,4 +141,13 @@ pub fn set_ui_font(family: Option<String>) -> AppResult<()> {
 #[tauri::command]
 pub fn set_font_scale(scale: f32) -> AppResult<()> {
     config::update(|c| c.font_scale = if scale.is_finite() { scale.clamp(FONT_SCALE_MIN, FONT_SCALE_MAX) } else { 1.0 })
+}
+
+/// Saves and applies the control window's WebView2 zoom; returns the clamped value so the UI shows what was applied.
+#[tauri::command]
+pub fn set_ui_zoom(window: WebviewWindow, zoom: f32) -> AppResult<f32> {
+    let zoom: f32 = if zoom.is_finite() { zoom.clamp(UI_ZOOM_MIN, UI_ZOOM_MAX) } else { 1.0 };
+    config::update(|c| c.ui_zoom = zoom)?;
+    window.set_zoom(f64::from(zoom))?;
+    Ok(zoom)
 }

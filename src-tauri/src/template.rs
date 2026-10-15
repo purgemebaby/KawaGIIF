@@ -11,6 +11,7 @@ use uuid::Uuid;
 use crate::config;
 use crate::error::{AppError, AppResult};
 use crate::library::{LibraryState, MediaType};
+use crate::monitors;
 use crate::window_manager;
 
 /* Personal Note for me:
@@ -18,6 +19,7 @@ use crate::window_manager;
 */
 
 const SPAWN_BOX: u32 = 220;
+const PICKUP_GRIP: u32 = 16; //a dragged spawn hangs this far below the cursor, held by its top edge
 const MAX_SPAWN_SIDE: f64 = 480.0;
 const MIN_SIDE: u32 = 40;
 const SAVE_DEBOUNCE: Duration = Duration::from_millis(400);
@@ -106,6 +108,26 @@ pub struct EditorStatus {
     pub selected: Option<Uuid>,
 }
 
+/**
+ * How an animation entered its slot, which picks the overlay's entrance: none when the editor reloads it, the pop for a
+ * click or a restore at startup, the pop plus the claw swing for a drag from the list.
+ */
+#[derive(Serialize, Clone, Copy, Default, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum Arrival {
+    #[default]
+    Reload,
+    Pop,
+    Carried,
+}
+
+/**What an overlay asks for once it's awake: a sleeping slot misses the events sent while it wakes up.*/
+#[derive(Serialize)]
+pub struct SlotInfo {
+    pub instance_id: Uuid,
+    pub arrival: Arrival,
+}
+
 #[derive(Serialize)]
 pub struct SpawnedOverlay {
     pub instance_id: Uuid,
@@ -130,6 +152,7 @@ pub struct Editor {
     selected: Option<Uuid>,
     edit_mode: bool,
     slots: Vec<Option<Uuid>>,
+    arrivals: Vec<Arrival>, //per slot, read by `get_slot_info`
     save_generation: u64, //last move waiting for `schedule_save`
 }
 impl Editor {
@@ -148,15 +171,17 @@ impl Editor {
         (0..self.slots.len()).filter(|&i| self.slots[i].is_some()).collect()
     }
 
-    fn alloc_slot(&mut self, instance_id: Uuid) -> AppResult<usize> {
+    fn alloc_slot(&mut self, instance_id: Uuid, arrival: Arrival) -> AppResult<usize> {
         let slot = self.slots.iter().position(Option::is_none).ok_or(AppError::PoolFull(self.slots.len()))?;
         self.slots[slot] = Some(instance_id);
+        self.arrivals[slot] = arrival;
         Ok(slot)
     }
 
     fn free_slot(&mut self, instance_id: &Uuid) -> Option<usize> {
         let slot = self.slot_of(instance_id)?;
         self.slots[slot] = None;
+        self.arrivals[slot] = Arrival::Reload;
         Some(slot)
     }
 
@@ -191,6 +216,7 @@ impl Default for EditorState {
             selected: None,
             edit_mode: false,
             slots: vec![None; window_manager::pool_size()],
+            arrivals: vec![Arrival::Reload; window_manager::pool_size()],
             save_generation: 0,
         }))
     }
@@ -206,10 +232,11 @@ impl EditorState {
 // Slot orchestration
 /**
  * Takes a free pool window, shows the animation in it and tells it (`slot-assigned`) plus the current edit mode,
- * since `set_edit_mode` only notifies slots occupied at that moment.
+ * since `set_edit_mode` only notifies slots occupied at that moment. `arrival` is stored before the window wakes, so
+ * the overlay reads it with `get_slot_info` even if it slept through the event.
  */
-fn place_item_in_slot(app: &AppHandle, state: &EditorState, item: &PlacedMedia, interactive: bool) -> AppResult<usize> {
-    let slot = state.lock().alloc_slot(item.instance_id)?;
+fn place_item_in_slot(app: &AppHandle, state: &EditorState, item: &PlacedMedia, interactive: bool, arrival: Arrival) -> AppResult<usize> {
+    let slot = state.lock().alloc_slot(item.instance_id, arrival)?;
     window_manager::show_slot(app, slot, item.x, item.y, item.width, item.height, interactive)?;
     emit_to_slot(app, slot, "slot-assigned", item.instance_id);
     emit_to_slot(app, slot, "edit-mode-changed", interactive);
@@ -236,6 +263,7 @@ fn release_all_slots(app: &AppHandle, state: &EditorState) {
         let mut editor = state.lock();
         let freed = editor.occupied_slots();
         editor.slots.fill(None);
+        editor.arrivals.fill(Arrival::Reload);
         freed
     };
     window_manager::hide_all_overlay_slots(app);
@@ -251,7 +279,7 @@ fn slot_is_free(app: &AppHandle, slot: usize) -> bool {
 fn respawn_overlays_from(app: &AppHandle, state: &EditorState, tpl: &Template, interactive: bool) -> AppResult<()> {
     release_all_slots(app, state);
     for item in &tpl.items {
-        place_item_in_slot(app, state, item, interactive)?;
+        place_item_in_slot(app, state, item, interactive, Arrival::Reload)?;
     }
     Ok(())
 }
@@ -273,28 +301,29 @@ pub fn kill_all_overlays(app: AppHandle, state: State<EditorState>) {
     notify_placed_items_changed(&app);
 }
 
-pub fn count_references_to_media(state: &EditorState, media_id: &Uuid) -> usize {
+/** Placed animations (working or saved) that show any of `media_ids`. */
+pub fn count_references_to_media(state: &EditorState, media_ids: &HashSet<Uuid>) -> usize {
     let editor = state.lock();
     editor.working.items.iter().chain(&editor.saved.items)
-        .filter(|item| item.media_id == *media_id)
+        .filter(|item| media_ids.contains(&item.media_id))
         .map(|item| item.instance_id)
         .collect::<HashSet<_>>()
         .len()
 }
 
 /**
- * Removes every placed animation using `media_id` from both templates and rewrites `template.json`; otherwise the
- * deleted media would come back as blank overlays on the next start.
+ * Removes every placed animation using one of `media_ids` from both templates and rewrites `template.json` once;
+ * otherwise the deleted media would come back as blank overlays on the next start.
  */
-pub fn purge_media_references(app: &AppHandle, state: &EditorState, media_id: &Uuid) -> AppResult<()> {
+pub fn purge_media_references(app: &AppHandle, state: &EditorState, media_ids: &HashSet<Uuid>) -> AppResult<()> {
     let (doomed, saved) = {
         let mut editor = state.lock();
         let doomed: Vec<Uuid> = editor.working.items.iter()
-            .filter(|item| item.media_id == *media_id)
+            .filter(|item| media_ids.contains(&item.media_id))
             .map(|item| item.instance_id)
             .collect();
-        editor.working.items.retain(|item| item.media_id != *media_id);
-        editor.saved.items.retain(|item| item.media_id != *media_id);
+        editor.working.items.retain(|item| !media_ids.contains(&item.media_id));
+        editor.saved.items.retain(|item| !media_ids.contains(&item.media_id));
         (doomed, serde_json::to_vec_pretty(&editor.saved)?)
     };
 
@@ -304,6 +333,12 @@ pub fn purge_media_references(app: &AppHandle, state: &EditorState, media_id: &U
     config::write_atomic(&template_path(), &saved)?;
     notify_placed_items_changed(app);
     Ok(())
+}
+
+/// How many placed animations show any of `ids`, so the delete dialog can warn before anything is deleted.
+#[tauri::command]
+pub fn count_placed_media(state: State<EditorState>, ids: Vec<Uuid>) -> usize {
+    count_references_to_media(&state, &ids.into_iter().collect())
 }
 
 /** Loads the saved template at startup without showing it: `show_saved_overlays` does that once the loading screen ends. */
@@ -334,7 +369,7 @@ pub fn show_saved_overlays(app: &AppHandle) {
     let tpl: Template = state.lock().saved.clone();
     release_all_slots(app, &state);
 
-    let skipped = tpl.items.iter().filter(|item| place_item_in_slot(app, &state, item, false).is_err()).count();
+    let skipped = tpl.items.iter().filter(|item| place_item_in_slot(app, &state, item, false, Arrival::Pop).is_err()).count();
     if skipped > 0 {
         eprintln!(
             "[kawagiif] {skipped} saved animation(s) were not placed: the template has {} items and the pool holds {}. \
@@ -373,12 +408,19 @@ pub fn update_slot_geometry(app: &AppHandle, slot: usize, pos: Option<(i32, i32)
 
 // Template Commands
 /// Reloads the template from disk and places it again (windows may be showing nothing after "kill all");
-/// they come up click-through and `set_edit_mode(true)` makes them interactive.
+/// they come up click-through and `set_edit_mode(true)` makes them interactive. When the overlays already show exactly
+/// that template (the usual case when opening the editor) nothing is re-placed: re-placing made every overlay fetch
+/// and decode its GIF again, freezing all windows for ~400 ms.
 #[tauri::command]
 pub fn load_template(app: AppHandle, state: State<EditorState>) -> AppResult<Template> {
     BOOT_SHOWN.store(true, Ordering::SeqCst);
     let tpl = load_template_from_disk();
-    respawn_overlays_from(&app, &state, &tpl, false)?;
+    let already_shown: bool = {
+        let editor = state.lock();
+        let shown: HashSet<Uuid> = editor.slots.iter().flatten().copied().collect();
+        editor.working == tpl && shown == tpl.items.iter().map(|item| item.instance_id).collect()
+    };
+    if !already_shown { respawn_overlays_from(&app, &state, &tpl, false)?; }
     {
         let mut editor = state.lock();
         editor.working = tpl.clone();
@@ -496,10 +538,14 @@ pub fn get_placed_media(state: State<EditorState>, instance_id: Uuid) -> Option<
     state.lock().working.items.iter().find(|item| item.instance_id == instance_id).cloned()
 }
 
+/// The animation shown by the calling overlay and how it arrived. It answers the same for as long as the animation
+/// stays in the slot: an overlay asks several times while it wakes up, and it plays the entrance once per new instance.
 #[tauri::command]
-pub fn get_instance_id_for_window(window: WebviewWindow, state: State<EditorState>) -> Option<Uuid> {
+pub fn get_slot_info(window: WebviewWindow, state: State<EditorState>) -> Option<SlotInfo> {
     let slot = window_manager::slot_from_label(window.label())?;
-    state.lock().slots.get(slot).copied().flatten()
+    let editor = state.lock();
+    let instance_id = editor.slots.get(slot).copied().flatten()?;
+    Some(SlotInfo { instance_id, arrival: editor.arrivals[slot] })
 }
 
 
@@ -533,29 +579,104 @@ pub fn set_item_playback_rate(app: AppHandle, state: State<EditorState>, instanc
 
 
 // Placement Commands
+/** Where a new animation appears: the centre of a monitor (a click in the media bar) or hanging from the cursor (a drag). */
+#[derive(Deserialize)]
+#[serde(tag = "kind", rename_all = "lowercase")]
+pub enum SpawnAt {
+    Center { monitor: usize },
+    Cursor,
+}
+
+fn scaled(side: u32, scale: f64) -> u32 { (f64::from(side) * scale).round() as u32 }
+
+/** Top-left corner and side of the starting box, in physical pixels, sized for the DPI of the monitor it lands on. */
+fn spawn_box(app: &AppHandle, at: &SpawnAt) -> AppResult<(i32, i32, u32)> {
+    match at {
+        SpawnAt::Center { monitor } => {
+            let monitor = monitors::monitor_at(app, *monitor)?;
+            let side = scaled(SPAWN_BOX, monitor.scale_factor());
+            let (x, y) = monitors::centered_in(&monitor, side, side);
+            Ok((x, y, side))
+        }
+        SpawnAt::Cursor => {
+            let cursor = app.cursor_position()?;
+            let scale = app.monitor_from_point(cursor.x, cursor.y)?.map_or(1.0, |m| m.scale_factor());
+            let side = scaled(SPAWN_BOX, scale);
+            let x = cursor.x.round() as i32 - (side / 2) as i32;
+            let y = cursor.y.round() as i32 - scaled(PICKUP_GRIP, scale) as i32;
+            Ok((x, y, side))
+        }
+    }
+}
+
 /// Places a new animation from the media bar. It starts square because the real shape is unknown until it loads;
-/// `fit_overlay_to_media` fixes it then.
+/// `fit_overlay_to_media` fixes it then. A cursor spawn is carried under the cursor until the button is released; its
+/// overlay swings meanwhile (`Arrival::Carried`, ended by `pickup-ended`).
 #[tauri::command]
-pub fn spawn_placed_media(app: AppHandle, state: State<EditorState>, media_id: Uuid) -> AppResult<SpawnedOverlay> {
+pub fn spawn_placed_media(app: AppHandle, state: State<EditorState>, media_id: Uuid, at: SpawnAt) -> AppResult<SpawnedOverlay> {
+    let (x, y, side) = spawn_box(&app, &at)?;
+    let grip_y: i32 = match at { SpawnAt::Cursor => app.cursor_position()?.y.round() as i32 - y, SpawnAt::Center { .. } => 0 };
     let item = PlacedMedia {
         instance_id: Uuid::new_v4(),
         media_id,
-        x: 120,
-        y: 120,
-        width: SPAWN_BOX,
-        height: SPAWN_BOX,
+        x,
+        y,
+        width: side,
+        height: side,
         opacity: 1.0,
         playback_rate: Some(1.0),
         auto_sized: false,
     };
     let instance_id = item.instance_id;
 
-    let slot = place_item_in_slot(&app, &state, &item, true)?;
+    let carried: bool = matches!(at, SpawnAt::Cursor);
+    let slot = place_item_in_slot(&app, &state, &item, true, if carried { Arrival::Carried } else { Arrival::Pop })?;
     state.lock().working.items.push(item);
+    if carried {
+        let handle = app.clone();
+        window_manager::carry_with_cursor(&app, slot, grip_y, move || {
+            // an overlay that only asks after the drop gets the plain pop, not a swing that would wait for no moves
+            {
+                let state = handle.state::<EditorState>();
+                let mut editor = state.lock();
+                if editor.slots.get(slot) == Some(&Some(instance_id)) { editor.arrivals[slot] = Arrival::Pop; }
+            }
+            emit_to_slot(&handle, slot, "pickup-ended", instance_id);
+        });
+    }
 
     notify_placed_items_changed(&app);
     window_manager::log_overlay_state(&app, "animation placed");
     Ok(SpawnedOverlay { instance_id, window_label: window_manager::slot_label(slot) })
+}
+
+/// Moves a placed animation to the centre of another monitor. `Moved` (and `Resized`, when the DPI differs) store the
+/// new geometry like a drag would, so Save and Undo keep working.
+#[tauri::command]
+pub fn move_overlay_to_monitor(
+    app: AppHandle, state: State<EditorState>, instance_id: Uuid, monitor: usize,
+) -> AppResult<Option<PlacedMedia>> {
+    let target = monitors::monitor_at(&app, monitor)?;
+    let (slot, width, height) = {
+        let editor = state.lock();
+        let Some(item) = editor.working.items.iter().find(|item| item.instance_id == instance_id) else { return Ok(None); };
+        (editor.slot_of(&instance_id), item.width, item.height)
+    };
+
+    let (x, y) = monitors::centered_in(&target, width, height);
+    match slot.and_then(|slot| window_manager::slot_window(&app, slot)) {
+        Some(window) => {
+            window.set_position(PhysicalPosition::new(x, y))?;
+            // crossing to a monitor with another DPI resizes the window, so centre it again with its new size
+            let size = window.outer_size()?;
+            if (size.width, size.height) != (width, height) {
+                let (x, y) = monitors::centered_in(&target, size.width, size.height);
+                window.set_position(PhysicalPosition::new(x, y))?;
+            }
+        }
+        None => { state.lock().apply_geometry(&instance_id, Some((x, y)), None, false); }
+    }
+    Ok(state.lock().working.items.iter().find(|item| item.instance_id == instance_id).cloned())
 }
 
 #[tauri::command]
@@ -565,31 +686,37 @@ pub fn remove_placed_media(app: AppHandle, state: State<EditorState>, instance_i
     notify_placed_items_changed(&app);
 }
 
-/// Sizes the window to the media's aspect ratio, shrunk to `MAX_SPAWN_SIDE` but never enlarged. Runs once per animation
-/// (`auto_sized`) so reloading the media doesn't undo a manual resize.
+/// Sizes the window to the media's aspect ratio, shrunk to `MAX_SPAWN_SIDE` (scaled to the monitor's DPI) but never
+/// enlarged, keeping its centre. Runs once per animation (`auto_sized`) so reloading the media doesn't undo a manual resize.
 #[tauri::command]
 pub fn fit_overlay_to_media(
     app: AppHandle, state: State<EditorState>, instance_id: Uuid, natural_width: u32, natural_height: u32,
 ) {
     if natural_width == 0 || natural_height == 0 { return; }
 
-    let (slot, width, height) = {
+    let window = state.lock().slot_of(&instance_id).and_then(|slot| window_manager::slot_window(&app, slot));
+    let scale = window.as_ref().and_then(|w| w.scale_factor().ok()).unwrap_or(1.0);
+
+    let (x, y, width, height) = {
         let mut editor = state.lock();
         let Some(item) = editor.item_mut(&instance_id) else { return; };
         if item.auto_sized { return; }
 
         let longest = f64::from(natural_width.max(natural_height));
-        let shrink = (MAX_SPAWN_SIDE / longest).min(1.0);
+        let shrink = (MAX_SPAWN_SIDE * scale / longest).min(1.0);
         let fit = |side: u32| ((f64::from(side) * shrink).round() as u32).max(MIN_SIDE);
-        item.width = fit(natural_width);
-        item.height = fit(natural_height);
+        let (width, height) = (fit(natural_width), fit(natural_height));
+        item.x += (item.width as i32 - width as i32) / 2;
+        item.y += (item.height as i32 - height as i32) / 2;
+        item.width = width;
+        item.height = height;
         item.auto_sized = true;
-        let (width, height) = (item.width, item.height);
-        (editor.slot_of(&instance_id), width, height)
+        (item.x, item.y, width, height)
     };
 
-    if let Some(window) = slot.and_then(|slot| window_manager::slot_window(&app, slot)) {
+    if let Some(window) = window {
         let _ = window.set_size(PhysicalSize::new(width, height));
+        let _ = window.set_position(PhysicalPosition::new(x, y));
     }
 }
 

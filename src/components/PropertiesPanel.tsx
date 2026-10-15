@@ -1,9 +1,13 @@
 import { useEffect, useState } from 'react';
 import { invoke } from '../lib/ipc';
 import { loadPlacedMedia, type PlacedMedia } from '../lib/placed';
+import { monitorIndexAt } from '../lib/monitors';
+import { useMonitors } from '../hooks/useMonitors';
+import { useTauriEvent } from '../hooks/useTauriEvent';
 import { STATIC_TYPES, type MediaType } from '../lib/media';
 import { t } from '../i18n/en';
 import Slider from './ui/Slider';
+import MonitorSelect from './ui/MonitorSelect';
 
 const DEFAULT_OPACITY = 1;
 const DEFAULT_RATE = 1;
@@ -11,6 +15,16 @@ const DEFAULT_RATE = 1;
 function PropertiesPanel({ selectedId }: { selectedId: string | null }) {
 	const [placed, setPlaced] = useState<PlacedMedia | null>(null);
 	const [mediaType, setMediaType] = useState<MediaType | null>(null);
+	const monitors = useMonitors();
+
+	// Keep the monitor picker right when the animation is dragged to another screen.
+	useTauriEvent<string>('overlay-geometry-changed', async (instanceId) => {
+		if (instanceId !== selectedId) return;
+		const item = await invoke<PlacedMedia | null>('get_placed_media', {
+			instanceId,
+		});
+		if (item) setPlaced(item);
+	});
 
 	useEffect(() => {
 		if (!selectedId) {
@@ -52,6 +66,20 @@ function PropertiesPanel({ selectedId }: { selectedId: string | null }) {
 		});
 	};
 
+	const moveToMonitor = async (monitor: number) => {
+		const moved = await invoke<PlacedMedia | null>('move_overlay_to_monitor', {
+			instanceId: selectedId,
+			monitor,
+		});
+		if (moved) setPlaced(moved);
+	};
+
+	const currentMonitor = monitorIndexAt(
+		monitors,
+		placed.x + placed.width / 2,
+		placed.y + placed.height / 2,
+	);
+
 	const resetProperties = () => {
 		setOpacity(DEFAULT_OPACITY);
 		if (supportsSpeed) setPlaybackRate(DEFAULT_RATE);
@@ -82,6 +110,13 @@ function PropertiesPanel({ selectedId }: { selectedId: string | null }) {
 					onChange={setPlaybackRate}
 				/>
 			)}
+
+			<MonitorSelect
+				monitors={monitors}
+				value={currentMonitor}
+				hint={t.editor.monitor.moveHint}
+				onChange={moveToMonitor}
+			/>
 
 			<button
 				type="button"

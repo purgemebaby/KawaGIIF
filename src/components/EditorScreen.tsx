@@ -4,11 +4,14 @@ import type { Template } from '../lib/placed';
 import { useEditorSync } from '../hooks/useEditorSync';
 import { useDeleteShortcut } from '../hooks/useDeleteShortcut';
 import { useTauriEvent } from '../hooks/useTauriEvent';
+import { useMonitors } from '../hooks/useMonitors';
+import { primaryMonitorIndex } from '../lib/monitors';
 import { t } from '../i18n/en';
 import MediaSidebar from './MediaSidebar';
 import PlacedItemsList from './PlacedItemsList';
 import PropertiesPanel from './PropertiesPanel';
 import Modal from './ui/Modal';
+import MonitorSelect from './ui/MonitorSelect';
 import './EditorScreen.css';
 
 function instanceIdsOf(template: Template): Set<string> {
@@ -25,6 +28,9 @@ function EditorScreen() {
 	});
 	const savedIdsRef = useRef<Set<string>>(new Set());
 	const { movedInstanceIds, resetMoved, selectedId } = useEditorSync();
+	const monitors = useMonitors();
+	const [chosenMonitor, setChosenMonitor] = useState<number | null>(null);
+	const targetMonitor = chosenMonitor ?? primaryMonitorIndex(monitors);
 
 	const deleteSelected = useCallback(() => {
 		if (selectedId) invoke('remove_placed_media', { instanceId: selectedId });
@@ -99,6 +105,12 @@ function EditorScreen() {
 			<div className="editor-toolbar">
 				<h1>{t.editor.title}</h1>
 				<div className="editor-toolbar-actions">
+					<MonitorSelect
+						monitors={monitors}
+						value={targetMonitor}
+						hint={t.editor.monitor.targetHint}
+						onChange={setChosenMonitor}
+					/>
 					<button
 						type="button"
 						className="kg-btn kg-btn--secondary"
@@ -117,7 +129,7 @@ function EditorScreen() {
 			</div>
 
 			<div className="editor-body">
-				<MediaSidebar />
+				<MediaSidebar targetMonitor={targetMonitor} />
 				<div className="editor-canvas-hint">
 					{t.editor.canvasHint.map((line) => (
 						<p key={line}>{line}</p>

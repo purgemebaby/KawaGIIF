@@ -16,6 +16,36 @@
 	font-weight: 600;
 }
 
+.storage-header-actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: flex-end;
+	gap: var(--kg-space-2);
+}
+
+.storage-selected-count {
+	color: var(--kg-fg-muted);
+	font-size: var(--kg-text-md);
+}
+
+.media-grid.selecting .media-card {
+	cursor: pointer;
+	user-select: none;
+}
+
+.media-card-check {
+	position: absolute;
+	z-index: 5;
+	top: var(--kg-space-2);
+	right: var(--kg-space-2);
+	width: 20px;
+	height: 20px;
+	margin: 0;
+	accent-color: var(--kg-accent);
+	cursor: pointer;
+}
+
 .filter-bar {
 	display: flex;
 	flex-direction: column;

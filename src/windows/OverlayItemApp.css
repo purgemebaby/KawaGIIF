@@ -8,7 +8,8 @@
 	cursor: move;
 }
 
-.overlay-media-wrap {
+.overlay-media-wrap,
+.overlay-media-pop {
 	display: flex;
 	align-items: center;
 	justify-content: center;

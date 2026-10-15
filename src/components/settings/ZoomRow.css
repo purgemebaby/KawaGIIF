@@ -1,0 +1,17 @@
+.settings-row.settings-row-zoom {
+	align-items: center;
+}
+
+.zoom-controls {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--kg-space-2);
+}
+
+.zoom-value {
+	min-width: calc(var(--kg-space-6) + var(--kg-space-3));
+	text-align: center;
+	color: var(--kg-fg-muted);
+	font-size: var(--kg-text-md);
+	font-variant-numeric: tabular-nums;
+}

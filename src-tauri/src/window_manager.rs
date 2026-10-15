@@ -1,5 +1,6 @@
 /* Window manager. Creates the control window and the fixed pool of transparent overlay windows at startup,
 and moves, shows, hides and restyles the overlays when animations are placed or removed. */
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::OnceLock;
 use std::time::Duration;
 use tauri::webview::Color;
@@ -23,8 +24,14 @@ pub const CONTROL_LABEL: &str = "control";
 const OV_LABEL: &str = "OV-SLOT-";
 pub const MAX_POOL: u32 = 20;
 const KEEPER_INTERVAL: Duration = Duration::from_secs(2);
-//every webview shares one WebView2 environment, so they must all get the same args; the first part is wry's default
-const BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --process-per-site";
+static CARRIED_SLOT: AtomicUsize = AtomicUsize::new(usize::MAX); //the overlay hanging from the cursor, if any
+const CARRY_TICK: Duration = Duration::from_millis(8); //about 120 moves per second while an overlay is carried
+/** Fixed logical size of the control window: a bigger default cost about 30 % fps. */
+const CONTROL_BASE: (f64, f64) = (960.0, 640.0);
+/** Largest logical size of the control window: a bigger one costs fps (more pixels composited per frame). */
+const MAX_CONTROL: (f64, f64) = (1920.0, 1080.0);
+//every webview shares one WebView2 environment, so they must all get the same args: wry's defaults, one shared renderer, GPU raster/zero-copy
+const BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --process-per-site --enable-gpu-rasterization --enable-zero-copy --ignore-gpu-blocklist";
 
 
 
@@ -88,6 +95,9 @@ fn raise_visible_overlays(app: &AppHandle, restyle: bool) {
     if let Some(control) = app.get_webview_window(CONTROL_LABEL).filter(|c| c.is_always_on_top().unwrap_or(false)) {
         raise(Some(control));
     }
+    // the carried overlay stays above everything, the control window included, or it flickers behind it
+    let carried: usize = CARRIED_SLOT.load(Ordering::Relaxed);
+    if carried != usize::MAX { raise(slot_window(app, carried)); }
 }
 
 /** Keeps an overlay inside the whole rectangle of its monitor (taskbar included, on purpose). Returns `true` if it moved. */
@@ -111,17 +121,31 @@ pub fn clamp_to_work_area(window: &WebviewWindow) -> bool {
 }
 
 /**
+ * Runs `fix` on the main thread after every window change queued so far. Tauri window setters called off the main
+ * thread are queued, while our Win32 calls run at once, so a fix called right after them ran *before* them and tao
+ * then undid it (frame visible until the keeper's next pass).
+ */
+fn after_queued(window: &WebviewWindow, fix: impl FnOnce(&WebviewWindow) + Send + 'static) {
+    let target = window.clone();
+    let _ = window.run_on_main_thread(move || fix(&target));
+}
+
+/**
  * Turns click-through on or off for an overlay; use this instead of `set_ignore_cursor_events` alone.
  * Tauri drops `WS_EX_LAYERED` when turning it off (opaque grey frame) and re-adds `WS_CAPTION` (white strip on
- * activation), so `force_layered` and `force_borderless` restore them right after.
+ * activation), so `force_layered` and `force_borderless` restore them once that change has been applied.
  */
 pub fn set_overlay_click_through(window: &WebviewWindow, enabled: bool) {
     let _ = window.set_ignore_cursor_events(enabled);
-    #[cfg(windows)]
-    if let Ok(hwnd) = window.hwnd() {
-        native::force_layered(hwnd);
-        native::force_borderless(hwnd);
-    }
+    after_queued(window, |window| {
+        #[cfg(windows)]
+        if let Ok(hwnd) = window.hwnd() {
+            native::force_layered(hwnd);
+            native::force_borderless(hwnd);
+        }
+        #[cfg(not(windows))]
+        let _ = window;
+    });
 }
 
 /**
@@ -170,18 +194,23 @@ pub fn log_overlay_state(_app: &AppHandle, _moment: &str) {}
 
 
 // Startup
-/** Creates the control window hidden (`setup()` shows it). Not transparent, so the `WS_EX_LAYERED` issue doesn't apply. */
+/** Creates the control window hidden (`setup()` shows it) with the saved zoom. Not transparent, so the `WS_EX_LAYERED` issue doesn't apply. */
 pub fn create_control_window(app: &AppHandle) -> tauri::Result<WebviewWindow> {
-    WebviewWindowBuilder::new(app, CONTROL_LABEL, WebviewUrl::App("index.html".into()))
+    let window = WebviewWindowBuilder::new(app, CONTROL_LABEL, WebviewUrl::App("index.html".into()))
         .additional_browser_args(BROWSER_ARGS)
         .title("KawaGiif")
-        .inner_size(960.0, 640.0)
+        .inner_size(CONTROL_BASE.0, CONTROL_BASE.1)
+        .center()
         .min_inner_size(720.0, 480.0)
+        .max_inner_size(MAX_CONTROL.0, MAX_CONTROL.1)
         .decorations(true)
         .transparent(false)
         .resizable(true)
         .visible(false)
-        .build()
+        .build()?;
+    // a failed zoom must not stop startup: the window just opens at 100 %
+    let _ = window.set_zoom(f64::from(crate::config::load().ui_zoom));
+    Ok(window)
 }
 
 /**
@@ -314,9 +343,11 @@ pub fn show_slot(
     set_overlay_click_through(&window, !interactive);
     window.show()?;
 
-    reapply_overlay_style(&window);
-    raise(Some(window.clone()));
-    clamp_to_work_area(&window);
+    after_queued(&window, |window| {
+        reapply_overlay_style(window);
+        raise(Some(window.clone()));
+        clamp_to_work_area(window);
+    });
     Ok(())
 }
 
@@ -339,5 +370,39 @@ pub fn raise_slot(app: &AppHandle, slot: usize) { raise(slot_window(app, slot));
 pub fn raise_control(app: &AppHandle) { raise(app.get_webview_window(CONTROL_LABEL)); }
 
 pub fn reassert_slot_style(app: &AppHandle, slot: usize) {
-    if let Some(window) = slot_window(app, slot) { reapply_overlay_style(&window); }
+    if let Some(window) = slot_window(app, slot) { after_queued(&window, reapply_overlay_style); }
+}
+
+/**
+ * Keeps an overlay hanging from the cursor (centred, `grip_y` below its top edge) while the primary button stays down,
+ * then calls `on_drop`. Used instead of `startDragging`: Windows' modal move loop blocks the main thread, so the overlay
+ * never got the `Moved` events its swing needs. Runs on its own thread and holds no lock.
+ */
+pub fn carry_with_cursor(app: &AppHandle, slot: usize, grip_y: i32, on_drop: impl FnOnce() + Send + 'static) {
+    let app = app.clone();
+    std::thread::spawn(move || {
+        let Some(window) = slot_window(&app, slot) else { return; };
+        CARRIED_SLOT.store(slot, Ordering::Relaxed);
+        raise(Some(window.clone()));
+        let mut last: Option<(i32, i32)> = None;
+        while primary_button_down() {
+            if let (Ok(cursor), Ok(size)) = (app.cursor_position(), window.outer_size()) {
+                let pos: (i32, i32) = (cursor.x.round() as i32 - size.width as i32 / 2, cursor.y.round() as i32 - grip_y);
+                if last != Some(pos) {
+                    let _ = window.set_position(PhysicalPosition::new(pos.0, pos.1));
+                    last = Some(pos);
+                }
+            }
+            std::thread::sleep(CARRY_TICK);
+        }
+        CARRIED_SLOT.store(usize::MAX, Ordering::Relaxed);
+        on_drop();
+    });
+}
+
+fn primary_button_down() -> bool {
+    #[cfg(windows)]
+    return native::primary_button_down();
+    #[cfg(not(windows))]
+    false
 }

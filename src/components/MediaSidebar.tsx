@@ -1,9 +1,11 @@
-import { Window } from '@tauri-apps/api/window';
 import { invoke } from '../lib/ipc';
 import { isVideoType, type MediaItem } from '../lib/media';
 import { useLibrary } from '../context/LibraryProvider';
 import { useMediaUrl } from '../hooks/useMediaUrl';
 import { t } from '../i18n/en';
+
+// Moving farther than this with the button held turns a click into a drag.
+const DRAG_THRESHOLD_PX = 5;
 
 function SidebarThumb({ item }: { item: MediaItem }) {
 	const url = useMediaUrl(item.id);
@@ -26,7 +28,16 @@ function SidebarThumb({ item }: { item: MediaItem }) {
 			/>
 		);
 	}
-	return <img className="sidebar-thumb" src={url} alt="" draggable={false} />;
+	return (
+		<img
+			className="sidebar-thumb"
+			src={url}
+			alt=""
+			draggable={false}
+			decoding="async"
+			loading="lazy"
+		/>
+	);
 }
 
 interface SpawnedOverlay {
@@ -34,16 +45,42 @@ interface SpawnedOverlay {
 	window_label: string;
 }
 
-function MediaSidebar() {
+type SpawnAt = { kind: 'center'; monitor: number } | { kind: 'cursor' };
+
+function spawn(mediaId: string, at: SpawnAt) {
+	return invoke<SpawnedOverlay>('spawn_placed_media', { mediaId, at });
+}
+
+// A click places the animation in the middle of the target monitor; a drag picks it up and carries it under the cursor.
+function MediaSidebar({ targetMonitor }: { targetMonitor: number }) {
 	const { items } = useLibrary();
 
-	const onMouseDown = async (e: React.MouseEvent, mediaId: string) => {
+	const onMouseDown = (e: React.MouseEvent, mediaId: string) => {
+		if (e.button !== 0) return;
 		e.preventDefault();
-		const spawned = await invoke<SpawnedOverlay>('spawn_placed_media', {
-			mediaId,
-		});
-		const handle = await Window.getByLabel(spawned.window_label);
-		await handle?.startDragging();
+		const start = { x: e.clientX, y: e.clientY };
+
+		const stop = () => {
+			window.removeEventListener('mousemove', onMove);
+			window.removeEventListener('mouseup', onUp);
+		};
+		const onUp = () => {
+			stop();
+			spawn(mediaId, { kind: 'center', monitor: targetMonitor });
+		};
+		// Rust carries the new overlay under the cursor until the button is released.
+		const onMove = (move: MouseEvent) => {
+			const distance = Math.hypot(
+				move.clientX - start.x,
+				move.clientY - start.y,
+			);
+			if (distance < DRAG_THRESHOLD_PX) return;
+			stop();
+			spawn(mediaId, { kind: 'cursor' });
+		};
+
+		window.addEventListener('mousemove', onMove);
+		window.addEventListener('mouseup', onUp);
 	};
 
 	return (

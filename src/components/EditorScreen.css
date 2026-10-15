@@ -119,3 +119,14 @@
 .editor-canvas-hint p {
 	margin-bottom: var(--kg-space-2);
 }
+
+.properties-panel .monitor-select {
+	flex-direction: column;
+	align-items: stretch;
+	gap: var(--kg-space-1);
+	margin-bottom: var(--kg-space-4);
+}
+
+.properties-panel .monitor-select-label {
+	font-size: var(--kg-text-sm);
+}

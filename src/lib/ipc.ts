@@ -3,6 +3,7 @@ import {
 	convertFileSrc as tauriConvertFileSrc,
 } from '@tauri-apps/api/core';
 import { listen as tauriListen, type UnlistenFn } from '@tauri-apps/api/event';
+import { ZOOM_MAX, ZOOM_MIN } from './zoom';
 
 const IS_TAURI = '__TAURI_INTERNALS__' in window;
 
@@ -35,6 +36,7 @@ const MOCK_CONFIG = {
 	overlay_pool_size: 4,
 	ui_font: null,
 	font_scale: 1,
+	ui_zoom: 1,
 };
 
 const MOCK_RESPONSES: Record<string, unknown> = {
@@ -48,8 +50,42 @@ const MOCK_RESPONSES: Record<string, unknown> = {
 	list_placed_items: [],
 	has_unsaved_changes: false,
 	get_placed_media: null,
-	get_instance_id_for_window: null,
+	get_slot_info: null,
 	get_file_size: 1024 * 1024,
+	count_placed_media: 0,
+	list_monitors: [
+		{
+			index: 0,
+			name: null,
+			x: 0,
+			y: 0,
+			width: 2560,
+			height: 1392,
+			primary: true,
+		},
+		{
+			index: 1,
+			name: null,
+			x: 2560,
+			y: 0,
+			width: 1920,
+			height: 1032,
+			primary: false,
+		},
+	],
+};
+
+// Mocks that compute a value from their args, mirroring the Rust clamping.
+const MOCK_HANDLERS: Record<
+	string,
+	(args?: Record<string, unknown>) => unknown
+> = {
+	set_ui_zoom: (args) => {
+		const zoom = Number(args?.zoom);
+		return Number.isFinite(zoom)
+			? Math.min(Math.max(zoom, ZOOM_MIN), ZOOM_MAX)
+			: 1;
+	},
 };
 
 export async function invoke<T>(
@@ -57,6 +93,10 @@ export async function invoke<T>(
 	args?: Record<string, unknown>,
 ): Promise<T> {
 	if (IS_TAURI) return tauriInvoke<T>(command, args);
+
+	if (command in MOCK_HANDLERS) {
+		return MOCK_HANDLERS[command](args) as T;
+	}
 
 	if (command in MOCK_RESPONSES) {
 		return MOCK_RESPONSES[command] as T;

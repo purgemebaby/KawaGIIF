@@ -4,6 +4,7 @@ import { t } from '../i18n/en';
 import FontRow from './settings/FontRow';
 import LoadingIndicatorRow from './settings/LoadingIndicatorRow';
 import RamGauge from './settings/RamGauge';
+import ZoomRow from './settings/ZoomRow';
 
 interface AppConfig {
 	launch_on_startup: boolean;
@@ -12,6 +13,7 @@ interface AppConfig {
 	overlay_pool_size: number;
 	ui_font: string | null;
 	font_scale: number;
+	ui_zoom: number;
 }
 
 // must match window_manager::MAX_POOL in Rust
@@ -136,6 +138,11 @@ function SettingsScreen() {
 					onScaleChange={(scale) =>
 						update('font_scale', scale, 'set_font_scale', { scale })
 					}
+				/>
+
+				<ZoomRow
+					zoom={config.ui_zoom}
+					onZoomChange={(zoom) => setConfig({ ...config, ui_zoom: zoom })}
 				/>
 
 				<LoadingIndicatorRow />

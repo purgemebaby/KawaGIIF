@@ -1,40 +1,52 @@
 .kawaii-backdrop {
-	--kawaii-angle: -25deg;
+	--kawaii-tilt: 25deg;
 
 	position: absolute;
 	inset: 0;
 	z-index: 0;
 	overflow: hidden;
 	pointer-events: none;
+	/* its own box for the rotor's size, and nothing inside can make the rest of the page re-layout or repaint */
+	container-type: size;
+	contain: strict;
+}
 
-	-webkit-mask-image: radial-gradient(
+/*
+ * The clear centre is a static gradient painted once on top, not a mask: a mask over the drifting layer cost ~40 fps
+ * on a big window (measured with the dev frame meter).
+ */
+.kawaii-backdrop::after {
+	content: '';
+	position: absolute;
+	inset: 0;
+	background: radial-gradient(
 		ellipse 44% 40% at 50% 46%,
-		transparent 0%,
-		transparent 46%,
-		#000 100%
-	);
-	mask-image: radial-gradient(
-		ellipse 44% 40% at 50% 46%,
-		transparent 0%,
-		transparent 46%,
-		#000 100%
+		var(--kg-bg-app) 46%,
+		transparent 100%
 	);
 }
 
+/* Just big enough to still cover the window once tilted (it was 240% × 240%, a huge layer on a maximized window). */
 .kawaii-rotor {
 	position: absolute;
 	top: 50%;
 	left: 50%;
-	width: 240%;
-	height: 240%;
-	transform: translate(-50%, -50%) rotate(var(--kawaii-angle));
+	width: calc(
+		(100cqw * cos(var(--kawaii-tilt)) + 100cqh * sin(var(--kawaii-tilt))) * 1.04
+	);
+	height: calc(
+		(100cqw * sin(var(--kawaii-tilt)) + 100cqh * cos(var(--kawaii-tilt))) * 1.04
+	);
+	transform: translate(-50%, -50%) rotate(calc(-1 * var(--kawaii-tilt)));
+	animation: kg-fade-in var(--kg-dur-slow) var(--kg-ease-out);
 }
 
 .kawaii-drift {
 	display: flex;
 	width: 200%;
 	height: 100%;
-	animation: kawaii-drift 120s linear infinite;
+	/* 60 updates/s instead of one per refresh: the drift moves ~14 px/s, and each update recomposites the whole window */
+	animation: kawaii-drift 120s steps(7200) infinite;
 }
 
 @keyframes kawaii-drift {
@@ -49,18 +61,18 @@
 .kawaii-tile {
 	flex: 0 0 50%;
 	display: grid;
-	grid-template-columns: repeat(7, 1fr);
+	grid-template-columns: repeat(4, 1fr);
 	align-content: space-around;
-	gap: clamp(30px, 4.5vw, 62px) clamp(8px, 1.2vw, 18px);
+	gap: clamp(30px, 4.5vw, 110px) clamp(8px, 1.2vw, 30px);
 }
 
 .kawaii-face {
 	position: relative;
 	display: inline-block;
-	color: var(--kg-fg-faint);
-	opacity: 0.15;
+	color: var(--kg-kawaii-face);
+	opacity: 0.32;
 	font-family: var(--kg-font-mono);
-	font-size: clamp(24px, 2.7vw, 38px);
+	font-size: clamp(24px, 2.7vw, 64px);
 	white-space: nowrap;
 	text-align: center;
 }
@@ -74,6 +86,8 @@
 	animation-iteration-count: infinite;
 	animation-timing-function: steps(1, end);
 	animation-fill-mode: both;
+	/* own compositor layer: otherwise every blink re-rasterized the whole drifting layer (36 fps maximized) */
+	will-change: opacity;
 }
 
 .kawaii-face-open {

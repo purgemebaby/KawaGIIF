@@ -26,7 +26,7 @@ interface LibraryContextValue {
 	updateTags: (id: string, tags: string[]) => Promise<void>;
 	renameTag: (from: string, to: string) => Promise<void>;
 	deleteTag: (name: string) => Promise<void>;
-	deleteMedia: (id: string, force?: boolean) => Promise<void>;
+	deleteMedia: (ids: string[], force?: boolean) => Promise<void>;
 }
 
 const LARGE_FILE_BYTES = 150 * 1024 * 1024;
@@ -112,8 +112,8 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
 		await invoke('delete_tag', { name });
 	}, []);
 
-	const deleteMedia = useCallback(async (id: string, force = false) => {
-		await invoke('delete_media', { id, force });
+	const deleteMedia = useCallback(async (ids: string[], force = false) => {
+		await invoke('delete_media', { ids, force });
 	}, []);
 
 	return (

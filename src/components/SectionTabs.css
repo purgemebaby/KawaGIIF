@@ -1,0 +1,84 @@
+.section-tabs {
+	position: sticky;
+	top: 0;
+	z-index: 10;
+	display: flex;
+	align-items: center;
+	gap: var(--kg-space-4);
+	padding: var(--kg-space-3) var(--kg-space-4);
+	border-bottom: 1px solid var(--kg-border);
+	background: var(--kg-bg-app);
+}
+
+/* the logo is the small form of the Home title (same view-transition-name), and the way back */
+.section-tabs-brand {
+	padding: var(--kg-space-1) var(--kg-space-2);
+	border: none;
+	border-radius: var(--kg-radius-sm);
+	background: transparent;
+	color: var(--kg-accent-strong);
+	font-family: var(--kg-font-display);
+	font-size: var(--kg-text-xl);
+	letter-spacing: 0.02em;
+	line-height: 1;
+	cursor: pointer;
+	view-transition-name: kg-brand;
+	transition: transform var(--kg-dur-med) var(--kg-ease-pop);
+}
+
+.section-tabs-brand:hover,
+.section-tabs-brand:focus-visible {
+	transform: scale(1.06) rotate(-2deg);
+}
+
+.section-tabs-list {
+	display: flex;
+	gap: var(--kg-space-2);
+}
+
+.section-tab {
+	position: relative;
+	display: flex;
+	align-items: center;
+	gap: var(--kg-space-2);
+	padding: var(--kg-space-2) var(--kg-space-3);
+	border: 1px solid var(--kg-border);
+	border-radius: var(--kg-radius-pill);
+	background: var(--kg-bg-panel);
+	color: var(--kg-fg-muted);
+	font-family: inherit;
+	font-size: var(--kg-text-md);
+	cursor: pointer;
+	transition:
+		background var(--kg-dur-fast) var(--kg-ease-out),
+		color var(--kg-dur-fast) var(--kg-ease-out),
+		border-color var(--kg-dur-fast) var(--kg-ease-out);
+}
+
+.section-tab:hover,
+.section-tab:focus-visible {
+	background: var(--kg-bg-raised);
+	color: var(--kg-fg);
+}
+
+.section-tab.active {
+	border-color: transparent;
+	background: var(--kg-accent-soft);
+	color: var(--kg-accent-strong);
+	font-weight: 600;
+}
+
+.section-tab-icon {
+	font-size: var(--kg-text-lg);
+	line-height: 1;
+}
+
+/* one indicator, named, so a view transition slides it from the old tab to the new one */
+.section-tab-indicator {
+	position: absolute;
+	inset: auto var(--kg-space-3) -1px;
+	height: 2px;
+	border-radius: var(--kg-radius-pill);
+	background: var(--kg-accent);
+	view-transition-name: kg-tab-indicator;
+}

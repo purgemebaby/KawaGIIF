@@ -1,10 +1,15 @@
 import { useEffect, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { t } from '../../i18n/en';
+
+// Screens are CSS-contained (trapping `position: fixed`), so modals render into this node, inside the control shell.
+export const MODAL_ROOT_ID = 'modal-root';
 
 interface ModalProps {
 	title: string;
 	children?: ReactNode;
 	confirmLabel?: string;
+	cancelLabel?: string;
 	destructive?: boolean;
 	onConfirm?: () => void;
 	onCancel: () => void;
@@ -15,6 +20,7 @@ function Modal({
 	title,
 	children,
 	confirmLabel,
+	cancelLabel = t.common.cancel,
 	destructive,
 	onConfirm,
 	onCancel,
@@ -28,7 +34,7 @@ function Modal({
 		return () => window.removeEventListener('keydown', onKeyDown);
 	}, [onCancel]);
 
-	return (
+	return createPortal(
 		<div className="modal-backdrop" onClick={onCancel}>
 			<div
 				className="modal"
@@ -46,7 +52,7 @@ function Modal({
 						className="kg-btn kg-btn--secondary"
 						onClick={onCancel}
 					>
-						{t.common.cancel}
+						{cancelLabel}
 					</button>
 					{confirmLabel && onConfirm && (
 						<button
@@ -61,7 +67,8 @@ function Modal({
 					)}
 				</div>
 			</div>
-		</div>
+		</div>,
+		document.getElementById(MODAL_ROOT_ID) ?? document.body,
 	);
 }
 

@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { spring } from 'motion';
+import { animate } from 'motion/mini';
 import { invoke } from '../lib/ipc';
 import { loadPlacedMedia } from '../lib/placed';
 import { isVideoType, type MediaType } from '../lib/media';
 import { useMediaUrl } from '../hooks/useMediaUrl';
 import { useTauriEvent } from '../hooks/useTauriEvent';
 import { useDeleteShortcut } from '../hooks/useDeleteShortcut';
+import { POP_BOUNCE, POP_SECONDS, useSwing } from '../hooks/useSwing';
 import GifCanvasPlayer from '../components/GifCanvasPlayer';
 import './OverlayItemApp.css';
 
@@ -18,8 +21,30 @@ interface EditorStatus {
 	selected: string | null;
 }
 
+interface SlotInfo {
+	instance_id: string;
+	arrival: 'reload' | 'pop' | 'carried';
+}
+
 const MIN_SIDE = 40;
 const IMAGE_TYPES: MediaType[] = ['jpeg', 'png', 'webp', 'svg'];
+// "Power-on" pop when an animation appears: from tiny to full size with one or two small bounces.
+const POP_FROM_SCALE = 0.05;
+
+/** Plays the appear animation on `el` (hidden until now). */
+function popIn(el: HTMLElement) {
+	el.style.opacity = '';
+	if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+		animate(el, { opacity: [0, 1] }, { duration: 0.2 });
+		return;
+	}
+	animate(
+		el,
+		{ transform: [`scale(${POP_FROM_SCALE})`, 'scale(1)'] },
+		{ type: spring, bounce: POP_BOUNCE, visualDuration: POP_SECONDS },
+	);
+	animate(el, { opacity: [0, 1] }, { duration: POP_SECONDS / 3 });
+}
 
 function OverlayItemApp() {
 	const [instanceId, setInstanceId] = useState<string | null>(null);
@@ -32,24 +57,51 @@ function OverlayItemApp() {
 	const [resolved, setResolved] = useState(false);
 	const mediaUrl = useMediaUrl(mediaId);
 	const aspectRef = useRef<number | null>(null);
+	const mediaWrapRef = useRef<HTMLDivElement>(null);
+	const popRef = useRef<HTMLDivElement>(null);
+	const popPending = useRef(false);
+	const { carrying, start: startSwing } = useSwing(mediaWrapRef);
+
+	// Asked, not pushed: a sleeping slot misses the events sent while it wakes, and it asks several times while waking.
+	// The entrance plays once per new instance; editor reloads arrive as `reload`: no entrance.
+	const entranceFor = useRef<string | null>(null);
+	const resolveSlot = useCallback(() => {
+		invoke<SlotInfo | null>('get_slot_info').then((info) => {
+			setResolved(true);
+			if (!info) {
+				entranceFor.current = null;
+				setInstanceId(null);
+				return;
+			}
+			if (entranceFor.current !== info.instance_id) {
+				entranceFor.current = info.instance_id;
+				popPending.current = info.arrival !== 'reload';
+				if (popPending.current && popRef.current)
+					popRef.current.style.opacity = '0';
+				if (info.arrival === 'carried') startSwing();
+			}
+			setInstanceId(info.instance_id);
+		});
+	}, [startSwing]);
 
 	useEffect(() => {
-		const query = () =>
-			invoke<string | null>('get_instance_id_for_window').then((id) => {
-				setInstanceId(id);
-				setResolved(true);
-			});
-		query();
-		// Re-check when the window is shown again: a dormant slot may have missed `slot-assigned`.
+		resolveSlot();
 		const onVisibility = () => {
-			if (document.visibilityState === 'visible') query();
+			if (document.visibilityState === 'visible') resolveSlot();
 		};
 		document.addEventListener('visibilitychange', onVisibility);
 		return () => document.removeEventListener('visibilitychange', onVisibility);
-	}, []);
+	}, [resolveSlot]);
 
-	useTauriEvent<string>('slot-assigned', setInstanceId, 'self');
-	useTauriEvent('slot-released', () => setInstanceId(null), 'self');
+	useTauriEvent('slot-assigned', resolveSlot, 'self');
+	useTauriEvent(
+		'slot-released',
+		() => {
+			entranceFor.current = null;
+			setInstanceId(null);
+		},
+		'self',
+	);
 
 	useEffect(() => {
 		if (resolved && !instanceId) invoke('overlay_idle');
@@ -74,9 +126,26 @@ function OverlayItemApp() {
 		};
 	}, [instanceId]);
 
+	// Media that fails or reports no size never gets an entrance: show it plainly instead of staying hidden.
+	const revealMedia = () => {
+		popPending.current = false;
+		if (popRef.current) popRef.current.style.opacity = '';
+	};
+
 	const reportNaturalSize = (width: number, height: number) => {
-		if (!width || !height) return;
+		if (!width || !height) {
+			revealMedia();
+			return;
+		}
 		aspectRef.current = width / height;
+		if (popPending.current && popRef.current) {
+			// a carried item is already shown small by the swing: it grows at the drop, not here
+			if (carrying.current) revealMedia();
+			else {
+				popPending.current = false;
+				popIn(popRef.current);
+			}
+		}
 		if (!instanceId) return;
 		invoke('fit_overlay_to_media', {
 			instanceId,
@@ -212,46 +281,54 @@ function OverlayItemApp() {
 			data-tauri-drag-region
 			onMouseDown={select}
 		>
-			<div className="overlay-media-wrap" style={{ opacity }}>
-				{mediaUrl && isVideoType(mediaType) && (
-					<video
-						src={mediaUrl}
-						autoPlay
-						loop
-						muted
-						playsInline
-						onLoadedMetadata={(e) =>
-							reportNaturalSize(
-								e.currentTarget.videoWidth,
-								e.currentTarget.videoHeight,
-							)
-						}
-						ref={(el) => {
-							if (el) el.playbackRate = playbackRate;
-						}}
-					/>
-				)}
-				{mediaUrl && mediaType === 'gif' && (
-					<GifCanvasPlayer
-						src={mediaUrl}
-						speedMultiplier={playbackRate}
-						className="overlay-media"
-						onNaturalSize={reportNaturalSize}
-					/>
-				)}
-				{mediaUrl && mediaType && IMAGE_TYPES.includes(mediaType) && (
-					<img
-						src={mediaUrl}
-						alt=""
-						draggable={false}
-						onLoad={(e) =>
-							reportNaturalSize(
-								e.currentTarget.naturalWidth,
-								e.currentTarget.naturalHeight,
-							)
-						}
-					/>
-				)}
+			<div
+				ref={mediaWrapRef}
+				className="overlay-media-wrap"
+				style={{ opacity }}
+			>
+				<div ref={popRef} className="overlay-media-pop">
+					{mediaUrl && isVideoType(mediaType) && (
+						<video
+							src={mediaUrl}
+							autoPlay
+							loop
+							muted
+							playsInline
+							onError={revealMedia}
+							onLoadedMetadata={(e) =>
+								reportNaturalSize(
+									e.currentTarget.videoWidth,
+									e.currentTarget.videoHeight,
+								)
+							}
+							ref={(el) => {
+								if (el) el.playbackRate = playbackRate;
+							}}
+						/>
+					)}
+					{mediaUrl && mediaType === 'gif' && (
+						<GifCanvasPlayer
+							src={mediaUrl}
+							speedMultiplier={playbackRate}
+							className="overlay-media"
+							onNaturalSize={reportNaturalSize}
+						/>
+					)}
+					{mediaUrl && mediaType && IMAGE_TYPES.includes(mediaType) && (
+						<img
+							src={mediaUrl}
+							alt=""
+							draggable={false}
+							onError={revealMedia}
+							onLoad={(e) =>
+								reportNaturalSize(
+									e.currentTarget.naturalWidth,
+									e.currentTarget.naturalHeight,
+								)
+							}
+						/>
+					)}
+				</div>
 			</div>
 			{editMode && selected && (
 				<div className="resize-handle" onPointerDown={onResizeStart} />

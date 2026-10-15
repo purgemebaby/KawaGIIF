@@ -271,31 +271,34 @@ pub fn delete_tag(app: AppHandle, lib: State<LibraryState>, name: String) -> App
 
 
 //Media Commands
-///Deletes a media item, without leaving placed animations pointing at it.
+///Deletes media items (only our copy in `media/`, never the user's original), without leaving placed animations
+///pointing at them. Saves the index and the template once for the whole batch; returns how many were deleted.
 #[tauri::command]
 pub fn delete_media(app: AppHandle, lib: State<LibraryState>,
-    editor: State<EditorState>, id: Uuid, force: bool,
+    editor: State<EditorState>, ids: Vec<Uuid>, force: bool,
 ) -> AppResult<usize> {
-    let references = template::count_references_to_media(&editor, &id);
+    let ids: HashSet<Uuid> = ids.into_iter().collect();
+    let references = template::count_references_to_media(&editor, &ids);
     if references > 0 && !force {
         return Err(AppError::MediaReferenced(references));
     }
 
     let mut index = lib.lock();
-    let pos = index.items.iter()
-        .position(|item| item.id == id)
-        .ok_or(AppError::MediaNotFound(id))?;
-    let item = index.items.remove(pos);
-    let _ = std::fs::remove_file(LibraryIndex::media_dir().join(&item.stored_file_name));
+    let (doomed, kept): (Vec<MediaItem>, Vec<MediaItem>) =
+        std::mem::take(&mut index.items).into_iter().partition(|item| ids.contains(&item.id));
+    index.items = kept;
+    for item in &doomed {
+        let _ = std::fs::remove_file(LibraryIndex::media_dir().join(&item.stored_file_name));
+    }
     index.save()?;
     drop(index);
 
     if references > 0 {
-        template::purge_media_references(&app, &editor, &id)?;
+        template::purge_media_references(&app, &editor, &ids)?;
     }
 
     notify_library_changed(&app);
-    Ok(references)
+    Ok(doomed.len())
 }
 
 ///List all media saved at the moment in the `LibraryIndex`

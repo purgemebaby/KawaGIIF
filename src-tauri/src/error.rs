@@ -32,7 +32,7 @@ pub enum AppError {
     #[error("No media with id {0}")]
     MediaNotFound(Uuid),
 
-    #[error("REFERENCED:{0}")]
+    #[error("{0} placed animation(s) still show this media")]
     MediaReferenced(usize),
 
     #[error("New tag name cannot be empty")]
@@ -43,6 +43,9 @@ pub enum AppError {
 
     #[error("No overlay window for slot {0}")]
     MissingSlotWindow(usize),
+
+    #[error("Monitor {0} is not connected")]
+    MonitorNotFound(usize),
 
     #[error("Only GIF, PNG or JPEG images are allowed")]
     UnsupportedImage,

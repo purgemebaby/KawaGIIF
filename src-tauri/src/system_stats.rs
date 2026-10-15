@@ -1,14 +1,9 @@
 /* System and app memory readings. Feeds the RAM gauge in Settings */
+use tauri::State;
 use serde::Serialize;
 use std::collections::HashSet;
 use std::sync::{Mutex, MutexGuard, PoisonError};
 use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System};
-use tauri::State;
-
-/* Personal Note for me:
-- sysinfo: cross-platform system info.
-    - ProcessesToUpdate / ProcessRefreshKind: which processes and which details to refresh.
-*/
 
 const BYTES_PER_MB: u64 = 1024 * 1024;
 
@@ -16,7 +11,7 @@ const BYTES_PER_MB: u64 = 1024 * 1024;
 fn refresh_process_memory(sys: &mut System) {
     sys.refresh_processes_specifics(
         ProcessesToUpdate::All,
-        true, 
+        true, //
         ProcessRefreshKind::nothing().with_memory());
 }
 

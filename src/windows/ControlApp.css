@@ -15,107 +15,30 @@
 	overflow-y: auto;
 }
 
-.nav-sidebar {
-	--nav-width: 210px;
-	flex-shrink: 0;
-	width: var(--nav-width);
-	overflow: hidden;
-	background: var(--kg-bg-panel);
-	border-right: 1px solid var(--kg-border);
-	transition:
-		width var(--kg-dur-med) var(--kg-ease-out),
-		border-color var(--kg-dur-med) var(--kg-ease-out);
-}
-
-.nav-sidebar.collapsed {
-	width: 0;
-	border-right-color: transparent;
-}
-
-.nav-inner {
-	display: flex;
-	flex-direction: column;
-	gap: var(--kg-space-1);
-	width: var(--nav-width);
-	height: 100%;
-	padding: var(--kg-space-5) var(--kg-space-3);
-	opacity: 1;
-	transition: opacity var(--kg-dur-fast) var(--kg-ease-out);
-}
-
-.nav-sidebar.collapsed .nav-inner {
-	opacity: 0;
-}
-
-.nav-brand {
-	padding: 0 10px var(--kg-space-4);
-	color: var(--kg-accent-strong);
-	font-family: var(--kg-font-display);
-	font-size: 22px;
-	letter-spacing: 0.02em;
-	white-space: nowrap;
-}
-
-.nav-item {
-	display: flex;
-	align-items: center;
-	gap: var(--kg-space-3);
-	padding: 10px var(--kg-space-3);
-	border: none;
-	border-radius: var(--kg-radius-sm);
-	background: transparent;
-	color: var(--kg-fg-muted);
-	font-family: inherit;
-	font-size: var(--kg-font-size);
-	text-align: left;
-	cursor: pointer;
-	white-space: nowrap;
-	transition:
-		background var(--kg-dur-fast) var(--kg-ease-out),
-		color var(--kg-dur-fast) var(--kg-ease-out);
-}
-
-.nav-item-icon {
-	width: 16px;
-	font-size: var(--kg-text-lg);
-	text-align: center;
-}
-
-.nav-item:hover {
-	background: var(--kg-bg-raised);
-	color: var(--kg-fg);
-}
-
-.nav-item.active {
-	background: var(--kg-accent-soft);
-	color: var(--kg-accent-strong);
-	font-weight: 600;
-}
-
-.content-topbar {
-	position: sticky;
-	top: 0;
-	z-index: 10;
-	display: flex;
-	align-items: center;
-	gap: var(--kg-space-2);
-	padding: var(--kg-space-3) var(--kg-space-3) 0 var(--kg-space-4);
-	background: var(--kg-bg-app);
-}
-
+/* contain + own layer: a screen change never re-lays-out or repaints outside the slot; it scrolls here (clipped by paint) */
 .screen-slot {
 	flex: 1;
 	min-height: 0;
 	display: flex;
 	flex-direction: column;
+	overflow-y: auto;
+	contain: layout paint;
+	backface-visibility: hidden;
+	animation: kg-fade-in var(--kg-dur-med) var(--kg-ease-out);
 }
 
-.screen-slot.from-below {
-	animation: kg-screen-in-down var(--kg-dur-slow) var(--kg-ease-out);
+/* capturing the whole window cost ~20 fps maximized; only the named pieces morph, the rest switches live underneath */
+:root {
+	view-transition-name: none;
 }
 
-.screen-slot.from-above {
-	animation: kg-screen-in-up var(--kg-dur-slow) var(--kg-ease-out);
+::view-transition-group(*) {
+	animation-duration: var(--kg-dur-slow);
+	animation-timing-function: var(--kg-ease-out);
+}
+
+.home-brand {
+	view-transition-name: kg-brand;
 }
 
 .home-screen,
@@ -130,7 +53,8 @@
 	position: relative;
 	flex: 1;
 	justify-content: center;
-	gap: var(--kg-space-6);
+	gap: max(var(--kg-space-6), 4cqmin);
+	container-type: size;
 	overflow: hidden;
 	text-align: center;
 }
@@ -151,30 +75,35 @@
 
 .home-subtitle {
 	color: var(--kg-fg-muted);
-	font-size: var(--kg-text-md);
+	font-size: max(var(--kg-text-md), calc(2.1cqmin * var(--kg-font-scale)));
 }
 
+/* flex-start: a tile never stretches to the height of the hovered one; z-index 2: a hovered tile's description card paints over .home-actions */
 .home-tiles {
 	display: flex;
 	flex-wrap: wrap;
+	align-items: flex-start;
 	justify-content: center;
-	gap: var(--kg-space-4);
+	gap: max(var(--kg-space-4), 2.4cqmin);
+	z-index: 2;
 }
 
 .home-actions {
 	display: flex;
 	flex-wrap: wrap;
 	justify-content: center;
-	gap: var(--kg-space-3);
+	gap: max(var(--kg-space-3), 1.6cqmin);
 }
 
+/* Hover only animates transform and opacity (composited): no layout or repaint per frame, and no tile moves another. */
 .home-tile {
+	position: relative;
 	display: flex;
 	flex-direction: column;
 	align-items: center;
-	gap: var(--kg-space-2);
-	width: 180px;
-	padding: var(--kg-space-5) var(--kg-space-4);
+	gap: max(var(--kg-space-2), 1.2cqmin);
+	width: clamp(180px, 26cqmin, 320px);
+	padding: max(var(--kg-space-5), 3.4cqmin) max(var(--kg-space-4), 2.6cqmin);
 	border: 1px solid var(--kg-border);
 	border-radius: var(--kg-radius-lg);
 	background: var(--kg-bg-panel);
@@ -188,16 +117,36 @@
 		transform var(--kg-dur-med) var(--kg-ease-out);
 }
 
+/* the neon glow is painted once; only its opacity breathes */
+.home-tile::after {
+	content: '';
+	position: absolute;
+	inset: -1px;
+	border-radius: inherit;
+	box-shadow:
+		0 0 0 1px rgb(var(--kg-accent-rgb) / 0.45),
+		0 0 22px -4px rgb(var(--kg-accent-rgb) / 0.42);
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity var(--kg-dur-fast) var(--kg-ease-out);
+}
+
 .home-tile:hover,
 .home-tile:focus-visible {
+	z-index: 2;
 	border-color: transparent;
 	background: var(--kg-bg-raised);
 	transform: translateY(-3px);
-	animation: kg-neon-pulse 4.5s var(--kg-ease-out) infinite;
+}
+
+.home-tile:hover::after,
+.home-tile:focus-visible::after {
+	opacity: 1;
+	animation: kg-glow-breathe 4.5s var(--kg-ease-out) infinite;
 }
 
 .home-tile-icon {
-	font-size: 30px;
+	font-size: clamp(30px, 5.5cqmin, 60px);
 	line-height: 1;
 	color: var(--kg-accent-strong);
 	transition: transform var(--kg-dur-med) var(--kg-ease-pop);
@@ -208,31 +157,38 @@
 }
 
 .home-tile-title {
-	font-size: var(--kg-text-lg);
+	font-size: max(var(--kg-text-lg), calc(2.4cqmin * var(--kg-font-scale)));
 	font-weight: 600;
 }
 
+/* The description pops out as a card under the tile, over whatever is below, instead of making the tile taller. */
 .home-tile-desc {
-	display: grid;
-	grid-template-rows: 0fr;
+	position: absolute;
+	top: calc(100% + var(--kg-space-2));
+	left: 0;
+	right: 0;
+	padding: max(var(--kg-space-3), 1.8cqmin) max(var(--kg-space-4), 2.4cqmin);
+	border-radius: var(--kg-radius-md);
+	background: var(--kg-bg-raised);
+	box-shadow:
+		0 0 0 1px rgb(var(--kg-accent-rgb) / 0.3),
+		var(--kg-shadow-2);
 	color: var(--kg-fg-muted);
-	font-size: var(--kg-text-sm);
+	font-size: max(var(--kg-text-sm), calc(1.9cqmin * var(--kg-font-scale)));
 	line-height: 1.45;
 	opacity: 0;
+	transform: translateY(-8px) scale(0.96);
+	transform-origin: top center;
+	pointer-events: none;
 	transition:
-		grid-template-rows var(--kg-dur-med) var(--kg-ease-out),
-		opacity var(--kg-dur-fast) var(--kg-ease-out);
-}
-
-.home-tile-desc > * {
-	min-height: 0;
-	overflow: hidden;
+		opacity var(--kg-dur-fast) var(--kg-ease-out),
+		transform var(--kg-dur-med) var(--kg-ease-pop);
 }
 
 .home-tile:hover .home-tile-desc,
 .home-tile:focus-visible .home-tile-desc {
-	grid-template-rows: 1fr;
 	opacity: 1;
+	transform: none;
 }
 
 .settings-screen h1 {

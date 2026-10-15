@@ -14,7 +14,10 @@ function HomeScreen({ onNavigate }: HomeScreenProps) {
 			<KawaiiBackdrop />
 
 			<div className="home-header">
-				<KawaTitle size="46px" />
+				{/* shares `kg-brand` with the tabs' logo, so the title shrinks into it */}
+				<div className="home-brand">
+					<KawaTitle size="clamp(46px, 8cqmin, 110px)" />
+				</div>
 				<p className="home-subtitle">{t.app.tagline}</p>
 			</div>
 
@@ -24,6 +27,7 @@ function HomeScreen({ onNavigate }: HomeScreenProps) {
 						key={tile.id}
 						type="button"
 						className="home-tile"
+						style={{ viewTransitionName: `kg-section-${tile.id}` }}
 						onClick={() => onNavigate(tile.id)}
 					>
 						<span className="home-tile-icon" aria-hidden="true">

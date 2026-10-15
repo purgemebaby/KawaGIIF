@@ -3,6 +3,7 @@ mod commands;
 mod config;
 mod error;
 mod library;
+mod monitors;
 #[cfg(windows)]
 mod native;
 mod system_stats;
@@ -86,6 +87,7 @@ pub fn run() {
             commands::list_system_fonts,
             commands::set_ui_font,
             commands::set_font_scale,
+            commands::set_ui_zoom,
             library::import_media,
             library::list_media,
             library::update_media_tags,
@@ -95,6 +97,7 @@ pub fn run() {
             library::delete_media,
             library::get_media_path,
             library::get_file_size,
+            monitors::list_monitors,
             system_stats::get_system_stats,
             #[cfg(debug_assertions)]
             system_stats::debug_memory_breakdown,
@@ -108,11 +111,13 @@ pub fn run() {
             template::set_edit_mode,
             template::select_overlay,
             template::get_placed_media,
-            template::get_instance_id_for_window,
+            template::get_slot_info,
             template::get_editor_status,
             template::set_item_opacity,
             template::set_item_playback_rate,
             template::spawn_placed_media,
+            template::move_overlay_to_monitor,
+            template::count_placed_media,
             template::remove_placed_media,
             template::nudge_overlay,
             template::fit_overlay_to_media,

@@ -29,10 +29,11 @@ use windows::Win32::Graphics::Gdi::{
     DEFAULT_CHARSET, LOGFONTW, MONITORINFO, MONITOR_DEFAULTTONEAREST, TEXTMETRICW,
 };
 
+use windows::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_LBUTTON, VK_RBUTTON};
 use windows::Win32::UI::Shell::{DefSubclassProc, RemoveWindowSubclass, SetWindowSubclass};
 
 use windows::Win32::UI::WindowsAndMessaging::{
-    GetWindowLongPtrW, SetClassLongPtrW, SetWindowLongPtrW, SetWindowPos, 
+    GetSystemMetrics, GetWindowLongPtrW, SetClassLongPtrW, SetWindowLongPtrW, SetWindowPos, SM_SWAPBUTTON,
     EVENT_SYSTEM_FOREGROUND, GCLP_HBRBACKGROUND, GWL_EXSTYLE, GWL_STYLE,
     HWND_TOPMOST, SET_WINDOW_POS_FLAGS,
     SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER,
@@ -73,6 +74,9 @@ use windows::Win32::UI::WindowsAndMessaging::WS_EX_TRANSPARENT;
         - WS_EX_LAYERED: per-px transparency.
         - WS_EX_TOOLWINDOW / WS_EX_APPWINDOW: hide from / force into the taskbar and Alt+Tab. 
 
+
+    - Win32::UI::Input::KeyboardAndMouse - GetAsyncKeyState: is a key/button held right now, whatever window has focus.
+      It reads the physical button, so with left/right swapped (SM_SWAPBUTTON) the "primary" one is VK_RBUTTON.
 
     - Win32::UI::Shell (window subclassing, in comctl32):
         - SetWindowSubclass: puts our own message handler in front of the window's existing one (tao's), without replacing it.
@@ -221,6 +225,13 @@ pub fn watch_foreground(callback: impl Fn() + Send + Sync + 'static) {
 pub fn unwatch_foreground() {
     let hook: usize = FOREGROUND_HOOK.swap(0, Ordering::Relaxed);
     if hook != 0 { unsafe { let _ = UnhookWinEvent(HWINEVENTHOOK(hook as *mut c_void)); } }
+}
+
+/** Whether the primary mouse button is held right now, anywhere on screen (respects swapped buttons). */
+pub fn primary_button_down() -> bool {
+    let button = if unsafe { GetSystemMetrics(SM_SWAPBUTTON) } != 0 { VK_RBUTTON } else { VK_LBUTTON };
+    let state: i16 = unsafe { GetAsyncKeyState(i32::from(button.0)) };
+    state < 0 // the high bit means "down"
 }
 
 #[cfg(debug_assertions)]

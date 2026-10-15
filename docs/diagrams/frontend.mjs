@@ -13,7 +13,7 @@ export function frontend() {
 	const idx = s.box(70, 170, 330, { title: 'index.html', color: GRAY, bg: '#f1f3f5', items: ['<script src="/src/main.tsx">'] });
 	const main = s.box(450, 170, 330, { title: 'main.tsx', color: GRAY, bg: '#f1f3f5', items: ['createRoot().render(<ControlApp/>)', 'suppressBrowserContextMenu()'] });
 	const app = s.box(830, 170, 400, { title: 'ControlApp', sub: 'windows/ControlApp.tsx', color: PURPLE, bg: '#f3f0ff', items: [
-		'NavSidebar + navItems (screen switch)', 'LoadingScreen, Modal (unsaved changes)', 'listens close-requested', 'asks has_unsaved_changes before leaving'] });
+		'SectionTabs + navItems (tiles morph into tabs)', 'LoadingScreen, Modal (unsaved changes)', 'listens close-requested', 'asks has_unsaved_changes before leaving'] });
 	const prov = s.box(1280, 170, 330, { title: 'LibraryProvider', sub: 'context/LibraryProvider.tsx', color: GREEN, bg: '#ebfbee', items: [
 		'media, tags, refresh()', 'deleteMedia(id, force)', 'parseReferencedError', 'listens library-changed'] });
 	s.arrow([[400, 220], [450, 220]], { sw: 2.5, from: idx, to: main });
@@ -27,7 +27,7 @@ export function frontend() {
 	const stor = s.box(460, SY, SW, { title: 'StorageScreen', color: TEAL, bg: '#e3fafc', items: [
 		'MediaFilterBar + SortMenu', 'MediaGrid + TagChips', 'TagManager (modal), TagPopover', 'import via dialog -> import_media', 'useDeleteShortcut'] });
 	const edit = s.box(850, SY, SW, { title: 'EditorScreen', color: TEAL, bg: '#e3fafc', items: [
-		'MediaSidebar (drag to place)', 'PlacedItemsList', 'PropertiesPanel + Slider', 'Save / Discard modal', 'set_edit_mode(true) on mount'] });
+		'MediaSidebar (click = centre, drag = pickup)', 'PlacedItemsList', 'PropertiesPanel + Slider', 'Save / Discard modal', 'set_edit_mode(true) on mount'] });
 	const sett = s.box(1240, SY, SW, { title: 'SettingsScreen', color: TEAL, bg: '#e3fafc', items: [
 		'autostart / tray / confirm toggles', 'overlay pool size', 'RamGauge', '   <- get_system_stats'] });
 	for (const sc of [home, stor, edit, sett]) s.arrow([[1030, 170 + app.h], [sc.cx, SY]], { sw: 2, from: app, to: sc });
@@ -38,7 +38,7 @@ export function frontend() {
 	const oh = s.box(1740, 170, 500, { title: 'overlay.html', color: GRAY, bg: '#f1f3f5', items: ['<script src="/src/entries/overlay.tsx">'] });
 	const oe = s.box(1740, 290, 500, { title: 'entries/overlay.tsx', color: GRAY, bg: '#f1f3f5', items: ['createRoot().render(<OverlayItemApp/>)'] });
 	const oa = s.box(1740, 410, 500, { title: 'OverlayItemApp', sub: 'windows/OverlayItemApp.tsx', color: PURPLE, bg: '#f3f0ff', items: [
-		'get_instance_id_for_window on mount', 'listens slot-assigned / slot-released (self)', 'on slot-released -> overlay_idle', 'edit-mode / selection / opacity / rate events',
+		'get_slot_info on mount / slot-assigned', 'listens slot-assigned / slot-released (self)', 'on slot-released -> overlay_idle', 'edit-mode / selection / opacity / rate events',
 		'resize handle -> resize_overlay, arrows -> nudge', 'first load -> fit_overlay_to_media'] });
 	const pl = s.box(1740, 700, 500, { title: 'Players', color: PINK, bg: '#fff0f6', items: [
 		'<video>          mp4 / webm', 'GifCanvasPlayer  gifuct-js + canvas, rate', '<img>            webp / png / jpg'] });
@@ -53,7 +53,7 @@ export function frontend() {
 	const plc = s.box(1860, 970, 420, { title: 'lib/placed.ts', color: GRAY, bg: '#f1f3f5', items: ['loadPlacedMedia(instanceId)', '  = get_placed_media + list_media', 'shared by editor + overlay'] });
 	const hk = s.box(840, 970, 980, { title: 'hooks/', color: GRAY, bg: '#f1f3f5', items: [
 		'useTauriEvent(name, handler, "self" | "any")   subscribe + cleanup', 'useEditorSync   overlay moved / selection -> editor state',
-		'useMediaUrl(mediaId)   get_media_path -> convertFileSrc -> asset://', 'useDeleteShortcut   Delete key -> remove'] });
+		'useMediaUrl(mediaId)   get_media_path -> convertFileSrc -> asset://', 'useDeleteShortcut, useMediaSelection, useMonitors, useSwing (pickup)'] });
 	s.arrow([[600, 900], [400, 970]], { sw: 2.5 });
 	s.arrow([[1990, 900], [1990, 970]], { sw: 2.5, stroke: PINK });
 	s.arrow([[840, 1050], [800, 1050]], { sw: 2, dash: 'dashed', from: hk, to: ipc });
@@ -66,7 +66,7 @@ export function frontend() {
 	s.arrow([[250, ipc.b], [250, 1600]], { sw: 4, stroke: BLUE, from: ipc, to: rust });
 	s.text(270, 1200, 'invoke: React -> Rust  (request / response)', { size: 20, color: BLUE });
 	const inv = [
-		"invoke('spawn_placed_media', { mediaId })", "invoke('import_media', { paths })", "invoke('delete_media', { id, force })", "invoke('save_template') / 'discard_template_changes'",
+		"invoke('spawn_placed_media', { mediaId, at })", "invoke('import_media', { paths })", "invoke('delete_media', { ids, force })", "invoke('save_template') / 'discard_template_changes'",
 		"invoke('set_edit_mode', { enabled })", "invoke('get_config') / 'set_launch_on_startup'", "invoke('list_media') / 'get_system_stats'", "invoke('overlay_idle') / 'resize_overlay'",
 	];
 	inv.forEach((t, i) => s.text(280, 1240 + i * 26, t, { size: 16, color: '#343a40' }));
