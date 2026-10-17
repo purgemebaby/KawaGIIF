@@ -10,8 +10,8 @@ const FACES: { open: string; wink: string }[] = [
 	{ open: '(≧◡≦)', wink: '(≧◡−)' },
 ];
 
-// Just past the view-transition duration (--kg-dur-slow, 420ms), so the faces' layers are rasterized after the morph.
-const BACKDROP_DELAY_MS = 450;
+// Just past the 650 ms screen pan, so the faces' layers are rasterized once Home has stopped moving.
+const BACKDROP_DELAY_MS = 700;
 
 const ROWS = 5; // per tile; the tile is the size of the tilted window, so this keeps the old density
 const COLS = 4;

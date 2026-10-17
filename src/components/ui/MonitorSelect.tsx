@@ -1,9 +1,9 @@
 import { monitorLabel, type MonitorInfo } from '../../lib/monitors';
-import { t } from '../../i18n/en';
 
 interface MonitorSelectProps {
 	monitors: MonitorInfo[];
 	value: number;
+	label: string;
 	hint: string;
 	onChange: (index: number) => void;
 }
@@ -12,6 +12,7 @@ interface MonitorSelectProps {
 function MonitorSelect({
 	monitors,
 	value,
+	label,
 	hint,
 	onChange,
 }: MonitorSelectProps) {
@@ -19,7 +20,7 @@ function MonitorSelect({
 
 	return (
 		<label className="monitor-select" title={hint}>
-			<span className="monitor-select-label">{t.editor.monitor.label}</span>
+			<span className="monitor-select-label">{label}</span>
 			<select
 				className="kg-select"
 				value={value}

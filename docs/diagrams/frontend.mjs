@@ -13,7 +13,7 @@ export function frontend() {
 	const idx = s.box(70, 170, 330, { title: 'index.html', color: GRAY, bg: '#f1f3f5', items: ['<script src="/src/main.tsx">'] });
 	const main = s.box(450, 170, 330, { title: 'main.tsx', color: GRAY, bg: '#f1f3f5', items: ['createRoot().render(<ControlApp/>)', 'suppressBrowserContextMenu()'] });
 	const app = s.box(830, 170, 400, { title: 'ControlApp', sub: 'windows/ControlApp.tsx', color: PURPLE, bg: '#f3f0ff', items: [
-		'SectionTabs + navItems (tiles morph into tabs)', 'LoadingScreen, Modal (unsaved changes)', 'listens close-requested', 'asks has_unsaved_changes before leaving'] });
+		'RadialMenu + BrandBar, screen pan / editor burst', 'LoadingScreen, Modal (unsaved changes)', 'listens close-requested', 'asks has_unsaved_changes before leaving'] });
 	const prov = s.box(1280, 170, 330, { title: 'LibraryProvider', sub: 'context/LibraryProvider.tsx', color: GREEN, bg: '#ebfbee', items: [
 		'media, tags, refresh()', 'deleteMedia(id, force)', 'parseReferencedError', 'listens library-changed'] });
 	s.arrow([[400, 220], [450, 220]], { sw: 2.5, from: idx, to: main });

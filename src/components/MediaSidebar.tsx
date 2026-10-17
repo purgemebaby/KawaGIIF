@@ -83,25 +83,28 @@ function MediaSidebar({ targetMonitor }: { targetMonitor: number }) {
 		window.addEventListener('mouseup', onUp);
 	};
 
+	// The wheel scrolls the strip sideways, since it has no vertical overflow.
 	return (
-		<div className="media-sidebar">
-			<h2>{t.editor.sidebarTitle}</h2>
-			<div className="media-sidebar-list">
-				{items.length === 0 && (
-					<p className="empty-state">{t.editor.sidebarEmpty}</p>
-				)}
-				{items.map((item) => (
-					<div
-						key={item.id}
-						className="media-sidebar-item"
-						onMouseDown={(e) => onMouseDown(e, item.id)}
-						title={t.editor.sidebarHint}
-					>
-						<SidebarThumb item={item} />
-						<span>{item.original_file_name}</span>
-					</div>
-				))}
-			</div>
+		<div
+			className="media-strip"
+			onWheel={(e) => {
+				e.currentTarget.scrollLeft += e.deltaY;
+			}}
+		>
+			{items.length === 0 && (
+				<p className="empty-state">{t.editor.sidebarEmpty}</p>
+			)}
+			{items.map((item) => (
+				<div
+					key={item.id}
+					className="media-strip-item"
+					onMouseDown={(e) => onMouseDown(e, item.id)}
+					title={t.editor.sidebarHint}
+				>
+					<SidebarThumb item={item} />
+					<span>{item.original_file_name}</span>
+				</div>
+			))}
 		</div>
 	);
 }

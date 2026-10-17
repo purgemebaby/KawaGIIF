@@ -79,6 +79,7 @@ pub fn run() {
             commands::set_launch_on_startup,
             commands::set_start_minimized_to_tray,
             commands::set_confirm_media_delete,
+            commands::set_nav_animations,
             commands::set_overlay_pool_size,
             commands::set_loading_indicator,
             commands::reset_loading_indicator,

@@ -24,7 +24,7 @@ function describeFrame(frame: LongAnimationFrame) {
 
 /**
  * Dev-only: while `done` is pending, counts frames and long animation frames, then logs
- * `[kg-vt] <label> <ms> fps= worst= loaf=[...]`. Used for view transitions, see `VITE_KG_PERF`.
+ * `[kg-vt] <label> <ms> fps= worst= loaf=[...]`. Used for the screen pan and the editor burst, see `VITE_KG_PERF`.
  */
 export function measureTransition(label: string, done: Promise<unknown>) {
 	const startedAt = performance.now();
@@ -49,17 +49,20 @@ export function measureTransition(label: string, done: Promise<unknown>) {
 	};
 	requestAnimationFrame(tick);
 
-	done.finally(() => {
-		running = false;
-		const total = performance.now() - startedAt;
-		// the last long-animation-frame entries arrive just after the transition ends
-		window.setTimeout(() => {
-			observer.disconnect();
-			console.warn(
-				`[kg-vt] ${label} ${Math.round(total)}ms fps=${Math.round((frames * 1000) / total)} worst=${Math.round(worst)}ms loaf=[${longFrames.join(' ')}]`,
-			);
-		}, 100);
-	});
+	// a cancelled animation rejects `finished`; the measurement still ends there
+	done
+		.catch(() => {})
+		.finally(() => {
+			running = false;
+			const total = performance.now() - startedAt;
+			// the last long-animation-frame entries arrive just after the transition ends
+			window.setTimeout(() => {
+				observer.disconnect();
+				console.warn(
+					`[kg-vt] ${label} ${Math.round(total)}ms fps=${Math.round((frames * 1000) / total)} worst=${Math.round(worst)}ms loaf=[${longFrames.join(' ')}]`,
+				);
+			}, 100);
+		});
 }
 
 /**

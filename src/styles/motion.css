@@ -71,17 +71,6 @@
 	}
 }
 
-/* opacity only, so it runs on the compositor: animating box-shadow repainted every frame */
-@keyframes kg-glow-breathe {
-	0%,
-	100% {
-		opacity: 0.6;
-	}
-	50% {
-		opacity: 1;
-	}
-}
-
 @keyframes kg-fade-up {
 	from {
 		opacity: 0;
@@ -106,6 +95,11 @@
 	display: inline-block;
 	animation: kg-wave 4s linear infinite;
 	animation-delay: calc(var(--i) * -0.14s);
+}
+
+/* the small logo keeps the title's look without the wave */
+.kg-wave--still > span {
+	animation: none;
 }
 
 @media (prefers-reduced-motion: reduce) {

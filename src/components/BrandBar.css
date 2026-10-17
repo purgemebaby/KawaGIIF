@@ -1,0 +1,23 @@
+.brand-bar {
+	display: flex;
+	align-items: center;
+	gap: var(--kg-space-4);
+	padding: var(--kg-space-3) var(--kg-space-4);
+	border-bottom: 1px solid var(--kg-border);
+	background: var(--kg-bg-app);
+}
+
+/* the logo is the small form of the Home title, and the way back */
+.brand-bar-logo {
+	padding: var(--kg-space-1) var(--kg-space-2);
+	border: none;
+	border-radius: var(--kg-radius-sm);
+	background: transparent;
+	cursor: pointer;
+	transition: transform var(--kg-dur-med) var(--kg-ease-pop);
+}
+
+.brand-bar-logo:hover,
+.brand-bar-logo:focus-visible {
+	transform: scale(1.06) rotate(-2deg);
+}

@@ -87,8 +87,6 @@ function PropertiesPanel({ selectedId }: { selectedId: string | null }) {
 
 	return (
 		<div className="properties-panel">
-			<h3>{t.properties.title}</h3>
-
 			<Slider
 				label={t.properties.opacity}
 				min={0.1}
@@ -114,6 +112,7 @@ function PropertiesPanel({ selectedId }: { selectedId: string | null }) {
 			<MonitorSelect
 				monitors={monitors}
 				value={currentMonitor}
+				label={t.editor.monitor.moveLabel}
 				hint={t.editor.monitor.moveHint}
 				onChange={moveToMonitor}
 			/>

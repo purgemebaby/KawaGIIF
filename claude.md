@@ -31,10 +31,10 @@ src/                             React frontend
   main.tsx                       control window entry (applies font settings before rendering)
   entries/overlay.tsx            overlay entry: keep this bundle light, never import control-only code
   windows/                       ControlApp (screens, boot, exit guard) and OverlayItemApp (media, drag, resize)
-  components/                    screens (Home, Storage, Editor, Settings, Loading), SectionTabs (tiles morph into tabs), pieces; settings/ holds one file per settings row
+  components/                    screens (Home, Storage, Editor, Settings, Loading), home/RadialMenu (ring menu), BrandBar (section logo), pieces; settings/ holds one file per settings row
   context/LibraryProvider.tsx    media library state shared by the control window
   hooks/                         useTauriEvent, useEditorSync, useMediaUrl, useDismiss, useLoadingIndicator, useMediaSelection, useMonitors, useSwing (overlay pickup), ...
-  lib/                           ipc.ts (invoke/listen + browser mocks), media.ts, placed.ts, appearance.ts, monitors.ts, zoom.ts
+  lib/                           ipc.ts (invoke/listen + browser mocks), media.ts, placed.ts, appearance.ts, monitors.ts, zoom.ts, radial.ts (ring geometry), navTransition.ts (screen pan), editorBurst.ts (ring→editor morph), navAnimations.ts
   i18n/en.ts                     every visible string (`t.*`)
   styles/                        tokens, base, motion, components, index (control), overlay
 src-tauri/src/

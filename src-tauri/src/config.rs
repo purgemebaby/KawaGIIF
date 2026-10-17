@@ -77,6 +77,9 @@ pub struct AppConfig {
     /// WebView2 zoom of the control window (1.0 = 100 %).
     #[serde(default = "default_ui_zoom")]
     pub ui_zoom: f32,
+    /// Whether the ring menu, section sliding and editor opening animate; off switches screens instantly.
+    #[serde(default = "default_true")]
+    pub nav_animations: bool,
 }
 impl Default for AppConfig {
     fn default() -> Self {
@@ -89,6 +92,7 @@ impl Default for AppConfig {
             ui_font: None,
             font_scale: default_font_scale(),
             ui_zoom: default_ui_zoom(),
+            nav_animations: true,
         }
     }
 }

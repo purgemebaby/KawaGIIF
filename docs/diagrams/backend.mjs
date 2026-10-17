@@ -17,7 +17,7 @@ export function backend() {
 	const cmd = s.box(C, 120, W, { title: 'commands.rs', sub: 'entry point: small commands', color: TEAL, bg: '#e3fafc', items: [
 		'hide_control_window', 'resize_overlay(width, height)', 'get_config', 'set_launch_on_startup (autostart)', 'set_start_minimized_to_tray',
 		'set_confirm_media_delete', 'set_overlay_pool_size (on restart)',
-		'set/reset/get_loading_indicator', 'list_system_fonts / set_ui_font / set_font_scale'] });
+		'set/reset/get_loading_indicator', 'list_system_fonts / set_ui_font / set_font_scale', 'set_ui_zoom / set_nav_animations'] });
 
 	const libr = s.box(A, 560, W, { title: 'library.rs', sub: 'domain + state: the catalogue', color: GREEN, bg: '#ebfbee', items: [
 		'LibraryState( Mutex<LibraryIndex> )', 'MediaItem { id, tags, ... }', 'import_media(paths: Vec<PathBuf>)', 'delete_media(ids, force): batch, only our copies',

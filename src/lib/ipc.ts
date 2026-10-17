@@ -37,6 +37,7 @@ const MOCK_CONFIG = {
 	ui_font: null,
 	font_scale: 1,
 	ui_zoom: 1,
+	nav_animations: true,
 };
 
 const MOCK_RESPONSES: Record<string, unknown> = {
@@ -44,6 +45,7 @@ const MOCK_RESPONSES: Record<string, unknown> = {
 	list_all_tags: MOCK_TAGS,
 	get_config: MOCK_CONFIG,
 	get_loading_indicator: null,
+	set_nav_animations: null,
 	list_system_fonts: ['Segoe UI', 'Arial', 'Consolas'],
 	get_working_template: { items: [] },
 	load_template: { items: [] },

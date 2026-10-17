@@ -34,7 +34,7 @@ in this order:
    A `#[tauri::command]` that isn't here doesn't exist in the frontend.
 
 4. **`setup()`** runs once, on the main thread, before the event loop:
-   1. `window_manager::create_control_window` (hidden), at a fixed 960×640 logical px (`CONTROL_BASE`), centred. Sizing it to the monitor cost ~30 % fps in view transitions. It cannot grow past 1920×1080 logical px (`MAX_CONTROL`, fewer pixels composited per frame), and right after it is built the saved `ui_zoom` is applied with the webview zoom (`Webview::set_zoom`, WebView2's ZoomFactor).
+   1. `window_manager::create_control_window` (hidden), at a fixed 960×640 logical px (`CONTROL_BASE`), centred. Sizing it to the monitor cost ~30 % fps in screen transitions. It cannot grow past 1920×1080 logical px (`MAX_CONTROL`, fewer pixels composited per frame), and right after it is built the saved `ui_zoom` is applied with the webview zoom (`Webview::set_zoom`, WebView2's ZoomFactor).
    2. `window_manager::create_overlay_pool`: Creates **all** overlay windows (`OV-SLOT-0..N`), hidden.
    3. `template::load_saved_template_on_boot`: Reads `template.json` into the editor without showing it. `show_saved_overlays` places the animations click-through once the loading screen ends (`show_boot_overlays`), right away when starting in the tray, or after 15 s as a fallback.
    4. Registers the `Ctrl+Alt+Esc` shortcut.
@@ -200,6 +200,7 @@ focus, so the focus hook alone would never fire for it.
 | `set_ui_font` | `family: Option<String>` (None or blank = system default) | `AppResult<()>` |
 | `set_font_scale` | `scale: f32` (clamped 0.85 to 1.3) | `AppResult<()>` |
 | `set_ui_zoom` | `zoom: f32` (caller window) | `AppResult<f32>` (clamps to 0.7–1.5, saves `ui_zoom` in config.toml, applies the webview zoom, returns the applied value) |
+| `set_nav_animations` | `enabled: bool` | `AppResult<()>` (saves `nav_animations`: the ring menu, the screen pan and the editor burst; off = instant switches) |
 
 **library.rs**
 | Command | Args | Returns |

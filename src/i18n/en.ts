@@ -24,12 +24,6 @@ export const t = {
 
 	home: {
 		minimizeToTray: 'Minimize to tray',
-		tiles: {
-			home: 'Go back to the home screen.',
-			storage: 'Import and organize your media library.',
-			editor: 'Place and adjust animations on the desktop.',
-			settings: 'Startup, system tray, memory.',
-		},
 		panic: {
 			title: 'Kill all animations',
 			description:
@@ -115,22 +109,28 @@ export const t = {
 	},
 
 	editor: {
-		title: 'Editor',
 		undo: 'Undo',
 		save: 'Save',
-		sidebarTitle: 'Files',
+		panels: {
+			storage: 'Storage',
+			control: 'Control',
+			edit: 'Edit',
+			collapse: (title: string) => `Collapse ${title}`,
+			expand: (title: string) => `Expand ${title}`,
+		},
 		sidebarEmpty: 'Import files from the Library first.',
 		sidebarHint:
 			'Click to place it in the middle of the monitor, or drag it onto the desktop',
 		canvasHint: [
-			'Click an animation in the list to place it in the middle of the monitor, or drag it onto the desktop.',
+			'Click an animation in Storage to place it in the middle of the monitor, or drag it onto the desktop.',
 			"Click an animation that's already placed to select and edit it.",
 		],
 		placedTitle: 'Placed',
 		placedEmpty: "You haven't placed any animations yet.",
 		removeItem: 'Remove from desktop',
 		monitor: {
-			label: 'Monitor',
+			targetLabel: 'New animations on',
+			moveLabel: 'Move to',
 			targetHint: 'New animations appear in the middle of this monitor.',
 			moveHint: 'Moves the animation to the middle of the chosen monitor.',
 			option: (n: number, width: number, height: number) =>
@@ -156,7 +156,6 @@ export const t = {
 	},
 
 	properties: {
-		title: 'Properties',
 		empty: 'Select an animation on the desktop to edit its properties.',
 		opacity: 'Opacity',
 		speed: 'Speed',
@@ -210,6 +209,10 @@ export const t = {
 			zoomIn: 'Zoom in',
 			zoomOut: 'Zoom out',
 			reset: 'Reset',
+		},
+		navAnimations: {
+			label: 'Navigation animations',
+			hint: "Ring menu, sliding between sections and the editor's opening. Off: screens switch instantly.",
 		},
 		loadingIndicator: {
 			label: 'Loading animation',

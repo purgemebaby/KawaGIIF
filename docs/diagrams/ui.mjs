@@ -17,7 +17,7 @@ export function ui() {
 		t(x, y - 34, name, BL, 24);
 		r(x, y, 560, 340, K, { round: false });
 		r(x + 10, y + 10, 100, 320, BL);
-		t(x + 14, y + 12, 'SectionTabs', BL, 12);
+		t(x + 14, y + 12, 'BrandBar', BL, 12);
 		nav.forEach((n, i) => {
 			const on = i === active;
 			if (on) r(x + 16, y + 38 + i * 36, 88, 28, GR, { bg: '#b2f2bb', fill: 'hachure', sw: 1.5 });

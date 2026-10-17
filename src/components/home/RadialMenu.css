@@ -1,0 +1,97 @@
+/* square, sized from the container so it fits 720x480 up to a maximized window */
+.radial-menu {
+	/* text sizes capped (user units): at the largest font scale the blocks would reach the inner rim */
+	--radial-label-size: min(calc(var(--kg-text-heading) * 1.15), 22px);
+	--radial-icon-size: min(calc(var(--kg-text-heading) * 2.2), 40px);
+
+	position: relative;
+	z-index: 1;
+	flex: none;
+	width: clamp(220px, 60cqmin, 520px);
+	height: clamp(220px, 60cqmin, 520px);
+	overflow: visible;
+}
+
+.radial-stop-pink {
+	stop-color: var(--kg-accent-2);
+}
+
+.radial-stop-purple {
+	stop-color: var(--kg-accent);
+}
+
+/* transform-box: the origin is the ring centre, so a hovered sector grows outwards and keeps the gaps; the ring's spin is on the svg */
+.radial-sector {
+	outline: none;
+	cursor: pointer;
+	transform-box: view-box;
+	transform-origin: 50% 50%;
+	transition: transform var(--kg-dur-med) var(--kg-ease-pop);
+}
+
+.radial-sector:hover,
+.radial-sector:focus-visible {
+	transform: scale(1.03);
+}
+
+.radial-shape {
+	fill: var(--kg-bg-panel);
+	stroke: var(--kg-title-keyline);
+	stroke-opacity: 0.35;
+	stroke-width: 1.5;
+	transition: fill var(--kg-dur-fast) var(--kg-ease-out);
+}
+
+.radial-sector:hover .radial-shape,
+.radial-sector:focus-visible .radial-shape {
+	fill: var(--kg-bg-raised);
+}
+
+/* the blurred halo re-rasters during the short opacity transition; idle sectors keep it at opacity 0 */
+.radial-glow {
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity var(--kg-dur-fast) var(--kg-ease-out);
+}
+
+.radial-sector:hover .radial-glow,
+.radial-sector:focus-visible .radial-glow {
+	opacity: 1;
+}
+
+.radial-glow-halo,
+.radial-glow-line {
+	fill: none;
+	stroke: url(#radial-glow-gradient);
+	stroke-linecap: round;
+}
+
+.radial-glow-halo {
+	stroke-width: 9;
+	filter: url(#radial-glow-blur);
+}
+
+.radial-glow-line {
+	stroke-width: 3;
+}
+
+.radial-icon,
+.radial-label {
+	fill: var(--kg-fg);
+	text-anchor: middle;
+	dominant-baseline: central;
+	pointer-events: none;
+	user-select: none;
+}
+
+.radial-icon {
+	fill: var(--kg-accent-strong);
+	font-size: var(--radial-icon-size);
+	transform: translateY(calc(var(--radial-label-size) * -0.8));
+}
+
+.radial-label {
+	font-size: var(--radial-label-size);
+	font-weight: 600;
+	transform: translateY(calc(var(--radial-label-size) * 0.8));
+}

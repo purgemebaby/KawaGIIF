@@ -4,11 +4,13 @@ import './KawaTitle.css';
 
 interface KawaTitleProps {
 	size?: string;
+	/** When false the title holds still (used by the small section logo). */
+	animated?: boolean;
 }
 
-function KawaTitle({ size = '72px' }: KawaTitleProps) {
+function KawaTitle({ size = '72px', animated = true }: KawaTitleProps) {
 	const text = t.app.name;
-	const content = <WaveText>{text}</WaveText>;
+	const content = <WaveText animated={animated}>{text}</WaveText>;
 
 	return (
 		<div className="kg-title-wrap" style={{ fontSize: size }}>

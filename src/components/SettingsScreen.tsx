@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { invoke } from '../lib/ipc';
 import { t } from '../i18n/en';
+import { announceNavAnimations } from '../lib/navAnimations';
 import FontRow from './settings/FontRow';
 import LoadingIndicatorRow from './settings/LoadingIndicatorRow';
 import RamGauge from './settings/RamGauge';
@@ -14,6 +15,7 @@ interface AppConfig {
 	ui_font: string | null;
 	font_scale: number;
 	ui_zoom: number;
+	nav_animations: boolean;
 }
 
 // must match window_manager::MAX_POOL in Rust
@@ -143,6 +145,17 @@ function SettingsScreen() {
 				<ZoomRow
 					zoom={config.ui_zoom}
 					onZoomChange={(zoom) => setConfig({ ...config, ui_zoom: zoom })}
+				/>
+
+				<SettingsToggle
+					checked={config.nav_animations}
+					text={t.settings.navAnimations}
+					onChange={(enabled) => {
+						announceNavAnimations(enabled);
+						update('nav_animations', enabled, 'set_nav_animations', {
+							enabled,
+						});
+					}}
 				/>
 
 				<LoadingIndicatorRow />

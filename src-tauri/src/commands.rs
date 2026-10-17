@@ -69,6 +69,12 @@ pub fn set_confirm_media_delete(enabled: bool) -> AppResult<()> {
     config::update(|c| c.confirm_media_delete = enabled)
 }
 
+/// Only saved: the control window reads it from `get_config` and from the `kg-nav-animations` window event.
+#[tauri::command]
+pub fn set_nav_animations(enabled: bool) -> AppResult<()> {
+    config::update(|c| c.nav_animations = enabled)
+}
+
 /// Only saved: the overlay pool is created at startup, so the new size applies on the next launch.
 #[tauri::command]
 pub fn set_overlay_pool_size(count: u32) -> AppResult<()> {

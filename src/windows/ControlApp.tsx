@@ -1,11 +1,27 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { flushSync } from 'react-dom';
+import {
+	useCallback,
+	useEffect,
+	useLayoutEffect,
+	useMemo,
+	useRef,
+	useState,
+	type CSSProperties,
+} from 'react';
 import { invoke } from '../lib/ipc';
 import { announceZoom, nextZoom, onZoomAnnounced } from '../lib/zoom';
+import { onNavAnimationsChanged } from '../lib/navAnimations';
+import { transitionKind, worldOffset } from '../lib/navTransition';
+import {
+	allFinished,
+	burstPanels,
+	captureRing,
+	fadeHome,
+	spinRing,
+} from '../lib/editorBurst';
 import { useTauriEvent } from '../hooks/useTauriEvent';
 import { LibraryProvider } from '../context/LibraryProvider';
 import { t } from '../i18n/en';
-import SectionTabs from '../components/SectionTabs';
+import BrandBar from '../components/BrandBar';
 import { NAV_ITEMS, type Screen } from '../components/navItems';
 import HomeScreen from '../components/HomeScreen';
 import StorageScreen from '../components/StorageScreen';
@@ -27,21 +43,96 @@ const DEV_SCREEN = NAV_ITEMS.find(
 
 let hasBooted = devParams?.get('boot') === '0';
 
-/**
- * Runs a screen change inside a view transition, so Home tiles morph into the section tabs and back (they share
- * `view-transition-name`s). `flushSync` makes React update the DOM inside the snapshot callback.
- */
-function withViewTransition(change: () => void, from: Screen, to: Screen) {
-	const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-	if (!document.startViewTransition || reduced) {
-		change();
-		return;
-	}
-	const transition = document.startViewTransition(() => flushSync(change));
-	if (import.meta.env.DEV && import.meta.env.VITE_KG_PERF)
-		import('../lib/devPerf').then((m) =>
-			m.measureTransition(`${from}→${to}`, transition.finished),
-		);
+const PAN_MS = 650;
+const PAN_EASING = 'cubic-bezier(0.65, 0, 0.35, 1)';
+
+/** A pan in progress: the camera moves `offset` px from `from` to `to`. */
+interface Transition {
+	from: Screen;
+	to: Screen;
+	offset: { x: number; y: number };
+}
+
+/** Home ↔ Editor: the ring spins and the panels fly, one `part` after the other (ring first on the way in). */
+interface Burst {
+	kind: 'burst' | 'unburst';
+	part: 'ring' | 'panels';
+}
+
+/** The running sequence, kept so a new navigation can settle it first. */
+interface Running {
+	to: Screen;
+	animation?: Animation;
+	onSettled?: () => void;
+}
+
+const PERF = import.meta.env.DEV && Boolean(import.meta.env.VITE_KG_PERF);
+
+/** Dev only: logs frame stats until `done` settles. */
+function measureInDev(label: string, done: Promise<unknown>) {
+	if (PERF)
+		import('../lib/devPerf').then((m) => m.measureTransition(label, done));
+}
+
+/** Screens mounted now; an unburst lays Home out (hidden) under the folding panels to learn where the ring is. */
+function mountedScreens(
+	screen: Screen,
+	transition: Transition | null,
+	burst: Burst | null,
+): Screen[] {
+	if (burst?.kind === 'burst')
+		return burst.part === 'ring' ? ['home'] : ['editor'];
+	if (burst) return burst.part === 'panels' ? ['home', 'editor'] : ['home'];
+	return transition ? [transition.from, transition.to] : [screen];
+}
+
+/** Home during an unburst's panel fold: laid out for measuring, but not shown. */
+function isWaitingHome(id: Screen, burst: Burst | null): boolean {
+	return burst?.kind === 'unburst' && burst.part === 'panels' && id === 'home';
+}
+
+/** The layer being left: it takes no input while it plays out. */
+function isDeparting(
+	id: Screen,
+	transition: Transition | null,
+	burst: Burst | null,
+): boolean {
+	if (transition) return transition.from === id;
+	if (burst?.kind === 'burst') return burst.part === 'ring' && id === 'home';
+	return burst?.part === 'panels' && id === 'editor';
+}
+
+function layerStyle(
+	id: Screen,
+	transition: Transition | null,
+	burst: Burst | null,
+): CSSProperties | undefined {
+	if (isWaitingHome(id, burst)) return { visibility: 'hidden' };
+	if (transition?.to !== id) return undefined;
+	return {
+		transform: `translate(${transition.offset.x}px, ${transition.offset.y}px)`,
+	};
+}
+
+interface ScreenViewProps {
+	id: Screen;
+	quiet: boolean;
+	onNavigate: (screen: Screen) => void;
+}
+
+/** One world tile: a section brings its own top bar, so the logo travels with it. */
+function ScreenView({ id, quiet, onNavigate }: ScreenViewProps) {
+	return (
+		<>
+			{id !== 'home' && <BrandBar onNavigate={onNavigate} />}
+			<div className="screen-slot">
+				{id === 'home' && <HomeScreen quiet={quiet} onNavigate={onNavigate} />}
+				{id === 'storage' && <StorageScreen />}
+				{id === 'editor' && <EditorScreen />}
+				{id === 'settings' && <SettingsScreen />}
+			</div>
+		</>
+	);
 }
 
 // Transient badge shown for ~1s after a zoom change; styles use tokens, so no ControlApp.css entry.
@@ -90,26 +181,150 @@ function ControlApp() {
 		[],
 	);
 
+	// `screen` is the settled screen; `transition` is set only while a pan shows both.
+	const [transition, setTransition] = useState<Transition | null>(null);
+	const [burst, setBurst] = useState<Burst | null>(null);
+	const contentRef = useRef<HTMLElement>(null);
+	const stageRef = useRef<HTMLDivElement>(null);
+	const runningRef = useRef<Running | null>(null);
+	const navAnimationsRef = useRef(true);
+
 	const screenRef = useRef(screen);
 	screenRef.current = screen;
 
-	const runExit = useCallback((exit: PendingExit) => {
-		if (exit.kind === 'navigate') {
-			if (exit.screen === screenRef.current) return;
-
-			withViewTransition(
-				() => setScreen(exit.screen),
-				screenRef.current,
-				exit.screen,
-			);
-		} else {
-			invoke('hide_control_window');
+	// Ends the running sequence at once, so the next navigation starts from where it was heading.
+	const settleTransition = useCallback(() => {
+		const running = runningRef.current;
+		if (!running) return;
+		runningRef.current = null;
+		if (running.animation) {
+			running.animation.onfinish = null;
+			running.animation.finish();
 		}
+		running.onSettled?.();
+		screenRef.current = running.to;
+		setScreen(running.to);
+		setTransition(null);
+		setBurst(null);
 	}, []);
+
+	const changeScreen = useCallback((from: Screen, to: Screen) => {
+		const content = contentRef.current;
+		const reduced = window.matchMedia(
+			'(prefers-reduced-motion: reduce)',
+		).matches;
+		const kind = transitionKind(from, to);
+		if (
+			!content ||
+			!navAnimationsRef.current ||
+			reduced ||
+			kind === 'instant'
+		) {
+			setScreen(to);
+			return;
+		}
+		if (kind === 'burst' || kind === 'unburst') {
+			const running: Running = { to };
+			measureInDev(
+				`${from}→${to}`,
+				new Promise<void>((resolve) => {
+					running.onSettled = resolve;
+				}),
+			);
+			runningRef.current = running;
+			setBurst({ kind, part: kind === 'burst' ? 'ring' : 'panels' });
+			return;
+		}
+		const offset = worldOffset(
+			from,
+			to,
+			content.clientWidth,
+			content.clientHeight,
+		);
+		setTransition({ from, to, offset });
+	}, []);
+
+	useLayoutEffect(() => {
+		const stage = stageRef.current;
+		if (!transition || !stage) return;
+		const { from, to, offset } = transition;
+		const animation = stage.animate(
+			[
+				{ transform: 'translate(0, 0)' },
+				{ transform: `translate(${-offset.x}px, ${-offset.y}px)` },
+			],
+			{ duration: PAN_MS, easing: PAN_EASING, fill: 'forwards' },
+		);
+		animation.onfinish = settleTransition;
+		runningRef.current = { animation, to };
+		measureInDev(`${from}→${to}`, animation.finished);
+		return () => {
+			if (runningRef.current?.animation === animation)
+				runningRef.current = null;
+			animation.onfinish = null;
+			animation.cancel();
+		};
+	}, [transition, settleTransition]);
+
+	// Plays one part of a burst; when it ends the other part follows, then the sequence settles.
+	useLayoutEffect(() => {
+		const stage = stageRef.current;
+		if (!burst || !stage) return;
+		const { kind, part } = burst;
+		const reverse = kind === 'unburst';
+		const home = stage.querySelector<HTMLElement>('[data-screen="home"]');
+		const editor = stage.querySelector<HTMLElement>('[data-screen="editor"]');
+		const ring = home?.querySelector<SVGSVGElement>('.radial-menu');
+		// the ring is still unrotated here: the animations start below
+		if (ring) captureRing(ring);
+
+		const animations: Animation[] = [];
+		if (part === 'ring' && home && ring)
+			animations.push(spinRing(ring, reverse), ...fadeHome(home, reverse));
+		if (part === 'panels' && editor)
+			animations.push(...burstPanels(editor, reverse));
+
+		// Home's ring comes last when returning, the Editor's panels when leaving.
+		const lastPart = reverse ? 'ring' : 'panels';
+		const arrived = reverse ? 'home' : 'editor';
+		let cancelled = false;
+		allFinished(animations).then(
+			() => {
+				if (cancelled) return;
+				if (part === lastPart) {
+					settleTransition();
+					return;
+				}
+				screenRef.current = arrived;
+				setScreen(arrived);
+				setBurst({ kind, part: lastPart });
+			},
+			() => {},
+		);
+		return () => {
+			cancelled = true;
+			animations.forEach((animation) => animation.cancel());
+		};
+	}, [burst, settleTransition]);
+
+	const runExit = useCallback(
+		(exit: PendingExit) => {
+			if (exit.kind === 'hide') {
+				invoke('hide_control_window');
+				return;
+			}
+			settleTransition();
+			if (exit.screen === screenRef.current) return;
+			changeScreen(screenRef.current, exit.screen);
+		},
+		[settleTransition, changeScreen],
+	);
 
 	const requestExit = useCallback(
 		async (exit: PendingExit) => {
-			if (screen !== 'editor') {
+			// a running sequence counts as already being on its destination
+			const current = runningRef.current?.to ?? screenRef.current;
+			if (current !== 'editor') {
 				runExit(exit);
 				return;
 			}
@@ -120,7 +335,7 @@ function ControlApp() {
 				runExit(exit);
 			}
 		},
-		[screen, runExit],
+		[runExit],
 	);
 
 	useTauriEvent('close-requested', () => requestExit({ kind: 'hide' }));
@@ -151,15 +366,25 @@ function ControlApp() {
 		zoomTimerRef.current = window.setTimeout(() => setZoomToast(null), 1000);
 	}, []);
 
-	// The backend re-applies the saved zoom at startup; sync the tracked value once on mount.
+	// The backend re-applies the saved zoom at startup; sync the tracked zoom and nav animations once on mount.
 	useEffect(() => {
 		const track = (zoom: number) => {
 			uiZoomRef.current = zoom;
 		};
-		invoke<{ ui_zoom: number }>('get_config').then((c) =>
-			track(c.ui_zoom ?? 1),
+		invoke<{ ui_zoom: number; nav_animations: boolean }>('get_config').then(
+			(c) => {
+				track(c.ui_zoom ?? 1);
+				navAnimationsRef.current = c.nav_animations ?? true;
+			},
 		);
-		return onZoomAnnounced(track);
+		const stopZoom = onZoomAnnounced(track);
+		const stopNav = onNavAnimationsChanged((enabled) => {
+			navAnimationsRef.current = enabled;
+		});
+		return () => {
+			stopZoom();
+			stopNav();
+		};
 	}, []);
 
 	// Ctrl+= / Ctrl++ zoom in, Ctrl+- out, Ctrl+0 reset. Sits beside the Ctrl+1..4 handler above.
@@ -207,6 +432,10 @@ function ControlApp() {
 		runExit(exit);
 	};
 
+	const stageClass = ['screen-stage']
+		.concat(transition ? 'is-panning' : [], burst ? 'is-bursting' : [])
+		.join(' ');
+
 	return (
 		<LibraryProvider>
 			<div className="control-shell">
@@ -221,27 +450,25 @@ function ControlApp() {
 					/>
 				)}
 
-				<main className="control-content">
-					{screen !== 'home' && (
-						<SectionTabs
-							active={screen}
-							onNavigate={(next) =>
-								requestExit({ kind: 'navigate', screen: next })
-							}
-						/>
-					)}
-
-					<div key={screen} className="screen-slot">
-						{screen === 'home' && (
-							<HomeScreen
-								onNavigate={(next) =>
-									requestExit({ kind: 'navigate', screen: next })
-								}
-							/>
-						)}
-						{screen === 'storage' && <StorageScreen />}
-						{screen === 'editor' && <EditorScreen />}
-						{screen === 'settings' && <SettingsScreen />}
+				<main className="control-content" ref={contentRef}>
+					<div ref={stageRef} className={stageClass}>
+						{mountedScreens(screen, transition, burst).map((id) => (
+							<div
+								key={id}
+								className="screen-layer"
+								data-screen={id}
+								style={layerStyle(id, transition, burst)}
+								inert={isDeparting(id, transition, burst)}
+							>
+								<ScreenView
+									id={id}
+									quiet={isWaitingHome(id, burst)}
+									onNavigate={(next) =>
+										requestExit({ kind: 'navigate', screen: next })
+									}
+								/>
+							</div>
+						))}
 					</div>
 				</main>
 
