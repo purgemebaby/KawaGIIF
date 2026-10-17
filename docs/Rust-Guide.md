@@ -1,13 +1,5 @@
 # KawaGiif - Rust Guide
 
-The diagrams (hand-drawn style, generated from code, editable in excalidraw.com):
-
-- [Backend modules and relations](diagrams/backend.svg): Rust modules, state, disk...
-- [Frontend and Tauri IPC](diagrams/frontend.svg): React windows, hooks, invoke and events.
-- [UI whiteboard](diagrams/ui.svg): Screens, overlay, colors, fonts, motion.
-
----
-
 ## 1. Model
 
 Each React window is a thin view that:

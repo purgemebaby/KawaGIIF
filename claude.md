@@ -20,7 +20,6 @@ npx tsc --noEmit
 npm run build
 
 powershell -ExecutionPolicy Bypass -File docs/profile.ps1   # RAM per scenario, release build, app closed
-cd docs/diagrams; npm run build                             # regenerate the 3 diagrams
 ```
 
 ## Project map
@@ -109,4 +108,4 @@ User data: `%LOCALAPPDATA%\KawaGiif` → `config.toml`, `library_index.json`, `t
 
 - Repo content (code, comments, docs, commits) is English.
 - Commit messages: `type(scope): summary`, then a bulleted body.
-- After changing commands, windows or the boot flow, update `docs/Rust-Guide.md` and regenerate `docs/diagrams/`.
+- After changing commands, windows or the boot flow, update `docs/Rust-Guide.md`.
