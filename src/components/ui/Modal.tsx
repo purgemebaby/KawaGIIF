@@ -1,6 +1,7 @@
 import { useEffect, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { t } from '../../i18n/en';
+import PixelIcon from './PixelIcon';
 
 // Screens are CSS-contained (trapping `position: fixed`), so modals render into this node, inside the control shell.
 export const MODAL_ROOT_ID = 'modal-root';
@@ -58,10 +59,13 @@ function Modal({
 						<button
 							type="button"
 							className={
-								destructive ? 'kg-btn kg-btn--danger' : 'kg-btn kg-btn--primary'
+								destructive
+									? 'kg-btn kg-btn--danger pixel-hover'
+									: 'kg-btn kg-btn--primary'
 							}
 							onClick={onConfirm}
 						>
+							{destructive && <PixelIcon name="trash" />}
 							{confirmLabel}
 						</button>
 					)}

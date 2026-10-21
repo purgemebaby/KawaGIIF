@@ -16,7 +16,7 @@ use webview2_com::Microsoft::Web::WebView2::Win32::{
 };
 use webview2_com::TrySuspendCompletedHandler;
 use windows::core::Interface;
-use windows::Win32::Foundation::{COLORREF, HWND, LPARAM, LRESULT, WPARAM};
+use windows::Win32::Foundation::{COLORREF, HWND, LPARAM, LRESULT, POINT, RECT, WPARAM};
 use windows::Win32::UI::Accessibility::{SetWinEventHook, UnhookWinEvent, HWINEVENTHOOK};
 use windows::Win32::Graphics::Dwm::{
     DwmSetWindowAttribute, 
@@ -25,19 +25,20 @@ use windows::Win32::Graphics::Dwm::{
 };
 
 use windows::Win32::Graphics::Gdi::{
-    EnumFontFamiliesExW, GetDC, GetMonitorInfoW, MonitorFromWindow, ReleaseDC,
+    EnumFontFamiliesExW, GetDC, GetMonitorInfoW, MonitorFromPoint, MonitorFromWindow, ReleaseDC,
     DEFAULT_CHARSET, LOGFONTW, MONITORINFO, MONITOR_DEFAULTTONEAREST, TEXTMETRICW,
 };
 
+use windows::Win32::UI::HiDpi::GetDpiForWindow;
 use windows::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_LBUTTON, VK_RBUTTON};
 use windows::Win32::UI::Shell::{DefSubclassProc, RemoveWindowSubclass, SetWindowSubclass};
 
 use windows::Win32::UI::WindowsAndMessaging::{
-    GetForegroundWindow, GetSystemMetrics, GetWindowLongPtrW, GetWindowThreadProcessId, SetClassLongPtrW, SetWindowLongPtrW, SetWindowPos, SM_SWAPBUTTON,
+    GetCursorPos, GetForegroundWindow, GetSystemMetrics, GetWindowLongPtrW, GetWindowThreadProcessId, SetClassLongPtrW, SetWindowLongPtrW, SetWindowPos, SM_SWAPBUTTON,
     EVENT_SYSTEM_FOREGROUND, GCLP_HBRBACKGROUND, GWL_EXSTYLE, GWL_STYLE,
     HWND_TOPMOST, SET_WINDOW_POS_FLAGS,
     SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER,
-    WINDOW_LONG_PTR_INDEX, WINEVENT_OUTOFCONTEXT, WINEVENT_SKIPOWNPROCESS, WM_NCACTIVATE, WM_NCCALCSIZE, WM_NCDESTROY, WM_NCPAINT, WS_BORDER, WS_CAPTION, WS_DLGFRAME, WS_SYSMENU, WS_THICKFRAME,
+    WINDOW_LONG_PTR_INDEX, WINEVENT_OUTOFCONTEXT, WINEVENT_SKIPOWNPROCESS, WM_MOVING, WM_NCACTIVATE, WM_NCCALCSIZE, WM_NCDESTROY, WM_NCPAINT, WS_BORDER, WS_CAPTION, WS_DLGFRAME, WS_SYSMENU, WS_THICKFRAME,
     WS_EX_APPWINDOW, WS_EX_CLIENTEDGE, WS_EX_DLGMODALFRAME, WS_EX_LAYERED, WS_EX_STATICEDGE, WS_EX_TOOLWINDOW, WS_EX_WINDOWEDGE,
 };
 #[cfg(debug_assertions)]
@@ -121,9 +122,10 @@ fn set_dwm_attribute<T>(hwnd: HWND, attribute: DWMWINDOWATTRIBUTE, value: &T,) -
     }
 }
 
-/** Subclass handler of `guard_non_client`. An overlay has no non-client area, so none of it is ever painted. */
-unsafe extern "system" fn non_client_guard(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM, _id: usize, _data: usize) -> LRESULT {
+/** Subclass handler of `guard_non_client`. An overlay has no non-client area, so none of it is ever painted; a drag stays on the screens. */
+unsafe extern "system" fn non_client_guard(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM, _id: usize, overhang: usize) -> LRESULT {
     match msg {
+        WM_MOVING if unsafe { constrain_moving_rect(hwnd, lparam, overhang as i32) } => LRESULT(1),
         WM_NCACTIVATE => unsafe { DefSubclassProc(hwnd, msg, wparam, LPARAM(-1)) },
         WM_NCPAINT => LRESULT(0),
         WM_NCCALCSIZE if wparam.0 != 0 => LRESULT(0),
@@ -133,6 +135,31 @@ unsafe extern "system" fn non_client_guard(hwnd: HWND, msg: u32, wparam: WPARAM,
         },
         _ => unsafe { DefSubclassProc(hwnd, msg, wparam, lparam) },
     }
+}
+
+/**
+ * Shifts the `WM_MOVING` rect (`lparam`) inside the monitor under the cursor, overhanging it by `overhang` logical px.
+ * Returns `false` if a Win32 call failed. Safety: `lparam` must be the `RECT` pointer of a `WM_MOVING` message.
+ */
+unsafe fn constrain_moving_rect(hwnd: HWND, lparam: LPARAM, overhang: i32) -> bool {
+    let mut cursor = POINT::default();
+    let mut info = MONITORINFO { cbSize: size_of::<MONITORINFO>() as u32, ..Default::default() };
+    let found = unsafe {
+        GetCursorPos(&mut cursor).is_ok()
+            && GetMonitorInfoW(MonitorFromPoint(cursor, MONITOR_DEFAULTTONEAREST), &mut info).as_bool()
+    };
+    let rect = lparam.0 as *mut RECT;
+    if !found || rect.is_null() { return false; }
+    let room = overhang * unsafe { GetDpiForWindow(hwnd) } as i32 / 96;
+    // SAFETY: for WM_MOVING, lparam points to the proposed RECT, valid and writable during the message.
+    let rect = unsafe { &mut *rect };
+    let (width, height) = (rect.right - rect.left, rect.bottom - rect.top);
+    let screen = info.rcMonitor;
+    rect.left = rect.left.min(screen.right + room - width).max(screen.left - room);
+    rect.top = rect.top.min(screen.bottom + room - height).max(screen.top - room);
+    rect.right = rect.left + width;
+    rect.bottom = rect.top + height;
+    true
 }
 
 /** `SetWinEventHook` callback*/
@@ -210,9 +237,10 @@ pub fn top_everything(hwnd: HWND) {
 /**
  * Stops Windows from painting a title bar on an overlay. tao puts `WS_CAPTION` back whenever it changes a window flag, and
  * activating a window with it repaints the non-client area (a white strip on Windows 11).
+ * Also clamps the native drag (`WM_MOVING`) to the screens; the window may overhang them by `overhang` logical px.
  */
-pub fn guard_non_client(hwnd: HWND) {
-    unsafe { let _ = SetWindowSubclass(hwnd, Some(non_client_guard), GUARD_SUBCLASS_ID, 0); }
+pub fn guard_non_client(hwnd: HWND, overhang: u32) {
+    unsafe { let _ = SetWindowSubclass(hwnd, Some(non_client_guard), GUARD_SUBCLASS_ID, overhang as usize); }
 }
 
 /** Hooks `EVENT_SYSTEM_FOREGROUND` with `callback` and returns the hook handle (0 if Windows refused). */

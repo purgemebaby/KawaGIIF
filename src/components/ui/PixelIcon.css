@@ -1,0 +1,56 @@
+/* Pixel icons stay crisp at any size; the trash lid may poke above the box while it opens. */
+.pixel-icon {
+	flex: none;
+	overflow: visible;
+	image-rendering: pixelated;
+}
+
+.pixel-icon-body,
+.pixel-layer {
+	transform-box: fill-box;
+	transform-origin: center;
+}
+
+/* Hover animations, triggered by any ancestor marked `pixel-hover`. */
+.pixel-layer--open {
+	visibility: hidden;
+}
+
+.pixel-hover:is(:hover, :focus-visible)
+	.pixel-icon--folder
+	.pixel-layer--closed {
+	visibility: hidden;
+}
+
+.pixel-hover:is(:hover, :focus-visible) .pixel-icon--folder .pixel-layer--open {
+	visibility: visible;
+}
+
+.pixel-hover:is(:hover, :focus-visible) .pixel-icon--gear .pixel-icon-body {
+	animation: kg-pixel-spin 1.6s steps(16) infinite;
+}
+
+.pixel-hover:is(:hover, :focus-visible) .pixel-icon--pencil .pixel-icon-body {
+	animation: kg-pixel-scribble 0.5s steps(1) infinite;
+}
+
+/* the skull's eyes switch on with a glow */
+.pixel-icon--skull .pixel-layer--eyes {
+	opacity: 0;
+	transition: opacity var(--kg-dur-fast) steps(2);
+}
+
+.pixel-hover:is(:hover, :focus-visible) .pixel-icon--skull .pixel-layer--eyes {
+	opacity: 1;
+	filter: drop-shadow(0 0 1px var(--kg-px-pink))
+		drop-shadow(0 0 2px var(--kg-px-sun));
+}
+
+.pixel-icon--trash .pixel-layer--lid {
+	transform-origin: left bottom;
+	transition: transform var(--kg-dur-fast) steps(2);
+}
+
+.pixel-hover:is(:hover, :focus-visible) .pixel-icon--trash .pixel-layer--lid {
+	transform: translate(-1px, -2px) rotate(-16deg);
+}

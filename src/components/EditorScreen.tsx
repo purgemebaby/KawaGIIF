@@ -1,57 +1,45 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+	useCallback,
+	useEffect,
+	useRef,
+	useState,
+	type CSSProperties,
+	type ReactNode,
+} from 'react';
 import { invoke } from '../lib/ipc';
 import type { Template } from '../lib/placed';
 import { useEditorSync } from '../hooks/useEditorSync';
 import { useDeleteShortcut } from '../hooks/useDeleteShortcut';
-import { useMonitors } from '../hooks/useMonitors';
-import { usePersistentToggle } from '../hooks/usePersistentToggle';
-import { primaryMonitorIndex } from '../lib/monitors';
+import { booleanCodec, usePersistentState } from '../hooks/usePersistentState';
+import { useStorageResize } from '../hooks/useStorageResize';
 import { t } from '../i18n/en';
+import EditorPanelHeader from './EditorPanelHeader';
 import MediaSidebar from './MediaSidebar';
 import PlacedItemsList from './PlacedItemsList';
 import PropertiesPanel from './PropertiesPanel';
 import Modal from './ui/Modal';
-import MonitorSelect from './ui/MonitorSelect';
 import './EditorScreen.css';
 
 function instanceIdsOf(template: Template): Set<string> {
 	return new Set(template.items.map((i) => i.instance_id));
 }
 
-interface PanelHeaderProps {
-	title: string;
+/** The body stays mounted inside the wrapper that slides it shut, so collapsing animates. */
+function PanelCollapse({
+	collapsed,
+	children,
+}: {
 	collapsed: boolean;
-	onToggle: () => void;
-}
-
-// The chevron is drawn pointing down; CSS turns it towards the panel's edge.
-function PanelHeader({ title, collapsed, onToggle }: PanelHeaderProps) {
+	children: ReactNode;
+}) {
 	return (
-		<header className="editor-panel-header">
-			<h2>{title}</h2>
-			<button
-				type="button"
-				className="kg-btn kg-btn--icon editor-panel-toggle"
-				aria-expanded={!collapsed}
-				aria-label={
-					collapsed
-						? t.editor.panels.expand(title)
-						: t.editor.panels.collapse(title)
-				}
-				onClick={onToggle}
-			>
-				<svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">
-					<path
-						d="M2 4l4 4 4-4"
-						fill="none"
-						stroke="currentColor"
-						strokeWidth="1.6"
-						strokeLinecap="round"
-						strokeLinejoin="round"
-					/>
-				</svg>
-			</button>
-		</header>
+		<div
+			className="editor-panel-collapse"
+			inert={collapsed}
+			aria-hidden={collapsed}
+		>
+			<div className="editor-panel-body">{children}</div>
+		</div>
 	);
 }
 
@@ -65,20 +53,22 @@ function EditorScreen() {
 	});
 	const savedIdsRef = useRef<Set<string>>(new Set());
 	const { movedInstanceIds, resetMoved, selectedId } = useEditorSync();
-	const monitors = useMonitors();
-	const [chosenMonitor, setChosenMonitor] = useState<number | null>(null);
-	const targetMonitor = chosenMonitor ?? primaryMonitorIndex(monitors);
-	const [storageCollapsed, setStorageCollapsed] = usePersistentToggle(
+	const [storageCollapsed, setStorageCollapsed] = usePersistentState(
 		'kawagiif.editor.storage.collapsed',
 		false,
+		booleanCodec,
 	);
-	const [controlCollapsed, setControlCollapsed] = usePersistentToggle(
+	const { storageHeight, resetStorageHeight, storageSectionRef, startResize } =
+		useStorageResize();
+	const [controlCollapsed, setControlCollapsed] = usePersistentState(
 		'kawagiif.editor.control.collapsed',
 		false,
+		booleanCodec,
 	);
-	const [editCollapsed, setEditCollapsed] = usePersistentToggle(
+	const [editCollapsed, setEditCollapsed] = usePersistentState(
 		'kawagiif.editor.edit.collapsed',
 		false,
+		booleanCodec,
 	);
 
 	const deleteSelected = useCallback(() => {
@@ -93,12 +83,15 @@ function EditorScreen() {
 	}, [selectedId, setControlCollapsed]);
 
 	useEffect(() => {
+		let cancelled = false;
 		(async () => {
 			const tpl = await invoke<Template>('load_template');
+			if (cancelled) return;
 			savedIdsRef.current = instanceIdsOf(tpl);
 			await invoke('set_edit_mode', { enabled: true });
 		})();
 		return () => {
+			cancelled = true;
 			invoke('set_edit_mode', { enabled: false });
 		};
 	}, []);
@@ -148,19 +141,37 @@ function EditorScreen() {
 			data-edit-collapsed={editCollapsed}
 		>
 			<section
-				className="editor-panel editor-panel--storage"
+				ref={storageSectionRef}
+				className={
+					storageHeight > 0
+						? 'editor-panel editor-panel--storage is-sized'
+						: 'editor-panel editor-panel--storage'
+				}
 				data-burst="storage"
 				data-collapsed={storageCollapsed}
+				style={
+					storageHeight > 0
+						? ({ '--storage-body-h': `${storageHeight}px` } as CSSProperties)
+						: undefined
+				}
 			>
-				<PanelHeader
+				<EditorPanelHeader
 					title={t.editor.panels.storage}
 					collapsed={storageCollapsed}
 					onToggle={() => setStorageCollapsed(!storageCollapsed)}
 				/>
+				<PanelCollapse collapsed={storageCollapsed}>
+					<MediaSidebar wrap={storageHeight > 0} />
+				</PanelCollapse>
 				{!storageCollapsed && (
-					<div className="editor-panel-body">
-						<MediaSidebar targetMonitor={targetMonitor} />
-					</div>
+					<div
+						className="editor-storage-resize"
+						role="separator"
+						aria-orientation="horizontal"
+						aria-label={t.editor.panels.resizeStorage}
+						onPointerDown={startResize}
+						onDoubleClick={resetStorageHeight}
+					/>
 				)}
 			</section>
 
@@ -169,23 +180,14 @@ function EditorScreen() {
 				data-burst="settings"
 				data-collapsed={controlCollapsed}
 			>
-				<PanelHeader
+				<EditorPanelHeader
 					title={t.editor.panels.control}
 					collapsed={controlCollapsed}
 					onToggle={() => setControlCollapsed(!controlCollapsed)}
 				/>
-				{!controlCollapsed && (
-					<div className="editor-panel-body">
-						<MonitorSelect
-							monitors={monitors}
-							value={targetMonitor}
-							label={t.editor.monitor.targetLabel}
-							hint={t.editor.monitor.targetHint}
-							onChange={setChosenMonitor}
-						/>
-						<PropertiesPanel selectedId={selectedId} />
-					</div>
-				)}
+				<PanelCollapse collapsed={controlCollapsed}>
+					<PropertiesPanel selectedId={selectedId} />
+				</PanelCollapse>
 			</section>
 
 			<div className="editor-canvas-hint">
@@ -199,32 +201,30 @@ function EditorScreen() {
 				data-burst="editor"
 				data-collapsed={editCollapsed}
 			>
-				<PanelHeader
+				<EditorPanelHeader
 					title={t.editor.panels.edit}
 					collapsed={editCollapsed}
 					onToggle={() => setEditCollapsed(!editCollapsed)}
 				/>
-				{!editCollapsed && (
-					<div className="editor-panel-body">
-						<div className="editor-actions">
-							<button
-								type="button"
-								className="kg-btn kg-btn--secondary"
-								onClick={() => setShowUndoConfirm(true)}
-							>
-								{t.editor.undo}
-							</button>
-							<button
-								type="button"
-								className="kg-btn kg-btn--primary"
-								onClick={openSaveConfirm}
-							>
-								{t.editor.save}
-							</button>
-						</div>
-						<PlacedItemsList />
+				<PanelCollapse collapsed={editCollapsed}>
+					<div className="editor-actions">
+						<button
+							type="button"
+							className="kg-btn kg-btn--secondary"
+							onClick={() => setShowUndoConfirm(true)}
+						>
+							{t.editor.undo}
+						</button>
+						<button
+							type="button"
+							className="kg-btn kg-btn--primary"
+							onClick={openSaveConfirm}
+						>
+							{t.editor.save}
+						</button>
 					</div>
-				)}
+					<PlacedItemsList />
+				</PanelCollapse>
 			</section>
 
 			{showSaveConfirm && (

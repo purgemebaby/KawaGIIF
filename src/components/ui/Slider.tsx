@@ -1,3 +1,5 @@
+import type { CSSProperties } from 'react';
+
 interface SliderProps {
 	label: string;
 	min: number;
@@ -18,6 +20,8 @@ function Slider({
 	onChange,
 }: SliderProps) {
 	const ratio = max === min ? 0 : (value - min) / (max - min);
+	// --fill sizes the gradient-filled part of the track (components.css).
+	const fillStyle = { '--fill': `${ratio * 100}%` } as CSSProperties;
 
 	return (
 		<label className="kg-slider">
@@ -29,6 +33,7 @@ function Slider({
 					max={max}
 					step={step}
 					value={value}
+					style={fillStyle}
 					onChange={(e) => onChange(Number(e.target.value))}
 				/>
 				<output

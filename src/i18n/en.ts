@@ -1,7 +1,6 @@
 export const t = {
 	app: {
 		name: 'KawaGIIF',
-		tagline: 'Animations and GIFs always visible on your desktop.',
 	},
 
 	nav: {
@@ -23,21 +22,22 @@ export const t = {
 	},
 
 	home: {
-		minimizeToTray: 'Minimize to tray',
+		minimizeToTray: 'Hide as icon',
 		panic: {
 			title: 'Kill all animations',
 			description:
-				'Desktop crowded with animations? Close them all in one click. Nothing is deleted: they come back when you reopen the editor or restart the app.',
-			button: 'Kill all windows',
+				'Tired of the animations? Close them all in one click (you will keep the configuration)',
+			button: 'Remove windows',
 		},
 	},
 
 	storage: {
 		title: 'Library',
 		import: 'Import files',
-		empty: 'No files match the filters.',
-		emptyLibrary: 'Nothing here yet',
-		emptyHint: 'Import GIFs, videos or images to start filling your desktop.',
+		empty: "No files match the filters ┐('~`;)┌",
+		emptyLibrary: 'Nothing here yet o(╥﹏╥)o',
+		emptyHint: 'Import media to start filling your desktop.',
+		emptyFilteredHint: 'Try another search, or clear the filters.',
 		search: 'Search by name…',
 		types: {
 			all: 'All',
@@ -67,6 +67,7 @@ export const t = {
 			done: 'Done',
 			count: (n: number) => `${n} selected`,
 			delete: (n: number) => `Delete (${n})`,
+			tags: (n: number) => `Tags (${n})`,
 			toggle: (name: string) => `Select “${name}”`,
 		},
 		deleteConfirm: {
@@ -74,8 +75,8 @@ export const t = {
 				count === 1 ? `Delete “${name}”?` : `Delete ${count} files?`,
 			body: (count: number) =>
 				count === 1
-					? 'KawaGIIF will remove it from your library and delete its own copy. Your original file stays where it is.'
-					: 'KawaGIIF will remove them from your library and delete its own copies. Your original files stay where they are.',
+					? 'KawaGIIF will remove it from your library and delete only its own copy.'
+					: 'KawaGIIF will remove them from your library and delete only its own copies.',
 			placed: (count: number) =>
 				count === 1
 					? "It's showing on your desktop right now and will disappear from there too."
@@ -89,14 +90,13 @@ export const t = {
 	tags: {
 		label: 'Tags',
 		none: 'No tags',
-		add: 'Add tag…',
+		add: 'Add a tag',
 		edit: 'Edit tags',
 		remove: (tag: string) => `Remove tag ${tag}`,
-		more: (n: number) => `+${n}`,
 		manage: 'Tags',
 		manageEmpty: 'There are no tags in the library yet.',
 		search: 'Search tags…',
-		noMatches: 'No tags match your search.',
+		noMatches: "No tags match your search ┐('~`;)┌",
 		useAsFilter: 'Use as filter',
 		filtering: 'Filtering',
 		removeFilter: (tag: string) => `Stop filtering by “${tag}”`,
@@ -106,6 +106,10 @@ export const t = {
 		deleteTitle: (tag: string) => `Delete the tag “${tag}”?`,
 		deleteBody: (n: number) =>
 			`It will be removed from ${n === 1 ? '1 file' : `${n} files`}. The files themselves are not deleted.`,
+		bulk: {
+			placeholder: 'Filter or create a tag',
+			hint: 'Click a tag to add it to every selected file, or remove it from all.',
+		},
 	},
 
 	editor: {
@@ -117,26 +121,17 @@ export const t = {
 			edit: 'Edit',
 			collapse: (title: string) => `Collapse ${title}`,
 			expand: (title: string) => `Expand ${title}`,
+			resizeStorage: 'Drag to resize Storage',
 		},
-		sidebarEmpty: 'Import files from the Library first.',
-		sidebarHint:
-			'Click to place it in the middle of the monitor, or drag it onto the desktop',
+		sidebarEmpty: 'Import files on the Library first (≧◡≦).',
+		sidebarHint: 'Drag it onto the desktop to place it',
+		sidebarNoMatches: 'No files match the search.',
 		canvasHint: [
-			'Click an animation in Storage to place it in the middle of the monitor, or drag it onto the desktop.',
-			"Click an animation that's already placed to select and edit it.",
+			'Drag an animation from Storage onto the desktop to place it.',
 		],
 		placedTitle: 'Placed',
 		placedEmpty: "You haven't placed any animations yet.",
 		removeItem: 'Remove from desktop',
-		monitor: {
-			targetLabel: 'New animations on',
-			moveLabel: 'Move to',
-			targetHint: 'New animations appear in the middle of this monitor.',
-			moveHint: 'Moves the animation to the middle of the chosen monitor.',
-			option: (n: number, width: number, height: number) =>
-				`Monitor ${n} · ${width}×${height}`,
-			primary: '(main)',
-		},
 		saveConfirm: {
 			title: 'Apply the changes?',
 			added: (n: number) => `${n} added`,
@@ -161,11 +156,33 @@ export const t = {
 		speed: 'Speed',
 		reset: 'Reset',
 		resetHint:
-			'Sets opacity and speed back to their defaults. Position and size stay the same.',
+			'Sets the size, angle, speed and opacity back to how the animation was placed. Its position stays the same.',
 	},
 
 	settings: {
 		title: 'Settings',
+		sections: {
+			startup: {
+				title: 'Startup',
+				description: 'How KawaGIIF launches with your computer.',
+			},
+			library: {
+				title: 'Library',
+				description: 'How your media files are handled.',
+			},
+			appearance: {
+				title: 'Appearance',
+				description: 'Font, text size and zoom of the interface.',
+			},
+			motion: {
+				title: 'Motion',
+				description: 'Animations and the loading screen.',
+			},
+			performance: {
+				title: 'Performance',
+				description: 'How many animations you can place at once.',
+			},
+		},
 		launchOnStartup: {
 			label: 'Start with Windows',
 			hint: 'Launch KawaGIIF automatically when the computer starts.',
@@ -177,14 +194,13 @@ export const t = {
 		poolSize: {
 			label: 'Simultaneous animations',
 			hint:
-				'KawaGIIF reserves one window per animation at startup, used or not, ' +
-				"because Windows doesn't allow creating transparent ones later. Unused ones " +
-				'sleep but still cost about 20 MB each; raise it to place more. Between 1 and 20. ' +
+				'KawaGIIF reserves 1 window per animation at startup. ' +
+				'You can raise it to place more (between 1-20). ' +
 				'Takes effect after restarting the app.',
 		},
 		confirmDelete: {
 			label: 'Confirm before deleting files',
-			hint: "Ask before removing a file from the library. Only KawaGIIF's copy is deleted, never your original. Files showing on the desktop always ask.",
+			hint: "Ask before removing a file from library. Only KawaGIIF's copy is deleted, never your original.",
 		},
 		font: {
 			label: 'Interface font',
@@ -193,7 +209,6 @@ export const t = {
 			search: 'Search fonts',
 			noMatches: 'No fonts match',
 			sizeLabel: 'Text size',
-			preview: 'The quick brown fox jumps over the lazy dog 0123456789',
 			sizes: {
 				small: 'Small',
 				default: 'Default',
@@ -204,7 +219,8 @@ export const t = {
 		zoom: {
 			label: 'Interface zoom',
 			hint:
-				'Make everything bigger or smaller. Shortcuts: Ctrl + plus, Ctrl + minus, Ctrl + 0 to reset, ' +
+				'Make everything bigger or smaller. ' +
+				'Shortcuts: Ctrl + plus, Ctrl + minus, Ctrl + 0 to reset, ' +
 				'or Ctrl + mouse wheel.',
 			zoomIn: 'Zoom in',
 			zoomOut: 'Zoom out',
@@ -212,11 +228,11 @@ export const t = {
 		},
 		navAnimations: {
 			label: 'Navigation animations',
-			hint: "Ring menu, sliding between sections and the editor's opening. Off: screens switch instantly.",
+			hint: 'Screens switch instantly when this option is turned off.',
 		},
 		loadingIndicator: {
 			label: 'Loading animation',
-			hint: 'Replace the ball that walks along the loading bar with your own GIF, PNG or JPEG. Recommended: square, 68x68 px (shown at 34 px).',
+			hint: 'Replace the default asset that walks along the loading bar with your own GIF, PNG or JPEG. Recommended: square, 68x68 px.',
 			choose: 'Choose image…',
 			reset: 'Reset to default',
 			filter: 'Image',
@@ -226,9 +242,7 @@ export const t = {
 		ram: {
 			label: 'Memory',
 			system: 'System memory',
-			app: (mb: number) => `KawaGIIF uses about ${mb} MB`,
-			estimateNote:
-				'Estimate: the web engine is split across several processes',
+			app: (mb: number) => `KawaGIIF uses about ${mb} MB (estimated)`,
 		},
 	},
 } as const;

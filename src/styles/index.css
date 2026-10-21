@@ -29,8 +29,16 @@
 	max-width: 100%;
 	padding: 2px 8px;
 	border-radius: var(--kg-radius-pill);
-	background: var(--kg-accent-soft);
-	color: var(--kg-accent-strong);
+	background: color-mix(
+		in srgb,
+		var(--tag-tint, var(--kg-accent)) 25%,
+		transparent
+	);
+	color: color-mix(
+		in srgb,
+		var(--tag-tint, var(--kg-accent)) 85%,
+		var(--kg-title-keyline)
+	);
 	font-size: var(--kg-text-xs);
 	white-space: nowrap;
 	overflow: hidden;
@@ -242,6 +250,11 @@
 .tag-manager-name {
 	flex: 1;
 	min-width: 0;
+	color: color-mix(
+		in srgb,
+		var(--tag-tint, var(--kg-fg)) 80%,
+		var(--kg-title-keyline)
+	);
 	font-size: var(--kg-text-md);
 	font-weight: 600;
 	overflow: hidden;

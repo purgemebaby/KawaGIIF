@@ -11,31 +11,22 @@ use tauri::{
 #[cfg(windows)]
 use crate::native::windows as native;
 
-/* Personal Note for me:
-- std::sync::OnceLock: a value computed once on first use, then reused; here, the pool size and labels.
-- tauri::webview::Color: an RGBA color; alpha 0 makes the web page background see-through.
-- tauri::WindowEvent: what happened to a window (moved, resized, focused, ...).
-- crate::native::windows (only on Windows): our raw Win32 calls for what Tauri can't do reliably.
-*/
-
-
-
+pub const MAX_POOL: u32 = 20;
+pub const HANDLE_MARGIN: u32 = 32; //logical px of transparent room on every side of the media
 pub const CONTROL_LABEL: &str = "control";
 const OV_LABEL: &str = "OV-SLOT-";
-pub const MAX_POOL: u32 = 20;
 const KEEPER_INTERVAL: Duration = Duration::from_secs(2);
-static CARRIED_SLOT: AtomicUsize = AtomicUsize::new(usize::MAX); //the overlay hanging from the cursor, if any
 const CARRY_TICK: Duration = Duration::from_millis(8); //about 120 moves per second while an overlay is carried
-/** Fixed logical size of the control window: a bigger default cost about 30 % fps. */
 const CONTROL_BASE: (f64, f64) = (960.0, 640.0);
-/** Largest logical size of the control window: a bigger one costs fps (more pixels composited per frame). */
-const MAX_CONTROL: (f64, f64) = (1920.0, 1080.0);
-//every webview shares one WebView2 environment, so they must all get the same args: wry's defaults, one shared renderer, GPU raster/zero-copy
+const MAX_CONTROL: (f64, f64) = (1630.0, 1013.0); //the owner's preferred largest size; bigger only spreads the panels out
+//every webview shares one WebView2 environment, so they must all get the same args
 const BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --process-per-site --enable-gpu-rasterization --enable-zero-copy --ignore-gpu-blocklist";
 
+static CARRIED_SLOT: AtomicUsize = AtomicUsize::new(usize::MAX); //the overlay hanging from the cursor
 
 
-/** Number of overlay windows = max animations on screen. Read once: the pool is built in `setup()`, so changes apply on restart. */
+
+/** Number of overlay windows on screen*/
 pub fn pool_size() -> usize {
     static SIZE: OnceLock<usize> = OnceLock::new();
     *SIZE.get_or_init(|| crate::config::load().overlay_pool_size.clamp(1, MAX_POOL) as usize)
@@ -56,11 +47,6 @@ pub fn overlay_windows(app: &AppHandle) -> impl Iterator<Item = WebviewWindow> +
     slot_labels().iter().filter_map(|label| app.get_webview_window(label))
 }
 
-/**
- * Forces the Win32 styles an overlay needs (no taskbar/Alt+Tab entry, no frame, no DWM border, layered, no class brush).
- * Tauri resets them on its own and click-through overlays never get focus, so this runs on creation, `show_slot`,
- * `Focused`, edit-mode changes and from the keeper.
- */
 fn reapply_overlay_style(window: &WebviewWindow) {
     #[cfg(windows)]
     if let Ok(hwnd) = window.hwnd() {
@@ -83,33 +69,42 @@ fn raise(window: Option<WebviewWindow>) {
 }
 
 /**
- * Raises every visible overlay to the top of the topmost band, then the control window last while edit mode keeps it
- * topmost. Needed because tao only calls `SetWindowPos` when the always-on-top flag changes, so the taskbar (also topmost)
- * stays above overlays until one is raised explicitly. `restyle` re-forces the styles first (`force_borderless` redraws the frame).
+ * Raises the control window first (while edit mode keeps it topmost), then every visible overlay above it, so the editor
+ * never loses sight of them. Needed because tao only calls `SetWindowPos` when the always-on-top flag changes, so the
+ * taskbar (also topmost) stays above overlays until one is raised explicitly. `restyle` re-forces the styles first
+ * (`force_borderless` redraws the frame).
  */
 fn raise_visible_overlays(app: &AppHandle, restyle: bool) {
+    if let Some(control) = app.get_webview_window(CONTROL_LABEL).filter(|c| c.is_always_on_top().unwrap_or(false)) {
+        raise(Some(control));
+    }
     for window in overlay_windows(app).filter(|w| w.is_visible().unwrap_or(false)) {
         if restyle { reapply_overlay_style(&window); }
         raise(Some(window));
-    }
-    if let Some(control) = app.get_webview_window(CONTROL_LABEL).filter(|c| c.is_always_on_top().unwrap_or(false)) {
-        raise(Some(control));
     }
     // the carried overlay stays above everything, the control window included, or it flickers behind it
     let carried: usize = CARRIED_SLOT.load(Ordering::Relaxed);
     if carried != usize::MAX { raise(slot_window(app, carried)); }
 }
 
-/** Keeps an overlay inside the whole rectangle of its monitor (taskbar included, on purpose). Returns `true` if it moved. */
+/** Raises the overlays above the control window once the window changes queued so far (tao's `set_always_on_top`) are applied. */
+pub fn raise_overlays_above_control(app: &AppHandle) {
+    let Some(control) = app.get_webview_window(CONTROL_LABEL) else { return; };
+    let handle = app.clone();
+    after_queued(&control, move |_| raise_visible_overlays(&handle, false));
+}
+
+/** Keeps an overlay's media inside the whole rectangle of its monitor (taskbar included, on purpose): the window itself may overhang it by `HANDLE_MARGIN`, which is transparent. Returns `true` if it moved. */
 pub fn clamp_to_work_area(window: &WebviewWindow) -> bool {
     #[cfg(windows)]
     {
         let Ok(hwnd) = window.hwnd() else { return false; };
         let Some((wx, wy, ww, wh)) = native::force_work_area(hwnd) else { return false; };
-        let (Ok(pos), Ok(size)) = (window.outer_position(), window.outer_size()) else { return false; };
+        let (Ok(pos), Ok(size), Ok(scale)) = (window.outer_position(), window.outer_size(), window.scale_factor()) else { return false; };
+        let inset = (f64::from(HANDLE_MARGIN) * scale).round() as i32;
 
-        let x = pos.x.min(wx + ww - size.width as i32).max(wx);
-        let y = pos.y.min(wy + wh - size.height as i32).max(wy);
+        let x = pos.x.min(wx + ww - size.width as i32 + inset).max(wx - inset);
+        let y = pos.y.min(wy + wh - size.height as i32 + inset).max(wy - inset);
         if (x, y) != (pos.x, pos.y) {
             let _ = window.set_position(PhysicalPosition::new(x, y));
             return true;
@@ -118,6 +113,22 @@ pub fn clamp_to_work_area(window: &WebviewWindow) -> bool {
     #[cfg(not(windows))]
     let _ = window;
     false
+}
+
+/** Moves and resizes a window in one step (physical px). */
+pub fn place(window: &WebviewWindow, x: i32, y: i32, width: u32, height: u32) -> tauri::Result<()> {
+    window.set_size(PhysicalSize::new(width, height))?;
+    window.set_position(PhysicalPosition::new(x, y))?;
+    Ok(())
+}
+
+/** Resizes a window while keeping its centre, so the media inside scales about itself instead of its top-left corner. */
+pub fn resize_keeping_centre(window: &WebviewWindow, width: u32, height: u32) -> tauri::Result<()> {
+    let pos = window.outer_position()?;
+    let size = window.outer_size()?;
+    let x = pos.x + (size.width as i32 - width as i32) / 2;
+    let y = pos.y + (size.height as i32 - height as i32) / 2;
+    place(window, x, y, width, height)
 }
 
 /**
@@ -162,8 +173,6 @@ pub fn set_slot_dormant(window: &WebviewWindow, dormant: bool, still_wanted: imp
             }
         });
     }
-    #[cfg(not(windows))]
-    let _ = (window, dormant, still_wanted);
 }
 
 /** Dev-only log of memory use and of the visible overlays, printed at state transitions. */
@@ -203,6 +212,7 @@ pub fn create_control_window(app: &AppHandle) -> tauri::Result<WebviewWindow> {
         .center()
         .min_inner_size(720.0, 480.0)
         .max_inner_size(MAX_CONTROL.0, MAX_CONTROL.1)
+        .maximizable(false) //the owner keeps it at a chosen size; resizing by the edges still works
         .decorations(true)
         .transparent(false)
         .resizable(true)
@@ -244,7 +254,7 @@ pub fn create_overlay_pool(app: &AppHandle) -> tauri::Result<()> {
         set_overlay_click_through(&window, true);
         reapply_overlay_style(&window);
         #[cfg(windows)]
-        if let Ok(hwnd) = window.hwnd() { native::guard_non_client(hwnd); }
+        if let Ok(hwnd) = window.hwnd() { native::guard_non_client(hwnd, HANDLE_MARGIN); }
         watch_overlay_events(app, &window, slot);
     }
     Ok(())
@@ -268,7 +278,8 @@ pub fn spawn_topmost_keeper(app: &AppHandle) {
 /**
  * Instant re-raise every time another app takes the foreground (taskbar click, Start, a game). Raise only: restyling on
  * every focus change would redraw the frames (`SWP_FRAMECHANGED`) and risk flicker; the keeper restyles.
- * A second hook also sees our own windows taking the foreground, so editing resumes when the app returns to the front.
+ * A second hook also sees our own windows taking the foreground, so editing resumes when the app returns to the front,
+ * and the overlays go back above the control window that a click on it just raised.
  */
 pub fn watch_foreground_changes(app: &AppHandle) {
     #[cfg(windows)]
@@ -276,7 +287,10 @@ pub fn watch_foreground_changes(app: &AppHandle) {
         let raising = app.clone();
         native::watch_foreground(move || raise_visible_overlays(&raising, false));
         let editing = app.clone();
-        native::watch_any_foreground(move || crate::template::refresh_edit_activity_soon(&editing));
+        native::watch_any_foreground(move || {
+            crate::template::refresh_edit_activity_soon(&editing);
+            raise_overlays_above_control(&editing);
+        });
     }
     #[cfg(not(windows))]
     let _ = app;
@@ -289,9 +303,9 @@ pub fn stop_watching_foreground_changes() {
 }
 
 /**
- * Hooks an overlay's window events: `Focused` re-forces the styles (Tauri redoes its `skip_taskbar` fix); `Moved` clamps
- * to the monitor (Windows runs the drag, so it can only be corrected afterwards; the corrective `Moved` needs no
- * correction, so no loop); `Moved`/`Resized` store the geometry in the template.
+ * Hooks an overlay's window events: `Focused` re-forces the styles (Tauri redoes its `skip_taskbar` fix); `Moved`/
+ * `Resized` store the geometry in the template; `Moved` also clamps to the monitor (the corrective `Moved` needs no
+ * correction, so no loop). A drag is constrained by the subclass's `WM_MOVING` clamp, so this covers programmatic moves.
  */
 fn watch_overlay_events(app: &AppHandle, window: &WebviewWindow, slot: usize) {
     let app = app.clone();
@@ -299,9 +313,7 @@ fn watch_overlay_events(app: &AppHandle, window: &WebviewWindow, slot: usize) {
     window.on_window_event(move |event| match event {
         WindowEvent::Focused(_) => reapply_overlay_style(&this),
         WindowEvent::Moved(pos) => {
-            if !clamp_to_work_area(&this) {
-                crate::template::update_slot_geometry(&app, slot, Some((pos.x, pos.y)), None);
-            }
+            if !clamp_to_work_area(&this) { crate::template::update_slot_geometry(&app, slot, Some((pos.x, pos.y)), None); }
         }
         WindowEvent::Resized(size) => crate::template::update_slot_geometry(&app, slot, None, Some((size.width, size.height))),
         _ => {}
@@ -359,8 +371,7 @@ pub fn show_slot(
     let window = slot_window(app, slot).ok_or(crate::error::AppError::MissingSlotWindow(slot))?;
 
     set_slot_dormant(&window, false, || true);
-    window.set_position(PhysicalPosition::new(x, y))?;
-    window.set_size(PhysicalSize::new(width, height))?;
+    place(&window, x, y, width, height)?;
     set_overlay_click_through(&window, !interactive);
     window.show()?;
 
@@ -385,10 +396,6 @@ pub fn hide_all_overlay_slots(app: &AppHandle) {
         let _ = window.hide();
     }
 }
-
-pub fn raise_slot(app: &AppHandle, slot: usize) { raise(slot_window(app, slot)); }
-
-pub fn raise_control(app: &AppHandle) { raise(app.get_webview_window(CONTROL_LABEL)); }
 
 pub fn reassert_slot_style(app: &AppHandle, slot: usize) {
     if let Some(window) = slot_window(app, slot) { after_queued(&window, reapply_overlay_style); }

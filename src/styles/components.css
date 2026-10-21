@@ -1,24 +1,33 @@
 .kg-btn {
+	position: relative;
+	isolation: isolate;
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
 	gap: var(--kg-space-2);
-	padding: 9px 16px;
+	padding: 9px 18px;
 	border: 1px solid transparent;
-	border-radius: var(--kg-radius-sm);
+	border-radius: var(--kg-btn-radius);
 	background: none;
 	color: var(--kg-fg);
 	font-family: inherit;
 	font-size: var(--kg-text-md);
-	font-weight: 600;
+	font-weight: 500;
 	line-height: 1;
 	cursor: pointer;
 	white-space: nowrap;
+	overflow: clip; /* clip, not hidden: a hidden box can still be scrolled (focus, selection) and would show the parked fill */
 	transition:
-		background var(--kg-dur-fast) var(--kg-ease-out),
+		background-color var(--kg-dur-fast) var(--kg-ease-out),
 		border-color var(--kg-dur-fast) var(--kg-ease-out),
 		color var(--kg-dur-fast) var(--kg-ease-out),
-		transform var(--kg-dur-fast) var(--kg-ease-out);
+		filter var(--kg-dur-fast) var(--kg-ease-out),
+		box-shadow var(--kg-dur-med) var(--kg-ease-out),
+		transform var(--kg-dur-med) var(--kg-ease-pop);
+}
+
+.kg-btn > svg {
+	transition: transform var(--kg-dur-med) var(--kg-ease-pop);
 }
 
 .kg-select {
@@ -39,70 +48,99 @@
 	outline: none;
 }
 
-.monitor-select {
-	display: flex;
-	align-items: center;
-	gap: var(--kg-space-2);
-	min-width: 0;
-}
-
-.monitor-select-label {
-	color: var(--kg-fg-muted);
-	font-size: var(--kg-text-sm);
-	white-space: nowrap;
-}
-
-.kg-btn:active {
-	transform: translateY(1px);
-}
-
 .kg-btn:disabled {
 	opacity: 0.45;
 	cursor: not-allowed;
-	transform: none;
 }
 
+/* Solid pill: lifts and glows on hover. */
 .kg-btn--primary {
-	background: var(--kg-accent);
+	background: var(--kg-btn-gradient);
 	color: var(--kg-fg-on-accent);
+	font-weight: 600;
 }
 
 .kg-btn--primary:hover:not(:disabled) {
-	background: var(--kg-accent-strong);
+	box-shadow: var(--kg-btn-glow);
+	filter: brightness(1.1);
+	transform: translateY(-1px);
 }
 
+/* Outline pill: the accent rises from the bottom like liquid, with a curved top edge. */
 .kg-btn--secondary {
-	border-color: var(--kg-border);
-	background: var(--kg-bg-raised);
+	border-color: var(--kg-accent);
 	color: var(--kg-fg);
 }
 
-.kg-btn--secondary:hover:not(:disabled) {
-	border-color: var(--kg-border-strong);
-	background: var(--kg-bg-panel);
+.kg-btn--secondary::before {
+	content: '';
+	position: absolute;
+	z-index: -1;
+	bottom: 0;
+	left: -10%;
+	width: 120%;
+	height: 150%;
+	border-radius: 50% 50% 0 0 / 22% 22% 0 0;
+	background: var(--kg-btn-gradient);
+	transform: translateY(100%);
+	transition: transform var(--kg-dur-med) var(--kg-ease-out);
 }
 
+.kg-btn--secondary:hover:not(:disabled) {
+	box-shadow: var(--kg-btn-glow);
+	color: var(--kg-fg-on-accent);
+}
+
+.kg-btn--secondary:hover:not(:disabled)::before {
+	transform: translateY(0);
+}
+
+/* The Tags count badge is accent-coloured, so it flips while the fill is up. */
+.kg-btn--secondary:hover:not(:disabled) .filter-tag-count {
+	background: var(--kg-fg-on-accent);
+	color: var(--kg-accent-strong);
+}
+
+/* Outline pill that turns solid; the icon wiggles. */
 .kg-btn--danger {
 	border-color: var(--kg-danger);
 	color: var(--kg-danger);
 }
 
 .kg-btn--danger:hover:not(:disabled) {
-	background: var(--kg-danger-soft);
+	background-color: var(--kg-danger);
+	box-shadow: var(--kg-btn-glow-danger);
+	color: var(--kg-fg-on-danger);
 }
 
-.kg-btn--ghost {
-	color: var(--kg-fg-muted);
-	font-weight: 500;
+/* pixel icons bring their own hover animation (the trash lid opens) */
+.kg-btn--danger:hover:not(:disabled) > svg:not(.pixel-icon) {
+	animation: kg-wiggle var(--kg-dur-med) var(--kg-ease-out);
 }
 
-.kg-btn--ghost:hover:not(:disabled) {
+/* Raised neutral pill: grows a touch, the icon spins. */
+.kg-btn--ghost,
+.kg-btn--icon {
+	border-color: var(--kg-border);
 	background: var(--kg-bg-raised);
+	color: var(--kg-fg-muted);
+}
+
+.kg-btn--ghost:hover:not(:disabled),
+.kg-btn--icon:hover:not(:disabled) {
+	border-color: var(--kg-border-strong);
+	box-shadow: var(--kg-shadow-1);
 	color: var(--kg-fg);
+	transform: scale(1.04);
+}
+
+.kg-btn--ghost:hover:not(:disabled) > svg,
+.kg-btn--icon:hover:not(:disabled) > svg {
+	transform: rotate(180deg);
 }
 
 .kg-btn--sm {
-	padding: 6px 10px;
+	padding: 6px 12px;
 	font-size: var(--kg-text-sm);
 }
 
@@ -110,14 +148,13 @@
 	width: 34px;
 	height: 34px;
 	padding: 0;
-	border-radius: var(--kg-radius-sm);
-	color: var(--kg-fg-muted);
+	border-radius: 50%;
 	font-size: var(--kg-text-icon);
 }
 
-.kg-btn--icon:hover:not(:disabled) {
-	background: var(--kg-bg-raised);
-	color: var(--kg-fg);
+/* After the hover rules so a press wins while hovering. */
+.kg-btn:active:not(:disabled) {
+	transform: scale(0.96);
 }
 
 .kg-pill {
@@ -148,9 +185,17 @@
 }
 
 .kg-pill.active {
-	border-color: var(--kg-accent);
-	background: var(--kg-accent-soft);
-	color: var(--kg-accent-strong);
+	border-color: var(--tag-tint, var(--kg-accent));
+	background: color-mix(
+		in srgb,
+		var(--tag-tint, var(--kg-accent)) 25%,
+		transparent
+	);
+	color: color-mix(
+		in srgb,
+		var(--tag-tint, var(--kg-accent)) 85%,
+		var(--kg-title-keyline)
+	);
 }
 
 .modal-backdrop {
@@ -227,7 +272,48 @@
 
 .kg-slider-track-wrap input[type='range'] {
 	width: 100%;
-	accent-color: var(--kg-accent);
+	appearance: none;
+	height: 14px;
+	background: transparent;
+	cursor: pointer;
+}
+
+.kg-slider-track-wrap input[type='range']::-webkit-slider-runnable-track {
+	height: 3px;
+	border-radius: var(--kg-radius-pill);
+	background:
+		linear-gradient(90deg, var(--kg-accent-2), var(--kg-accent)) 0 /
+			var(--fill, 0%) 100% no-repeat,
+		var(--kg-bg-raised);
+}
+
+.kg-slider-track-wrap input[type='range']::-webkit-slider-thumb {
+	appearance: none;
+	width: 12px;
+	height: 12px;
+	margin-top: -4.5px;
+	border-radius: 50%;
+	background: var(--kg-title-keyline);
+	box-shadow: 0 0 0 2px var(--kg-accent);
+	transition:
+		transform var(--kg-dur-fast) var(--kg-ease-out),
+		box-shadow var(--kg-dur-fast) var(--kg-ease-out);
+}
+
+/* The hover/focus glow mirrors the ring sectors' hover. */
+.kg-slider:hover input[type='range']::-webkit-slider-runnable-track,
+.kg-slider:focus-within input[type='range']::-webkit-slider-runnable-track {
+	box-shadow:
+		0 0 8px rgb(var(--kg-accent-rgb) / 0.7),
+		0 0 2px var(--kg-accent-2);
+}
+
+.kg-slider:hover input[type='range']::-webkit-slider-thumb,
+.kg-slider:focus-within input[type='range']::-webkit-slider-thumb {
+	transform: scale(1.2);
+	box-shadow:
+		0 0 0 2px var(--kg-accent-2),
+		0 0 10px rgb(var(--kg-accent-rgb) / 0.9);
 }
 
 .kg-slider-bubble {
@@ -252,11 +338,124 @@
 	opacity: 1;
 }
 
+.properties-reset {
+	width: 100%;
+}
+
+.properties-danger {
+	margin-top: var(--kg-space-4);
+	padding-top: var(--kg-space-3);
+	border-top: 1px solid var(--kg-border);
+}
+
+.properties-danger .kg-btn {
+	width: 100%;
+}
+
 .empty-state {
 	margin: 0;
 	padding: var(--kg-space-5) 0;
 	color: var(--kg-fg-faint);
 	font-size: var(--kg-text-md);
+}
+
+/* Media filter bar: full on the Storage screen, compact in the editor sidebar. */
+
+.filter-bar {
+	display: flex;
+	flex-direction: column;
+	gap: var(--kg-space-3);
+	margin-bottom: var(--kg-space-5);
+}
+
+.filter-types {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--kg-space-2);
+}
+
+.filter-type {
+	padding: 6px 13px;
+	border: 1px solid var(--kg-border-strong);
+	border-radius: var(--kg-btn-radius);
+	background: transparent;
+	color: var(--kg-fg-muted);
+	font-family: inherit;
+	font-size: var(--kg-text-body);
+	cursor: pointer;
+	transition:
+		background-color var(--kg-dur-fast) var(--kg-ease-out),
+		border-color var(--kg-dur-fast) var(--kg-ease-out),
+		color var(--kg-dur-fast) var(--kg-ease-out),
+		box-shadow var(--kg-dur-med) var(--kg-ease-out),
+		transform var(--kg-dur-med) var(--kg-ease-pop);
+}
+
+.filter-type:hover {
+	border-color: var(--kg-accent);
+	background-color: var(--kg-accent-soft);
+	color: var(--kg-fg);
+}
+
+.filter-type:active {
+	transform: scale(0.96);
+}
+
+.filter-type.active {
+	border-color: var(--kg-accent);
+	background: var(--kg-btn-gradient);
+	box-shadow: var(--kg-btn-glow);
+	color: var(--kg-fg-on-accent);
+	font-weight: 600;
+}
+
+.filter-search {
+	flex: 1;
+	min-width: 200px;
+	padding: 8px 13px;
+	border: 1px solid var(--kg-border);
+	border-radius: var(--kg-radius-sm);
+	background: var(--kg-bg-input);
+	color: var(--kg-fg);
+	font-family: inherit;
+	font-size: var(--kg-text-md);
+}
+
+.filter-search::placeholder {
+	color: var(--kg-fg-faint);
+}
+
+.filter-search:focus {
+	border-color: var(--kg-accent);
+	outline: none;
+}
+
+/* Compact variant: tighter row, no type buttons; its margins line it up with the strip below. */
+.filter-bar--compact {
+	gap: var(--kg-space-2);
+	margin: 0 var(--kg-space-3) var(--kg-space-2);
+}
+
+.filter-bar--compact .filter-row {
+	gap: var(--kg-space-2);
+}
+
+.filter-bar--compact .filter-search {
+	min-width: 0;
+	padding: var(--kg-space-1) var(--kg-space-2);
+	font-size: var(--kg-text-sm);
+}
+
+/* The editor's Storage panel: compact bar on top, the media strip below. */
+.media-sidebar {
+	display: flex;
+	flex-direction: column;
+	/* Stretches to the body so the strip can fill it and scroll once the panel is sized. */
+	height: 100%;
+}
+
+.media-sidebar > .empty-state {
+	margin: 0 var(--kg-space-3);
 }
 
 /* The default loading-screen walker; also its preview in Settings. */
@@ -270,4 +469,25 @@
 			transparent 42%
 		),
 		linear-gradient(180deg, var(--kg-accent-2), var(--kg-accent));
+}
+
+/* Shared neon recipe: a blurred halo under a sharp line, pink to purple stops. */
+.kg-neon-halo {
+	fill: none;
+	stroke-linecap: round;
+	stroke-width: 9;
+}
+
+.kg-neon-line {
+	fill: none;
+	stroke-linecap: round;
+	stroke-width: 3;
+}
+
+.kg-neon-stop-pink {
+	stop-color: var(--kg-accent-2);
+}
+
+.kg-neon-stop-purple {
+	stop-color: var(--kg-accent);
 }

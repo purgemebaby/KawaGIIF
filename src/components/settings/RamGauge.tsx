@@ -10,15 +10,14 @@ interface SystemStats {
 	app_ram_mb: number;
 }
 
-const REFRESH_MS = 2000;
-
+const REFRESH_MS = 3000;
 const START_ANGLE = -210;
 const SWEEP = 240;
-const CX = 60;
-const CY = 58;
-const ARC_RADIUS = 44;
-const NEEDLE_RADIUS = 34;
-const HIGH_RATIO = 0.85;
+const CX = 60; // center x
+const CY = 50; // center y
+const ARC_RADIUS = 45;
+const NEEDLE_RADIUS = 35;
+const HIGH_RATIO = 0.8;
 
 function toGb(mb: number): string {
 	return (mb / 1024).toFixed(1);
@@ -26,7 +25,7 @@ function toGb(mb: number): string {
 
 function polar(cx: number, cy: number, radius: number, angleDeg: number) {
 	const rad = (angleDeg * Math.PI) / 180;
-	return { x: cx + radius * Math.cos(rad), y: cy + radius * Math.sin(rad) };
+	return { x: cx + radius * Math.cos(rad), y: cy + radius * Math.sin(rad) }; //Cartesian
 }
 
 function arcPath(
@@ -43,10 +42,12 @@ function arcPath(
 }
 
 function RamGauge() {
+	// null, function
 	const [stats, setStats] = useState<SystemStats | null>(null);
 
 	useEffect(() => {
 		let cancelled = false;
+		// system_stats.rs
 		const read = async () => {
 			const next = await invoke<SystemStats>('get_system_stats');
 			if (!cancelled) setStats(next);
@@ -102,12 +103,7 @@ function RamGauge() {
 				<small>{t.settings.ram.system}</small>
 			</div>
 
-			<p className="ram-gauge-app">
-				{t.settings.ram.app(stats.app_ram_mb)}
-				<span className="ram-gauge-estimate">
-					{t.settings.ram.estimateNote}
-				</span>
-			</p>
+			<p className="ram-gauge-app">{t.settings.ram.app(stats.app_ram_mb)}</p>
 		</div>
 	);
 }

@@ -1,5 +1,6 @@
-import type { KeyboardEvent } from 'react';
+import './RadialMenu.css';
 import { HOME_TILES, type Screen } from '../navItems';
+import PixelIcon from '../ui/PixelIcon';
 import {
 	RING_INNER,
 	RING_OUTER,
@@ -9,15 +10,21 @@ import {
 	directionOf,
 	outerArcPath,
 } from '../../lib/radial';
-import './RadialMenu.css';
+import type { KeyboardEvent } from 'react';
 
 interface RadialMenuProps {
 	onSelect: (id: Screen) => void;
 }
 
-const CENTRE = RING_SIZE / 2;
-// A little outside the ring's middle: the diagonal sectors' text blocks are wide and must clear the inner rim.
 const LABEL_RADIUS = 145;
+// ring units; a multiple of 16 keeps every icon pixel the same size
+const ICON_SIZE = 48;
+// small sideways nudges so each icon sits optically centred over its label
+const ICON_NUDGE: Partial<Record<Screen, number>> = {
+	settings: 8,
+	storage: -8,
+};
+const CENTRE = RING_SIZE / 2;
 
 function RadialMenu({ onSelect }: RadialMenuProps) {
 	const onKeyDown = (event: KeyboardEvent, id: Screen) => {
@@ -34,8 +41,8 @@ function RadialMenu({ onSelect }: RadialMenuProps) {
 		>
 			<defs>
 				<linearGradient id="radial-glow-gradient" x1="0" y1="0" x2="1" y2="1">
-					<stop offset="0" className="radial-stop-pink" />
-					<stop offset="1" className="radial-stop-purple" />
+					<stop offset="0" className="kg-neon-stop-pink" />
+					<stop offset="1" className="kg-neon-stop-purple" />
 				</linearGradient>
 				<filter
 					id="radial-glow-blur"
@@ -65,7 +72,7 @@ function RadialMenu({ onSelect }: RadialMenuProps) {
 				return (
 					<g
 						key={sector.id}
-						className="radial-sector"
+						className="radial-sector pixel-hover"
 						role="button"
 						tabIndex={0}
 						aria-label={tile.label}
@@ -84,11 +91,18 @@ function RadialMenu({ onSelect }: RadialMenuProps) {
 							)}
 						/>
 						<g className="radial-glow" aria-hidden="true">
-							<path className="radial-glow-halo" d={arc} />
-							<path className="radial-glow-line" d={arc} />
+							<path className="kg-neon-halo radial-glow-halo" d={arc} />
+							<path className="kg-neon-line radial-glow-line" d={arc} />
 						</g>
 						<g transform={`translate(${x} ${y})`} aria-hidden="true">
-							<text className="radial-icon">{tile.icon}</text>
+							{tile.icon && (
+								<PixelIcon
+									name={tile.icon}
+									size={ICON_SIZE}
+									x={-ICON_SIZE / 2 + (ICON_NUDGE[tile.id] ?? 0)}
+									y={-ICON_SIZE - 4}
+								/>
+							)}
 							<text className="radial-label">{tile.label}</text>
 						</g>
 					</g>

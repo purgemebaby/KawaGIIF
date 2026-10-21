@@ -15,7 +15,7 @@ function BrandBar({ onNavigate }: BrandBarProps) {
 				type="button"
 				className="brand-bar-logo"
 				onClick={() => onNavigate('home')}
-				title={`${t.nav.backHome} (Ctrl+1)`}
+				title={t.nav.backHome}
 				aria-label={t.nav.backHome}
 			>
 				<KawaTitle size="var(--kg-text-xl)" animated={false} />

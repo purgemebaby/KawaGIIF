@@ -3,10 +3,15 @@ import { useLoadingIndicator } from '../hooks/useLoadingIndicator';
 import KawaTitle from './brand/KawaTitle';
 import './LoadingScreen.css';
 
-// short floor so a fast boot doesn't flash; the real length comes from `steps`
-const MIN_DURATION_MS = 1200;
+// floor so the neon bar is on screen long enough to be seen; the real length comes from `steps`
+const MIN_DURATION_MS = 2200;
 // share of the bar per second the walker may move, so it never jumps ahead of the work
 const MAX_SPEED_PER_S = 0.9;
+
+// the neon bar's geometry, in the svg's 360x24 user space
+const TRACK_START = 12;
+const TRACK_END = 348;
+const TRACK_Y = 12;
 
 interface LoadingScreenProps {
 	onDone: () => void;
@@ -53,6 +58,7 @@ function LoadingScreen({ onDone, steps }: LoadingScreenProps) {
 	const walkerStyle = {
 		left: `calc(${progress * 100}% - ${progress} * var(--kg-walker-size))`,
 	};
+	const fillEnd = TRACK_START + progress * (TRACK_END - TRACK_START);
 
 	return (
 		<div
@@ -70,10 +76,67 @@ function LoadingScreen({ onDone, steps }: LoadingScreenProps) {
 				aria-valuemax={100}
 				aria-valuenow={Math.round(progress * 100)}
 			>
-				<div
-					className="loading-bar-fill"
-					style={{ width: `${progress * 100}%` }}
-				/>
+				<svg className="loading-neon" viewBox="0 0 360 24" aria-hidden="true">
+					<defs>
+						<linearGradient
+							id="loading-glow-gradient"
+							gradientUnits="userSpaceOnUse"
+							x1={TRACK_START}
+							y1={TRACK_Y}
+							x2={TRACK_END}
+							y2={TRACK_Y}
+						>
+							<stop offset="0" className="kg-neon-stop-pink" />
+							<stop offset="1" className="kg-neon-stop-purple" />
+						</linearGradient>
+						{/* user space: a horizontal line has a zero-height box, which would hide a box-relative filter */}
+						<filter
+							id="loading-glow-blur"
+							filterUnits="userSpaceOnUse"
+							x="-24"
+							y="-24"
+							width="408"
+							height="72"
+						>
+							<feGaussianBlur stdDeviation="6" />
+						</filter>
+					</defs>
+
+					<line
+						className="loading-track"
+						x1={TRACK_START}
+						y1={TRACK_Y}
+						x2={TRACK_END}
+						y2={TRACK_Y}
+					/>
+
+					{progress > 0 && (
+						<>
+							<line
+								className="kg-neon-halo loading-glow-halo"
+								x1={TRACK_START}
+								y1={TRACK_Y}
+								x2={fillEnd}
+								y2={TRACK_Y}
+							/>
+							<line
+								className="kg-neon-line loading-glow-line"
+								x1={TRACK_START}
+								y1={TRACK_Y}
+								x2={fillEnd}
+								y2={TRACK_Y}
+							/>
+							<circle
+								className="loading-tip-bloom"
+								cx={fillEnd}
+								cy={TRACK_Y}
+								r={7}
+							/>
+							<circle className="loading-tip" cx={fillEnd} cy={TRACK_Y} r={4} />
+						</>
+					)}
+				</svg>
+
 				{walkerReady &&
 					(walkerUrl && !walkerFailed ? (
 						<img

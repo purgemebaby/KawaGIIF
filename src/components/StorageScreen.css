@@ -38,73 +38,13 @@
 	position: absolute;
 	z-index: 5;
 	top: var(--kg-space-2);
-	right: var(--kg-space-2);
+	left: var(--kg-space-2);
 	width: 20px;
 	height: 20px;
 	margin: 0;
 	accent-color: var(--kg-accent);
 	cursor: pointer;
-}
-
-.filter-bar {
-	display: flex;
-	flex-direction: column;
-	gap: var(--kg-space-3);
-	margin-bottom: var(--kg-space-5);
-}
-
-.filter-types {
-	display: flex;
-	flex-wrap: wrap;
-	gap: var(--kg-space-2);
-}
-
-.filter-type {
-	padding: 6px 13px;
-	border: 1px solid var(--kg-border);
-	border-radius: var(--kg-radius-pill);
-	background: var(--kg-bg-raised);
-	color: var(--kg-fg-muted);
-	font-family: inherit;
-	font-size: var(--kg-text-body);
-	cursor: pointer;
-	transition:
-		background var(--kg-dur-fast) var(--kg-ease-out),
-		border-color var(--kg-dur-fast) var(--kg-ease-out),
-		color var(--kg-dur-fast) var(--kg-ease-out);
-}
-
-.filter-type:hover {
-	border-color: var(--kg-border-strong);
-	color: var(--kg-fg);
-}
-
-.filter-type.active {
-	border-color: var(--kg-accent);
-	background: var(--kg-accent-soft);
-	color: var(--kg-accent-strong);
-	font-weight: 600;
-}
-
-.filter-search {
-	flex: 1;
-	min-width: 200px;
-	padding: 8px 13px;
-	border: 1px solid var(--kg-border);
-	border-radius: var(--kg-radius-sm);
-	background: var(--kg-bg-input);
-	color: var(--kg-fg);
-	font-family: inherit;
-	font-size: var(--kg-text-md);
-}
-
-.filter-search::placeholder {
-	color: var(--kg-fg-faint);
-}
-
-.filter-search:focus {
-	border-color: var(--kg-accent);
-	outline: none;
+	filter: drop-shadow(var(--kg-shadow-1));
 }
 
 .storage-empty {
@@ -134,60 +74,132 @@
 .media-grid {
 	display: grid;
 	grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-	gap: var(--kg-space-4);
+	gap: var(--kg-space-5);
+	padding: var(--kg-space-2);
 }
 
-.media-card {
+/* Polaroid card: paper frame, square photo, thick caption strip. */
+
+.polaroid {
+	--polaroid-tilt: 0deg;
+	--polaroid-ink: var(--kg-fg-on-accent);
+	--polaroid-ink-muted: color-mix(
+		in srgb,
+		var(--polaroid-ink) 65%,
+		var(--kg-title-keyline)
+	);
 	position: relative;
 	display: flex;
 	flex-direction: column;
-	overflow: hidden;
-	border: 1px solid var(--kg-border);
-	border-radius: var(--kg-radius-md);
-	background: var(--kg-bg-panel);
+	padding: var(--kg-space-2) var(--kg-space-2) 0;
+	border-radius: calc(var(--kg-radius-sm) / 2);
+	background: color-mix(
+		in srgb,
+		var(--kg-title-keyline) 92%,
+		var(--kg-bg-raised)
+	);
+	box-shadow: var(--kg-shadow-1);
+	transform: rotate(var(--polaroid-tilt));
 	transition:
-		border-color var(--kg-dur-fast) var(--kg-ease-out),
 		box-shadow var(--kg-dur-med) var(--kg-ease-out),
 		transform var(--kg-dur-med) var(--kg-ease-out);
 }
 
-.media-card:hover {
-	border-color: var(--kg-border-strong);
+.polaroid:nth-child(4n + 1) {
+	--polaroid-tilt: -1.6deg;
+}
+
+.polaroid:nth-child(4n + 2) {
+	--polaroid-tilt: 1deg;
+}
+
+.polaroid:nth-child(4n + 3) {
+	--polaroid-tilt: -0.7deg;
+}
+
+.polaroid:nth-child(4n + 4) {
+	--polaroid-tilt: 1.8deg;
+}
+
+/* The raised z-index keeps the tag popover above the cards below. */
+.polaroid:hover,
+.polaroid:focus-within {
+	z-index: 1;
 	box-shadow: var(--kg-shadow-2);
-	transform: translateY(-2px);
+	transform: translateY(calc(var(--kg-space-1) * -1)) rotate(0deg);
 }
 
-.media-card.selected {
-	border-color: var(--kg-accent);
-	box-shadow: 0 0 0 1px var(--kg-accent);
+.polaroid.selected {
+	box-shadow:
+		0 0 0 3px var(--kg-accent),
+		var(--kg-shadow-1);
+	transform: rotate(0deg);
 }
 
-.media-thumb {
+@media (prefers-reduced-motion: reduce) {
+	.polaroid {
+		transition: none;
+	}
+
+	.polaroid:hover,
+	.polaroid:focus-within {
+		transform: rotate(var(--polaroid-tilt));
+	}
+
+	.polaroid.selected {
+		transform: rotate(0deg);
+	}
+}
+
+.polaroid-photo {
+	position: relative;
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	aspect-ratio: 1;
 	overflow: hidden;
+	border-radius: calc(var(--kg-radius-sm) / 4);
 	background: var(--kg-bg-input);
 }
 
-.media-thumb img,
-.media-thumb video {
+/* Faint inner shadow, like the edge of a printed photo. */
+.polaroid-photo::after {
+	content: '';
+	position: absolute;
+	inset: 0;
+	box-shadow:
+		inset 0 1px 5px color-mix(in srgb, var(--polaroid-ink) 45%, transparent),
+		inset 0 0 0 1px color-mix(in srgb, var(--polaroid-ink) 18%, transparent);
+	pointer-events: none;
+}
+
+.polaroid-photo img,
+.polaroid-photo video {
 	width: 100%;
 	height: 100%;
 	object-fit: cover;
 }
 
-.media-card-body {
+.polaroid .media-card-delete {
+	box-shadow: var(--kg-shadow-1);
+}
+
+.polaroid:hover .media-card-delete,
+.polaroid:focus-within .media-card-delete {
+	opacity: 1;
+}
+
+.polaroid-caption {
 	display: flex;
 	flex-direction: column;
 	gap: var(--kg-space-1);
-	padding: var(--kg-space-3);
+	padding: var(--kg-space-3) var(--kg-space-1) var(--kg-space-3);
 }
 
 .media-name {
 	margin: 0;
-	font-size: var(--kg-text-md);
+	color: var(--polaroid-ink);
+	font-size: var(--kg-text-lg);
 	font-weight: 600;
 	white-space: nowrap;
 	overflow: hidden;
@@ -196,6 +208,155 @@
 
 .media-meta {
 	margin: 0;
+	color: var(--polaroid-ink-muted);
+	font-size: var(--kg-text-xs);
+}
+
+/* Tags as washi tape: the × shows on hover or focus, the + opens the tag popover. */
+
+.polaroid .tag-chips {
+	padding: var(--kg-space-1) 0 0;
+}
+
+.polaroid .tag-tape {
+	padding: 1px var(--kg-space-2);
+	border-radius: calc(var(--kg-radius-sm) / 4);
+	background: color-mix(
+		in srgb,
+		var(--tag-tint, var(--kg-accent)) 45%,
+		transparent
+	);
+	color: var(--polaroid-ink);
+	transform: rotate(-2deg);
+}
+
+.polaroid .tag-tape:nth-child(2n) {
+	transform: rotate(1.5deg);
+}
+
+.tag-chip-x {
+	padding: 0 0 0 2px;
+	border: none;
+	background: none;
+	color: inherit;
+	font-size: var(--kg-text-md);
+	line-height: 1;
+	cursor: pointer;
+	opacity: 0;
+	transition: opacity var(--kg-dur-fast) var(--kg-ease-out);
+}
+
+.tag-chip:hover .tag-chip-x,
+.tag-chip:focus-within .tag-chip-x,
+.tag-chip-x:focus-visible {
+	opacity: 1;
+}
+
+.polaroid .tag-chip-add {
+	border: 1px dashed color-mix(in srgb, var(--polaroid-ink) 45%, transparent);
+	background: none;
+	color: var(--polaroid-ink-muted);
+	font-family: inherit;
+	cursor: pointer;
+	transition:
+		border-color var(--kg-dur-fast) var(--kg-ease-out),
+		color var(--kg-dur-fast) var(--kg-ease-out);
+}
+
+.polaroid .tag-chip-add:hover,
+.polaroid .tag-chip-add:focus-visible {
+	border-color: var(--kg-accent);
+	color: var(--polaroid-ink);
+}
+
+/* Bulk tag popover, anchored under the Tags button of selection mode. */
+
+.storage-bulk-tags {
+	position: relative;
+}
+
+.bulk-tag-popover {
+	left: auto;
+	right: 0;
+	width: 280px;
+}
+
+.bulk-tag-hint {
+	margin: 0 0 var(--kg-space-2);
 	color: var(--kg-fg-faint);
 	font-size: var(--kg-text-xs);
+	line-height: 1.5;
+}
+
+.bulk-tag-list {
+	display: flex;
+	flex-direction: column;
+	gap: var(--kg-space-1);
+	max-height: 220px;
+	margin-top: var(--kg-space-2);
+	overflow-y: auto;
+}
+
+.bulk-tag-row {
+	display: flex;
+	align-items: center;
+	gap: var(--kg-space-2);
+	width: 100%;
+	padding: var(--kg-space-1) var(--kg-space-2);
+	border: none;
+	border-radius: var(--kg-radius-sm);
+	background: none;
+	color: var(--kg-fg-muted);
+	font-family: inherit;
+	font-size: var(--kg-text-sm);
+	text-align: left;
+	cursor: pointer;
+}
+
+.bulk-tag-row:hover {
+	background: var(--kg-accent-soft);
+	color: var(--kg-accent-strong);
+}
+
+/* Colour dot: the same hue the tag has on the cards and in the popovers. */
+
+.bulk-tag-dot {
+	flex: none;
+	width: var(--kg-space-2);
+	height: var(--kg-space-2);
+	border-radius: var(--kg-radius-pill);
+	background: var(--tag-tint, var(--kg-accent));
+}
+
+/* Tri-state box: checked (all), dash (some), empty (none). */
+
+.bulk-tag-box {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex: none;
+	width: var(--kg-space-4);
+	height: var(--kg-space-4);
+	border: 1px solid var(--kg-border);
+	border-radius: 4px;
+	font-size: var(--kg-text-2xs);
+	line-height: 1;
+}
+
+.bulk-tag-box--all {
+	border-color: var(--kg-accent);
+	background: var(--kg-accent);
+	color: var(--kg-fg-on-accent);
+}
+
+.bulk-tag-box--some {
+	border-color: var(--kg-accent);
+	color: var(--kg-accent-strong);
+}
+
+.bulk-tag-name {
+	flex: 1;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }

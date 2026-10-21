@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { navAnimationsOn } from '../../lib/navAnimations';
 import './KawaiiBackdrop.css';
 
 const FACES: { open: string; wink: string }[] = [
@@ -10,7 +11,7 @@ const FACES: { open: string; wink: string }[] = [
 	{ open: '(≧◡≦)', wink: '(≧◡−)' },
 ];
 
-// Just past the 650 ms screen pan, so the faces' layers are rasterized once Home has stopped moving.
+// Just past the 650 ms screen pan, so the faces' layers are rasterized once Home has stopped moving (no pan, no wait).
 const BACKDROP_DELAY_MS = 700;
 
 const ROWS = 5; // per tile; the tile is the size of the tilted window, so this keeps the old density
@@ -22,12 +23,14 @@ function pseudoRandom(seed: number): number {
 }
 
 function KawaiiBackdrop() {
-	const [facesReady, setFacesReady] = useState(false);
+	const [animated] = useState(navAnimationsOn);
+	const [facesReady, setFacesReady] = useState(!animated);
 
 	useEffect(() => {
+		if (!animated) return;
 		const timer = setTimeout(() => setFacesReady(true), BACKDROP_DELAY_MS);
 		return () => clearTimeout(timer);
-	}, []);
+	}, [animated]);
 
 	const tile = useMemo(() => {
 		const cells: {
@@ -69,7 +72,7 @@ function KawaiiBackdrop() {
 	return (
 		<div className="kawaii-backdrop" aria-hidden="true">
 			{facesReady && (
-				<div className="kawaii-rotor">
+				<div className={animated ? 'kawaii-rotor' : 'kawaii-rotor is-instant'}>
 					<div className="kawaii-drift">
 						{renderTile(0)}
 						{renderTile(1)}

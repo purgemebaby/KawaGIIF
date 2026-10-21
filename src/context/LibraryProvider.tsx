@@ -24,6 +24,11 @@ interface LibraryContextValue {
 	importFiles: () => Promise<PendingImport | null>;
 	confirmImport: (paths: string[]) => Promise<void>;
 	updateTags: (id: string, tags: string[]) => Promise<void>;
+	updateTagsMany: (
+		ids: string[],
+		add: string[],
+		remove: string[],
+	) => Promise<void>;
 	renameTag: (from: string, to: string) => Promise<void>;
 	deleteTag: (name: string) => Promise<void>;
 	deleteMedia: (ids: string[], force?: boolean) => Promise<void>;
@@ -104,6 +109,13 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
 		await invoke('update_media_tags', { id, tags: next });
 	}, []);
 
+	const updateTagsMany = useCallback(
+		async (ids: string[], add: string[], remove: string[]) => {
+			await invoke('update_tags_many', { ids, add, remove });
+		},
+		[],
+	);
+
 	const renameTag = useCallback(async (from: string, to: string) => {
 		await invoke('rename_tag', { from, to });
 	}, []);
@@ -126,6 +138,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
 				importFiles,
 				confirmImport,
 				updateTags,
+				updateTagsMany,
 				renameTag,
 				deleteTag,
 				deleteMedia,

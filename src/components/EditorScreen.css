@@ -14,9 +14,10 @@
 	gap: var(--kg-space-2);
 	padding: var(--kg-space-3);
 	color: var(--kg-fg);
+	transition: grid-template-columns var(--kg-dur-med) var(--kg-ease-out);
 }
 
-/* Collapsing swaps the track size at once: animating grid sizes would relayout every frame. */
+/* Chromium interpolates the track sizes, so the swap to the rail slides. */
 .editor-screen[data-control-collapsed='true'] {
 	grid-template-columns: var(--editor-rail) minmax(0, 1fr) var(--editor-side);
 }
@@ -29,12 +30,13 @@
 	grid-template-columns: var(--editor-rail) minmax(0, 1fr) var(--editor-rail);
 }
 
+/* Overflow stays visible so the edge tab can stick out; the bodies clip themselves. */
 .editor-panel {
+	position: relative;
 	min-width: 0;
 	min-height: 0;
 	display: flex;
 	flex-direction: column;
-	overflow: hidden;
 	border: 1px solid var(--kg-border);
 	border-radius: var(--kg-radius-md);
 	background: var(--kg-bg-panel);
@@ -53,82 +55,190 @@
 	grid-area: edit;
 }
 
+/* flex-grow animates, so on a collapsed rail the header grows over the emptied body and slides its title to the centre */
 .editor-panel-header {
-	flex-shrink: 0;
+	flex: 0 0 auto;
 	display: flex;
 	align-items: center;
-	justify-content: space-between;
-	gap: var(--kg-space-2);
-	padding: var(--kg-space-1) var(--kg-space-2) var(--kg-space-1)
-		var(--kg-space-3);
+	justify-content: center;
+	text-align: center;
+	padding: var(--kg-space-1) var(--kg-space-2) 0;
+	transition: flex-grow var(--kg-dur-med) var(--kg-ease-out);
+}
+
+.editor-panel--control[data-collapsed='true'] .editor-panel-header,
+.editor-panel--edit[data-collapsed='true'] .editor-panel-header {
+	flex-grow: 1;
+}
+
+/* The collapsed Storage bar is only one line tall: leave room for the tab under the title. */
+.editor-panel--storage[data-collapsed='true'] .editor-panel-header {
+	padding-bottom: var(--kg-space-3);
 }
 
 .editor-panel-header h2 {
 	margin: 0;
 	color: var(--kg-fg-faint);
-	font-size: var(--kg-text-2xs);
+	font-size: var(--kg-text-xs);
 	font-weight: 600;
 	text-transform: uppercase;
 	letter-spacing: 0.06em;
+	text-shadow: 0 0 8px rgb(var(--kg-accent-rgb) / 0);
+	transition:
+		color var(--kg-dur-fast) var(--kg-ease-out),
+		text-shadow var(--kg-dur-fast) var(--kg-ease-out);
 }
 
-.editor-panel-toggle {
-	flex-shrink: 0;
-	width: 28px;
-	height: 28px;
+/* An open panel keeps its title lit; a collapsed one lights up on hover. */
+.editor-panel[data-collapsed='false'] > .editor-panel-header h2,
+.editor-panel:hover > .editor-panel-header h2 {
+	color: var(--kg-fg);
+	text-shadow: 0 0 8px rgb(var(--kg-accent-rgb) / 0.8);
 }
 
-.editor-panel-toggle svg {
-	transition: transform var(--kg-dur-fast) var(--kg-ease-out);
+/* Half of the tab sticks out past the panel's outer edge. */
+.editor-panel-tab {
+	position: absolute;
+	z-index: 1;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0;
+	border: 1px solid var(--kg-border);
+	border-radius: var(--kg-radius-pill);
+	background: var(--kg-bg-raised);
+	color: var(--kg-fg-muted);
+	box-shadow: var(--kg-shadow-1);
+	cursor: pointer;
+	transition:
+		border-color var(--kg-dur-fast) var(--kg-ease-out),
+		color var(--kg-dur-fast) var(--kg-ease-out),
+		box-shadow var(--kg-dur-fast) var(--kg-ease-out);
 }
 
-/* The chevron points at the edge the panel collapses into, and away from it when collapsed. */
-.editor-panel--storage .editor-panel-toggle svg {
+.editor-panel-tab:hover {
+	border-color: var(--kg-accent);
+	color: var(--kg-accent);
+	box-shadow: 0 0 10px rgb(var(--kg-accent-rgb) / 0.6);
+}
+
+.editor-panel-tab svg {
+	transition: transform var(--kg-dur-med) var(--kg-ease-out);
+}
+
+.editor-panel--storage .editor-panel-tab {
+	left: 50%;
+	bottom: 0;
+	width: 34px;
+	height: 18px;
+	transform: translate(-50%, 50%);
+}
+
+.editor-panel--control .editor-panel-tab {
+	top: 50%;
+	right: 0;
+	width: 18px;
+	height: 34px;
+	transform: translate(50%, -50%);
+}
+
+.editor-panel--edit .editor-panel-tab {
+	top: 50%;
+	left: 0;
+	width: 18px;
+	height: 34px;
+	transform: translate(-50%, -50%);
+}
+
+/* The chevron points where the panel will move when clicked. */
+.editor-panel--storage .editor-panel-tab svg {
+	transform: rotate(-90deg);
+}
+
+.editor-panel--storage[data-collapsed='true'] .editor-panel-tab svg {
+	transform: rotate(90deg);
+}
+
+.editor-panel--control .editor-panel-tab svg {
 	transform: rotate(180deg);
 }
 
-.editor-panel--storage[data-collapsed='true'] .editor-panel-toggle svg {
+.editor-panel--control[data-collapsed='true'] .editor-panel-tab svg {
 	transform: none;
 }
 
-.editor-panel--control .editor-panel-toggle svg {
-	transform: rotate(90deg);
+.editor-panel--edit .editor-panel-tab svg {
+	transform: none;
 }
 
-.editor-panel--control[data-collapsed='true'] .editor-panel-toggle svg {
-	transform: rotate(-90deg);
+.editor-panel--edit[data-collapsed='true'] .editor-panel-tab svg {
+	transform: rotate(180deg);
 }
 
-.editor-panel--edit .editor-panel-toggle svg {
-	transform: rotate(-90deg);
-}
-
-.editor-panel--edit[data-collapsed='true'] .editor-panel-toggle svg {
-	transform: rotate(90deg);
-}
-
-.editor-panel--control[data-collapsed='true'] .editor-panel-header,
-.editor-panel--edit[data-collapsed='true'] .editor-panel-header {
-	flex-direction: column;
-	justify-content: flex-start;
-	padding: var(--kg-space-2) var(--kg-space-1);
-}
-
+/* Rail titles read away from the centre gap: Control bottom-to-top, Edit top-to-bottom. The switch fades in. */
 .editor-panel--control[data-collapsed='true'] h2,
 .editor-panel--edit[data-collapsed='true'] h2 {
 	writing-mode: vertical-rl;
+	animation: kg-rail-title-in var(--kg-dur-med) var(--kg-ease-out);
 }
 
-.editor-panel-body {
+.editor-panel--control[data-collapsed='true'] h2 {
+	transform: rotate(180deg);
+}
+
+.editor-panel--control[data-collapsed='false'] h2,
+.editor-panel--edit[data-collapsed='false'] h2 {
+	animation: kg-rail-title-out var(--kg-dur-med) var(--kg-ease-out);
+}
+
+@keyframes kg-rail-title-in {
+	from {
+		opacity: 0;
+	}
+}
+
+@keyframes kg-rail-title-out {
+	from {
+		opacity: 0;
+	}
+}
+
+/* The wrapper's track slides from 1fr to 0fr; the body stays the panel's scroll area. */
+.editor-panel-collapse {
 	flex: 1;
 	min-height: 0;
+	display: grid;
+	/* minmax(0, …): a plain fr track never shrinks below a sized body, so the box would stay tall */
+	grid-template-rows: minmax(0, 1fr);
+	overflow: hidden;
+	transition:
+		grid-template-rows var(--kg-dur-med) var(--kg-ease-out),
+		flex-grow var(--kg-dur-med) var(--kg-ease-out),
+		opacity var(--kg-dur-med) var(--kg-ease-out);
+}
+
+.editor-panel[data-collapsed='true'] .editor-panel-collapse {
+	flex-grow: 0;
+	grid-template-rows: minmax(0, 0fr);
+	opacity: 0;
+}
+
+.editor-panel-collapse > .editor-panel-body {
+	min-height: 0;
 	overflow-y: auto;
-	padding: 0 var(--kg-space-3) var(--kg-space-3);
+	/* top room so a hovered button (lift + glow) is not clipped by this scroll area */
+	padding: var(--kg-space-2) var(--kg-space-3) var(--kg-space-3);
 }
 
 .editor-panel--storage .editor-panel-body {
 	overflow: hidden;
 	padding: 0 0 var(--kg-space-2);
+}
+
+/* A remembered height fixes the body; the track above still follows it. */
+.editor-panel--storage.is-sized .editor-panel-body {
+	/* a height saved on a bigger window still stops at half the window */
+	height: min(var(--storage-body-h), 50vh);
 }
 
 .media-strip {
@@ -137,6 +247,47 @@
 	overflow-x: auto;
 	overflow-y: hidden;
 	padding: 0 var(--kg-space-3) var(--kg-space-1);
+}
+
+/* Wrap mode: the sized panel turns the row into a vertically scrolling grid. */
+.media-strip--grid {
+	flex: 1;
+	min-height: 0;
+	flex-wrap: wrap;
+	align-content: flex-start;
+	overflow-x: hidden;
+	overflow-y: auto;
+}
+
+/* The drag strip hugging the storage panel's bottom edge; the tab's z-index keeps it clickable. */
+.editor-storage-resize {
+	position: absolute;
+	left: 0;
+	right: 0;
+	bottom: -4px;
+	height: 8px;
+	cursor: ns-resize;
+	touch-action: none;
+	user-select: none;
+}
+
+/* A thin accent line on the panel's edge shows while the handle is hovered or dragged. */
+.editor-storage-resize::after {
+	content: '';
+	position: absolute;
+	left: var(--kg-space-3);
+	right: var(--kg-space-3);
+	top: 3px;
+	height: 2px;
+	border-radius: var(--kg-radius-pill);
+	background: var(--kg-accent);
+	opacity: 0;
+	transition: opacity var(--kg-dur-fast) var(--kg-ease-out);
+}
+
+.editor-storage-resize:hover::after,
+.editor-storage-resize:active::after {
+	opacity: 1;
 }
 
 .media-strip .empty-state {
@@ -192,17 +343,6 @@
 	color: var(--kg-fg-faint);
 	font-family: var(--kg-font-mono);
 	font-size: var(--kg-text-3xs);
-}
-
-.editor-panel .monitor-select {
-	flex-direction: column;
-	align-items: stretch;
-	gap: var(--kg-space-1);
-	margin-bottom: var(--kg-space-4);
-}
-
-.editor-panel .monitor-select-label {
-	font-size: var(--kg-text-sm);
 }
 
 .editor-actions {

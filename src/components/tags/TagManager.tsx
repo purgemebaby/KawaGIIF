@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react';
 import { useLibrary } from '../../context/LibraryProvider';
 import { t } from '../../i18n/en';
+import { tagStyle } from '../../lib/tags';
 import Modal from '../ui/Modal';
+import PixelIcon from '../ui/PixelIcon';
 
 interface TagManagerProps {
 	activeFilters: string[];
@@ -80,7 +82,11 @@ function TagManager({
 											/>
 										) : (
 											<>
-												<span className="tag-manager-name" title={tag.name}>
+												<span
+													className="tag-manager-name"
+													title={tag.name}
+													style={tagStyle(tag.name)}
+												>
 													{tag.name}
 												</span>
 												<span className="tag-manager-count">
@@ -108,11 +114,12 @@ function TagManager({
 												</button>
 												<button
 													type="button"
-													className="kg-btn kg-btn--danger kg-btn--sm"
+													className="kg-btn kg-btn--danger kg-btn--sm pixel-hover"
 													onClick={() =>
 														setDeleting({ name: tag.name, count: tag.count })
 													}
 												>
+													<PixelIcon name="trash" />
 													{t.common.delete}
 												</button>
 											</>

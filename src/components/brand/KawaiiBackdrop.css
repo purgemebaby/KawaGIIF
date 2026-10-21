@@ -41,6 +41,10 @@
 	animation: kg-fade-in var(--kg-dur-slow) var(--kg-ease-out);
 }
 
+.kawaii-rotor.is-instant {
+	animation: none;
+}
+
 .kawaii-drift {
 	display: flex;
 	width: 200%;

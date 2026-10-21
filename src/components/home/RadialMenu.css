@@ -1,26 +1,15 @@
-/* square, sized from the container so it fits 720x480 up to a maximized window */
+/*Central menu box*/
 .radial-menu {
-	/* text sizes capped (user units): at the largest font scale the blocks would reach the inner rim */
 	--radial-label-size: min(calc(var(--kg-text-heading) * 1.15), 22px);
-	--radial-icon-size: min(calc(var(--kg-text-heading) * 2.2), 40px);
 
 	position: relative;
 	z-index: 1;
-	flex: none;
-	width: clamp(220px, 60cqmin, 520px);
-	height: clamp(220px, 60cqmin, 520px);
-	overflow: visible;
+	flex: none; /*keeps clamp size*/
+	width: clamp(220px, 70cqmin, 520px);
+	height: clamp(220px, 70cqmin, 520px);
+	overflow: visible; /* Paint glow outside of the box*/
 }
 
-.radial-stop-pink {
-	stop-color: var(--kg-accent-2);
-}
-
-.radial-stop-purple {
-	stop-color: var(--kg-accent);
-}
-
-/* transform-box: the origin is the ring centre, so a hovered sector grows outwards and keeps the gaps; the ring's spin is on the svg */
 .radial-sector {
 	outline: none;
 	cursor: pointer;
@@ -29,16 +18,18 @@
 	transition: transform var(--kg-dur-med) var(--kg-ease-pop);
 }
 
+/* change size on hover*/
 .radial-sector:hover,
 .radial-sector:focus-visible {
-	transform: scale(1.03);
+	transform: scale(1.02);
 }
 
+/*Sector border*/
 .radial-shape {
 	fill: var(--kg-bg-panel);
 	stroke: var(--kg-title-keyline);
-	stroke-opacity: 0.35;
-	stroke-width: 1.5;
+	stroke-opacity: 0.45;
+	stroke-width: 1.2;
 	transition: fill var(--kg-dur-fast) var(--kg-ease-out);
 }
 
@@ -47,51 +38,39 @@
 	fill: var(--kg-bg-raised);
 }
 
-/* the blurred halo re-rasters during the short opacity transition; idle sectors keep it at opacity 0 */
+/* Blurred halo re-rasters during the short opacity transition*/
 .radial-glow {
-	opacity: 0;
+	opacity: 0; /*Invisible by default*/
 	pointer-events: none;
 	transition: opacity var(--kg-dur-fast) var(--kg-ease-out);
 }
 
+/*Activates lights when hovering*/
 .radial-sector:hover .radial-glow,
 .radial-sector:focus-visible .radial-glow {
 	opacity: 1;
 }
-
 .radial-glow-halo,
 .radial-glow-line {
-	fill: none;
 	stroke: url(#radial-glow-gradient);
-	stroke-linecap: round;
 }
-
 .radial-glow-halo {
-	stroke-width: 9;
 	filter: url(#radial-glow-blur);
 }
 
-.radial-glow-line {
-	stroke-width: 3;
-}
-
-.radial-icon,
+/*Text from sectors; the pixel icon above it is a nested svg*/
 .radial-label {
 	fill: var(--kg-fg);
 	text-anchor: middle;
 	dominant-baseline: central;
-	pointer-events: none;
-	user-select: none;
-}
-
-.radial-icon {
-	fill: var(--kg-accent-strong);
-	font-size: var(--radial-icon-size);
-	transform: translateY(calc(var(--radial-label-size) * -0.8));
-}
-
-.radial-label {
+	pointer-events: none; /*ignores clicks*/
+	user-select: none; /*ignores select text*/
 	font-size: var(--radial-label-size);
-	font-weight: 600;
-	transform: translateY(calc(var(--radial-label-size) * 0.8));
+	font-weight: 500;
+	transform: translateY(calc(var(--radial-label-size) * 0.9));
+}
+
+/* the icon ignores clicks like the label, so the whole sector stays the button */
+.radial-sector .pixel-icon {
+	pointer-events: none;
 }

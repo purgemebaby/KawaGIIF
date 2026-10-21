@@ -53,15 +53,11 @@
 	overflow-y: auto;
 }
 
-.home-screen,
-.settings-screen {
+.home-screen {
 	padding: var(--kg-space-5) var(--kg-space-6) var(--kg-space-6);
 	display: flex;
 	flex-direction: column;
 	align-items: center;
-}
-
-.home-screen {
 	position: relative;
 	flex: 1;
 	justify-content: center;
@@ -94,74 +90,4 @@
 	flex-wrap: wrap;
 	justify-content: center;
 	gap: max(var(--kg-space-3), 1.6cqmin);
-}
-
-.settings-screen h1 {
-	margin-bottom: var(--kg-space-5);
-	font-size: var(--kg-text-xl);
-	font-weight: 600;
-}
-
-.settings-list {
-	width: 100%;
-	max-width: 520px;
-}
-
-.settings-screen .ram-gauge {
-	width: 260px;
-	margin-bottom: var(--kg-space-6);
-}
-
-.settings-row {
-	display: flex;
-	align-items: flex-start;
-	gap: var(--kg-space-3);
-	max-width: 520px;
-	padding: var(--kg-space-4) 0;
-	border-bottom: 1px solid var(--kg-border);
-	cursor: pointer;
-}
-
-.settings-row input[type='checkbox'] {
-	margin-top: 3px;
-	accent-color: var(--kg-accent);
-}
-
-.settings-row span {
-	display: flex;
-	flex-direction: column;
-	gap: 3px;
-}
-
-.settings-row strong {
-	font-size: var(--kg-text-md);
-	font-weight: 600;
-}
-
-.settings-row small {
-	color: var(--kg-fg-muted);
-	font-size: var(--kg-text-sm);
-	line-height: 1.5;
-}
-
-.settings-row-number {
-	align-items: center;
-	justify-content: space-between;
-	cursor: default;
-}
-
-.settings-row-number input[type='number'] {
-	width: 80px;
-	padding: 7px 9px;
-	border: 1px solid var(--kg-border);
-	border-radius: var(--kg-radius-sm);
-	background: var(--kg-bg-input);
-	color: var(--kg-fg);
-	font-family: inherit;
-	font-size: var(--kg-text-md);
-}
-
-.settings-row-number input[type='number']:focus {
-	border-color: var(--kg-accent);
-	outline: none;
 }

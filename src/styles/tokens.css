@@ -10,6 +10,7 @@
 	--kg-fg-faint: #6b6e7a;
 	--kg-kawaii-face: #8f93a0;
 	--kg-fg-on-accent: #16121c;
+	--kg-fg-on-danger: #16121c; /* white on the danger red is only ~2.8:1 */
 
 	--kg-accent: #a97bff;
 	--kg-accent-rgb: 169 123 255;
@@ -18,7 +19,25 @@
 	--kg-accent-soft: rgb(var(--kg-accent-rgb) / 0.14);
 
 	--kg-danger: #ff6b6b;
-	--kg-danger-soft: rgba(255, 107, 107, 0.14);
+	--kg-danger-rgb: 255 107 107;
+	--kg-danger-soft: rgb(var(--kg-danger-rgb) / 0.14);
+
+	/* Tag tints: a tag's name hashes to one of five, so it keeps its colour everywhere. */
+	--kg-tag-1: var(--kg-accent);
+	--kg-tag-2: var(--kg-accent-2);
+	--kg-tag-3: #7bd3ff;
+	--kg-tag-4: #7bffc1;
+	--kg-tag-5: #ffb27b;
+
+	/* Pixel-art icon palette (lib/pixelIcons.ts letters): dark ink outline, pastel fills. */
+	--kg-px-ink: #2b1748;
+	--kg-px-light: #ffe3f6;
+	--kg-px-pink: #ff9fd8;
+	--kg-px-purple: #b78bff;
+	--kg-px-deep: #7a4fe0;
+	--kg-px-white: #ffffff;
+	--kg-px-sky: #8de8ff;
+	--kg-px-sun: #ffd98a;
 
 	--kg-border: #33363f;
 	--kg-border-strong: #454956;
@@ -37,6 +56,15 @@
 
 	--kg-shadow-1: 0 2px 8px rgba(0, 0, 0, 0.35);
 	--kg-shadow-2: 0 8px 28px rgba(0, 0, 0, 0.5);
+
+	--kg-btn-radius: var(--kg-radius-pill);
+	--kg-btn-gradient: linear-gradient(
+		135deg,
+		var(--kg-accent) 45%,
+		var(--kg-accent-2) 150%
+	);
+	--kg-btn-glow: 0 4px 18px rgb(var(--kg-accent-rgb) / 0.45);
+	--kg-btn-glow-danger: 0 4px 18px rgb(var(--kg-danger-rgb) / 0.45);
 
 	--kg-dur-fast: 140ms;
 	--kg-dur-med: 260ms;

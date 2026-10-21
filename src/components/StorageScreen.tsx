@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { invoke } from '../lib/ipc';
-import { fileNameOf, formatBytes, type MediaItem } from '../lib/media';
+import { loadConfig } from '../lib/config';
+import {
+	fileNameOf,
+	formatBytes,
+	shortFileName,
+	type MediaItem,
+} from '../lib/media';
 import { useLibrary, type PendingImport } from '../context/LibraryProvider';
 import { useDeleteShortcut } from '../hooks/useDeleteShortcut';
 import {
@@ -8,13 +14,16 @@ import {
 	type SelectModifiers,
 } from '../hooks/useMediaSelection';
 import { t } from '../i18n/en';
+import { filterMedia, toggleTagFilter } from '../lib/mediaFilter';
 import MediaFilterBar, {
 	DEFAULT_FILTERS,
 	type MediaFilters,
 } from './MediaFilterBar';
 import MediaGrid from './MediaGrid';
+import BulkTagPopover from './tags/BulkTagPopover';
 import TagManager from './tags/TagManager';
 import Modal from './ui/Modal';
+import PixelIcon from './ui/PixelIcon';
 import WaveText from './brand/WaveText';
 import './StorageScreen.css';
 
@@ -30,6 +39,7 @@ function StorageScreen() {
 		importFiles,
 		confirmImport,
 		updateTags,
+		updateTagsMany,
 		deleteMedia,
 	} = useLibrary();
 	const [filters, setFilters] = useState<MediaFilters>(DEFAULT_FILTERS);
@@ -40,49 +50,24 @@ function StorageScreen() {
 		null,
 	);
 	const [selecting, setSelecting] = useState(false);
+	const [bulkTags, setBulkTags] = useState(false);
 	const itemIds = useMemo(() => items.map((item) => item.id), [items]);
 	const { selectedIds, select, selectAll, clear } = useMediaSelection(itemIds);
+	const selectedItems = useMemo(
+		() => items.filter((item) => selectedIds.has(item.id)),
+		[items, selectedIds],
+	);
 
 	useEffect(() => {
-		invoke<{ confirm_media_delete: boolean }>('get_config').then((cfg) =>
+		loadConfig().then((cfg) =>
 			setConfirmBeforeDelete(cfg.confirm_media_delete),
 		);
 	}, []);
 
-	const filteredItems = useMemo(() => {
-		const query = filters.query.trim().toLowerCase();
-		const selectedTags = filters.tags.map((tag) => tag.toLowerCase());
-
-		const result = items.filter((item) => {
-			if (filters.type !== 'all' && item.media_type !== filters.type)
-				return false;
-
-			if (selectedTags.length > 0) {
-				const own = item.tags.map((tag) => tag.toLowerCase());
-				if (!selectedTags.every((tag) => own.includes(tag))) return false;
-			}
-
-			if (!query) return true;
-			const haystack = [item.original_file_name, ...item.tags]
-				.join(' ')
-				.toLowerCase();
-			return haystack.includes(query);
-		});
-
-		return [...result].sort((a, b) => {
-			switch (filters.sort) {
-				case 'name-asc':
-					return a.original_file_name.localeCompare(b.original_file_name, 'en');
-				case 'name-desc':
-					return b.original_file_name.localeCompare(a.original_file_name, 'en');
-				case 'date-old':
-					return a.imported_at_unix - b.imported_at_unix;
-				case 'date-new':
-				default:
-					return b.imported_at_unix - a.imported_at_unix;
-			}
-		});
-	}, [items, filters]);
+	const filteredItems = useMemo(
+		() => filterMedia(items, filters),
+		[items, filters],
+	);
 
 	// Files on the desktop always ask first, even with confirmation turned off in Settings.
 	const requestDelete = useCallback(
@@ -112,6 +97,7 @@ function StorageScreen() {
 
 	const stopSelecting = useCallback(() => {
 		setSelecting(false);
+		setBulkTags(false);
 		clear();
 	}, [clear]);
 
@@ -133,7 +119,10 @@ function StorageScreen() {
 		);
 
 	const deletingName = (request: DeleteRequest) =>
-		items.find((item) => item.id === request.ids[0])?.original_file_name ?? '';
+		shortFileName(
+			items.find((item) => item.id === request.ids[0])?.original_file_name ??
+				'',
+		);
 
 	return (
 		<div className="storage-screen">
@@ -152,12 +141,32 @@ function StorageScreen() {
 							>
 								{t.storage.select.all}
 							</button>
+							<div className="storage-bulk-tags">
+								<button
+									type="button"
+									className="kg-btn kg-btn--secondary"
+									disabled={selectedIds.size === 0}
+									onClick={() => setBulkTags((open) => !open)}
+								>
+									{t.storage.select.tags(selectedIds.size)}
+								</button>
+								{bulkTags && (
+									<BulkTagPopover
+										items={selectedItems}
+										onApply={(add, remove) =>
+											updateTagsMany([...selectedIds], add, remove)
+										}
+										onClose={() => setBulkTags(false)}
+									/>
+								)}
+							</div>
 							<button
 								type="button"
-								className="kg-btn kg-btn--danger"
+								className="kg-btn kg-btn--danger pixel-hover"
 								disabled={selectedIds.size === 0}
 								onClick={deleteSelected}
 							>
+								<PixelIcon name="trash" />
 								{t.storage.select.delete(selectedIds.size)}
 							</button>
 							<button
@@ -205,6 +214,13 @@ function StorageScreen() {
 					</WaveText>
 					<p className="storage-empty-hint">{t.storage.emptyHint}</p>
 				</div>
+			) : filteredItems.length === 0 ? (
+				<div className="storage-empty">
+					<WaveText as="p" className="storage-empty-title">
+						{t.storage.empty}
+					</WaveText>
+					<p className="storage-empty-hint">{t.storage.emptyFilteredHint}</p>
+				</div>
 			) : (
 				<MediaGrid
 					items={filteredItems}
@@ -220,12 +236,7 @@ function StorageScreen() {
 				<TagManager
 					activeFilters={filters.tags}
 					onToggleFilter={(tag) =>
-						setFilters((prev) => ({
-							...prev,
-							tags: prev.tags.some((x) => x.toLowerCase() === tag.toLowerCase())
-								? prev.tags.filter((x) => x.toLowerCase() !== tag.toLowerCase())
-								: [...prev.tags, tag],
-						}))
+						setFilters((prev) => toggleTagFilter(prev, tag))
 					}
 					onClose={() => setManagingTags(false)}
 				/>

@@ -1,22 +1,15 @@
 import { useEffect, useState } from 'react';
 import { invoke } from '../lib/ipc';
+import { loadConfig, type AppConfig } from '../lib/config';
 import { t } from '../i18n/en';
 import { announceNavAnimations } from '../lib/navAnimations';
 import FontRow from './settings/FontRow';
 import LoadingIndicatorRow from './settings/LoadingIndicatorRow';
 import RamGauge from './settings/RamGauge';
+import SettingsSection from './settings/SettingsSection';
 import ZoomRow from './settings/ZoomRow';
-
-interface AppConfig {
-	launch_on_startup: boolean;
-	start_minimized_to_tray: boolean;
-	confirm_media_delete: boolean;
-	overlay_pool_size: number;
-	ui_font: string | null;
-	font_scale: number;
-	ui_zoom: number;
-	nav_animations: boolean;
-}
+import PixelIcon from './ui/PixelIcon';
+import './SettingsScreen.css';
 
 // must match window_manager::MAX_POOL in Rust
 const MAX_POOL = 20;
@@ -29,25 +22,40 @@ interface SettingsToggleProps {
 
 function SettingsToggle({ checked, text, onChange }: SettingsToggleProps) {
 	return (
-		<label className="settings-row">
-			<input
-				type="checkbox"
-				checked={checked}
-				onChange={(e) => onChange(e.target.checked)}
-			/>
-			<span>
+		<label className="settings-row settings-row-toggle">
+			<span className="settings-row-text">
 				<strong>{text.label}</strong>
 				<small>{text.hint}</small>
+			</span>
+			<span className="settings-switch">
+				<input
+					type="checkbox"
+					role="switch"
+					checked={checked}
+					onChange={(e) => onChange(e.target.checked)}
+				/>
+				<span className="settings-switch-track" aria-hidden="true" />
 			</span>
 		</label>
 	);
 }
 
+// Static pixel icons (no `pixel-hover` ancestor here), drawn at twice their 16 px grid.
+const SECTION_ICON_SIZE = 32;
+
+const ICONS = {
+	startup: <PixelIcon name="power" size={SECTION_ICON_SIZE} />,
+	library: <PixelIcon name="folder" size={SECTION_ICON_SIZE} />,
+	appearance: <PixelIcon name="palette" size={SECTION_ICON_SIZE} />,
+	motion: <PixelIcon name="sparkles" size={SECTION_ICON_SIZE} />,
+	performance: <PixelIcon name="chip" size={SECTION_ICON_SIZE} />,
+};
+
 function SettingsScreen() {
 	const [config, setConfig] = useState<AppConfig | null>(null);
 
 	useEffect(() => {
-		invoke<AppConfig>('get_config').then(setConfig);
+		loadConfig().then(setConfig);
 	}, []);
 
 	if (!config) {
@@ -64,101 +72,135 @@ function SettingsScreen() {
 		await invoke(command, args);
 	};
 
+	const sections = t.settings.sections;
+
 	return (
 		<div className="settings-screen">
 			<h1>{t.settings.title}</h1>
 
-			<RamGauge />
+			<div className="settings-layout">
+				<div className="settings-sections">
+					<SettingsSection
+						title={sections.startup.title}
+						description={sections.startup.description}
+						icon={ICONS.startup}
+					>
+						<SettingsToggle
+							checked={config.launch_on_startup}
+							text={t.settings.launchOnStartup}
+							onChange={(enabled) =>
+								update('launch_on_startup', enabled, 'set_launch_on_startup', {
+									enabled,
+								})
+							}
+						/>
 
-			<div className="settings-list">
-				<SettingsToggle
-					checked={config.launch_on_startup}
-					text={t.settings.launchOnStartup}
-					onChange={(enabled) =>
-						update('launch_on_startup', enabled, 'set_launch_on_startup', {
-							enabled,
-						})
-					}
-				/>
+						<SettingsToggle
+							checked={config.start_minimized_to_tray}
+							text={t.settings.startMinimized}
+							onChange={(enabled) =>
+								update(
+									'start_minimized_to_tray',
+									enabled,
+									'set_start_minimized_to_tray',
+									{ enabled },
+								)
+							}
+						/>
+					</SettingsSection>
 
-				<SettingsToggle
-					checked={config.start_minimized_to_tray}
-					text={t.settings.startMinimized}
-					onChange={(enabled) =>
-						update(
-							'start_minimized_to_tray',
-							enabled,
-							'set_start_minimized_to_tray',
-							{ enabled },
-						)
-					}
-				/>
+					<SettingsSection
+						title={sections.library.title}
+						description={sections.library.description}
+						icon={ICONS.library}
+					>
+						<SettingsToggle
+							checked={config.confirm_media_delete}
+							text={t.settings.confirmDelete}
+							onChange={(enabled) =>
+								update(
+									'confirm_media_delete',
+									enabled,
+									'set_confirm_media_delete',
+									{ enabled },
+								)
+							}
+						/>
+					</SettingsSection>
 
-				<SettingsToggle
-					checked={config.confirm_media_delete}
-					text={t.settings.confirmDelete}
-					onChange={(enabled) =>
-						update(
-							'confirm_media_delete',
-							enabled,
-							'set_confirm_media_delete',
-							{
-								enabled,
-							},
-						)
-					}
-				/>
+					<SettingsSection
+						title={sections.appearance.title}
+						description={sections.appearance.description}
+						icon={ICONS.appearance}
+					>
+						<FontRow
+							font={config.ui_font}
+							scale={config.font_scale}
+							onFontChange={(family) =>
+								update('ui_font', family, 'set_ui_font', { family })
+							}
+							onScaleChange={(scale) =>
+								update('font_scale', scale, 'set_font_scale', { scale })
+							}
+						/>
 
-				<label className="settings-row settings-row-number">
-					<span>
-						<strong>{t.settings.poolSize.label}</strong>
-						<small>{t.settings.poolSize.hint}</small>
-					</span>
-					<input
-						type="number"
-						min={1}
-						max={MAX_POOL}
-						value={config.overlay_pool_size}
-						onChange={(e) => {
-							const count = Math.min(
-								Math.max(Number(e.target.value) || 1, 1),
-								MAX_POOL,
-							);
-							update('overlay_pool_size', count, 'set_overlay_pool_size', {
-								count,
-							});
-						}}
-					/>
-				</label>
+						<ZoomRow
+							zoom={config.ui_zoom}
+							onZoomChange={(zoom) => setConfig({ ...config, ui_zoom: zoom })}
+						/>
+					</SettingsSection>
 
-				<FontRow
-					font={config.ui_font}
-					scale={config.font_scale}
-					onFontChange={(family) =>
-						update('ui_font', family, 'set_ui_font', { family })
-					}
-					onScaleChange={(scale) =>
-						update('font_scale', scale, 'set_font_scale', { scale })
-					}
-				/>
+					<SettingsSection
+						title={sections.motion.title}
+						description={sections.motion.description}
+						icon={ICONS.motion}
+					>
+						<SettingsToggle
+							checked={config.nav_animations}
+							text={t.settings.navAnimations}
+							onChange={(enabled) => {
+								announceNavAnimations(enabled);
+								update('nav_animations', enabled, 'set_nav_animations', {
+									enabled,
+								});
+							}}
+						/>
 
-				<ZoomRow
-					zoom={config.ui_zoom}
-					onZoomChange={(zoom) => setConfig({ ...config, ui_zoom: zoom })}
-				/>
+						<LoadingIndicatorRow />
+					</SettingsSection>
+				</div>
 
-				<SettingsToggle
-					checked={config.nav_animations}
-					text={t.settings.navAnimations}
-					onChange={(enabled) => {
-						announceNavAnimations(enabled);
-						update('nav_animations', enabled, 'set_nav_animations', {
-							enabled,
-						});
-					}}
-				/>
+				<aside className="settings-aside">
+					<RamGauge />
 
-				<LoadingIndicatorRow />
+					<SettingsSection
+						title={sections.performance.title}
+						description={sections.performance.description}
+						icon={ICONS.performance}
+					>
+						<label className="settings-row settings-row-number">
+							<span className="settings-row-text">
+								<strong>{t.settings.poolSize.label}</strong>
+								<small>{t.settings.poolSize.hint}</small>
+							</span>
+							<input
+								type="number"
+								min={1}
+								max={MAX_POOL}
+								value={config.overlay_pool_size}
+								onChange={(e) => {
+									const count = Math.min(
+										Math.max(Number(e.target.value) || 1, 1),
+										MAX_POOL,
+									);
+									update('overlay_pool_size', count, 'set_overlay_pool_size', {
+										count,
+									});
+								}}
+							/>
+						</label>
+					</SettingsSection>
+				</aside>
 			</div>
 		</div>
 	);

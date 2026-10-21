@@ -58,7 +58,7 @@ function LoadingIndicatorRow() {
 			) : (
 				<div className="settings-indicator-preview kg-walker-ball" />
 			)}
-			<span>
+			<span className="settings-row-text">
 				<strong>{text.label}</strong>
 				<small>{text.hint}</small>
 				{error && <small className="settings-error">{error}</small>}

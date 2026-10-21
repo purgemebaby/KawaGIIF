@@ -5,13 +5,12 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Mutex, MutexGuard, PoisonError};
 use std::time::Duration;
-use tauri::{AppHandle, Emitter, EventTarget, Manager, PhysicalPosition, PhysicalSize, State, WebviewWindow};
+use tauri::{AppHandle, Emitter, EventTarget, Manager, PhysicalPosition, State, WebviewWindow};
 use uuid::Uuid;
 
 use crate::config;
 use crate::error::{AppError, AppResult};
 use crate::library::{LibraryState, MediaType};
-use crate::monitors;
 use crate::window_manager;
 
 /* Personal Note for me:
@@ -72,6 +71,12 @@ fn notify_selection_cleared(app: &AppHandle) {
     let _ = app.emit("selection-changed", Option::<Uuid>::None);
 }
 
+/** Drops the selection without touching edit mode, for a click-through release (Ctrl+Alt+Esc) outside the editor. */
+pub fn clear_selection(app: &AppHandle) {
+    app.state::<EditorState>().lock().selected = None;
+    notify_selection_cleared(app);
+}
+
 
 
 #[derive(Serialize, Deserialize, Clone, PartialEq)]
@@ -84,6 +89,8 @@ pub struct PlacedMedia {
     pub height: u32,
     pub opacity: f32,
     pub playback_rate: Option<f32>,
+    #[serde(default)]
+    pub rotation: f32, //degrees, clockwise, about the media centre
     #[serde(default)]
     pub auto_sized: bool,
 }
@@ -529,12 +536,7 @@ pub fn refresh_edit_activity(app: &AppHandle) {
     if let Some(control) = app.get_webview_window(window_manager::CONTROL_LABEL) {
         let _ = control.set_always_on_top(active);
     }
-    if active {
-        for &slot in &occupied {
-            window_manager::raise_slot(app, slot);
-        }
-        window_manager::raise_control(app);
-    }
+    if active { window_manager::raise_overlays_above_control(app); }
 
     window_manager::log_overlay_state(app, if active { "editing resumed" } else { "editing suspended" });
 }
@@ -564,9 +566,13 @@ pub fn get_editor_status(state: State<EditorState>) -> EditorStatus {
     EditorStatus { edit_mode: editor.edit_active, selected: editor.selected }
 }
 
+/// Selecting only works while editing is live, so a click outside the editor does nothing.
 #[tauri::command]
 pub fn select_overlay(app: AppHandle, state: State<EditorState>, instance_id: Option<Uuid>) {
-    state.lock().selected = instance_id;
+    let mut editor = state.lock();
+    if !editor.edit_active { return; }
+    editor.selected = instance_id;
+    drop(editor);
     let _ = app.emit("selection-changed", instance_id);
 }
 
@@ -613,108 +619,94 @@ pub fn set_item_playback_rate(app: AppHandle, state: State<EditorState>, instanc
     });
 }
 
+/// Rotates the calling overlay's media; the overlay computes the window size that fits the rotated media and sends it
+/// along. `resize_keeping_centre` applies it, so the media turns about its centre, and `Resized` stores the size as usual.
+#[tauri::command]
+pub fn rotate_overlay(window: WebviewWindow, state: State<EditorState>, rotation: f32, width: u32, height: u32) -> AppResult<()> {
+    let Some(slot) = window_manager::slot_from_label(window.label()) else { return Ok(()) };
+    {
+        let mut editor = state.lock();
+        let Some(instance_id) = editor.slots.get(slot).copied().flatten() else { return Ok(()) };
+        let Some(item) = editor.item_mut(&instance_id) else { return Ok(()) };
+        item.rotation = rotation;
+    }
+    window_manager::resize_keeping_centre(&window, width, height)?;
+    Ok(())
+}
+
+/// Resets one placed animation to its defaults: full opacity, normal speed, no rotation, and `auto_sized` reopened. The
+/// overlay answers the `item-reset` event by calling `fit_overlay_to_media` again, which restores the size; position stays.
+#[tauri::command]
+pub fn reset_placed_media(app: AppHandle, state: State<EditorState>, instance_id: Uuid) -> Option<PlacedMedia> {
+    let (item, slot) = {
+        let mut editor = state.lock();
+        let item = editor.item_mut(&instance_id)?;
+        item.opacity = 1.0;
+        item.playback_rate = Some(1.0);
+        item.rotation = 0.0;
+        item.auto_sized = false;
+        let reset = item.clone();
+        (reset, editor.slot_of(&instance_id))
+    };
+    if let Some(slot) = slot { emit_to_slot(&app, slot, "item-reset", instance_id); }
+    Some(item)
+}
+
 
 
 // Placement Commands
-/** Where a new animation appears: the centre of a monitor (a click in the media bar) or hanging from the cursor (a drag). */
-#[derive(Deserialize)]
-#[serde(tag = "kind", rename_all = "lowercase")]
-pub enum SpawnAt {
-    Center { monitor: usize },
-    Cursor,
-}
-
 fn scaled(side: u32, scale: f64) -> u32 { (f64::from(side) * scale).round() as u32 }
 
-/** Top-left corner and side of the starting box, in physical pixels, sized for the DPI of the monitor it lands on. */
-fn spawn_box(app: &AppHandle, at: &SpawnAt) -> AppResult<(i32, i32, u32)> {
-    match at {
-        SpawnAt::Center { monitor } => {
-            let monitor = monitors::monitor_at(app, *monitor)?;
-            let side = scaled(SPAWN_BOX, monitor.scale_factor());
-            let (x, y) = monitors::centered_in(&monitor, side, side);
-            Ok((x, y, side))
-        }
-        SpawnAt::Cursor => {
-            let cursor = app.cursor_position()?;
-            let scale = app.monitor_from_point(cursor.x, cursor.y)?.map_or(1.0, |m| m.scale_factor());
-            let side = scaled(SPAWN_BOX, scale);
-            let x = cursor.x.round() as i32 - (side / 2) as i32;
-            let y = cursor.y.round() as i32 - scaled(PICKUP_GRIP, scale) as i32;
-            Ok((x, y, side))
-        }
-    }
+/** Top-left corner and side of the starting window (media box plus `HANDLE_MARGIN` on every side), in physical pixels for the
+ DPI under the cursor; the media hangs `PICKUP_GRIP` below the cursor. */
+fn spawn_box(app: &AppHandle, cursor: &PhysicalPosition<f64>) -> AppResult<(i32, i32, u32)> {
+    let scale = app.monitor_from_point(cursor.x, cursor.y)?.map_or(1.0, |m| m.scale_factor());
+    let margin = scaled(window_manager::HANDLE_MARGIN, scale);
+    let frame = scaled(SPAWN_BOX, scale) + 2 * margin;
+    let x = cursor.x.round() as i32 - (frame / 2) as i32;
+    let y = cursor.y.round() as i32 - scaled(PICKUP_GRIP, scale) as i32 - margin as i32;
+    Ok((x, y, frame))
 }
 
-/// Places a new animation from the media bar. It starts square because the real shape is unknown until it loads;
-/// `fit_overlay_to_media` fixes it then. A cursor spawn is carried under the cursor until the button is released; its
-/// overlay swings meanwhile (`Arrival::Carried`, ended by `pickup-ended`).
+/// Places a new animation dragged in from the media bar. It starts square because the real shape is unknown until it
+/// loads; `fit_overlay_to_media` fixes it then. The overlay is carried under the cursor until the button is released
+/// and swings meanwhile (`Arrival::Carried`, ended by `pickup-ended`).
 #[tauri::command]
-pub fn spawn_placed_media(app: AppHandle, state: State<EditorState>, media_id: Uuid, at: SpawnAt) -> AppResult<SpawnedOverlay> {
-    let (x, y, side) = spawn_box(&app, &at)?;
-    let grip_y: i32 = match at { SpawnAt::Cursor => app.cursor_position()?.y.round() as i32 - y, SpawnAt::Center { .. } => 0 };
+pub fn spawn_placed_media(app: AppHandle, state: State<EditorState>, media_id: Uuid) -> AppResult<SpawnedOverlay> {
+    let cursor = app.cursor_position()?;
+    let (x, y, frame) = spawn_box(&app, &cursor)?;
+    let grip_y = cursor.y.round() as i32 - y;
     let item = PlacedMedia {
         instance_id: Uuid::new_v4(),
         media_id,
         x,
         y,
-        width: side,
-        height: side,
+        width: frame,
+        height: frame,
         opacity: 1.0,
         playback_rate: Some(1.0),
+        rotation: 0.0,
         auto_sized: false,
     };
     let instance_id = item.instance_id;
 
-    let carried: bool = matches!(at, SpawnAt::Cursor);
     let interactive: bool = state.lock().edit_active;
-    let slot = place_item_in_slot(&app, &state, &item, interactive, if carried { Arrival::Carried } else { Arrival::Pop })?;
+    let slot = place_item_in_slot(&app, &state, &item, interactive, Arrival::Carried)?;
     state.lock().working.items.push(item);
-    if carried {
-        let handle = app.clone();
-        window_manager::carry_with_cursor(&app, slot, grip_y, move || {
-            // an overlay that only asks after the drop gets the plain pop, not a swing that would wait for no moves
-            {
-                let state = handle.state::<EditorState>();
-                let mut editor = state.lock();
-                if editor.slots.get(slot) == Some(&Some(instance_id)) { editor.arrivals[slot] = Arrival::Pop; }
-            }
-            emit_to_slot(&handle, slot, "pickup-ended", instance_id);
-        });
-    }
+    let handle = app.clone();
+    window_manager::carry_with_cursor(&app, slot, grip_y, move || {
+        // an overlay that only asks after the drop gets the plain pop, not a swing that would wait for no moves
+        {
+            let state = handle.state::<EditorState>();
+            let mut editor = state.lock();
+            if editor.slots.get(slot) == Some(&Some(instance_id)) { editor.arrivals[slot] = Arrival::Pop; }
+        }
+        emit_to_slot(&handle, slot, "pickup-ended", instance_id);
+    });
 
     notify_placed_items_changed(&app);
     window_manager::log_overlay_state(&app, "animation placed");
     Ok(SpawnedOverlay { instance_id, window_label: window_manager::slot_label(slot) })
-}
-
-/// Moves a placed animation to the centre of another monitor. `Moved` (and `Resized`, when the DPI differs) store the
-/// new geometry like a drag would, so Save and Undo keep working.
-#[tauri::command]
-pub fn move_overlay_to_monitor(
-    app: AppHandle, state: State<EditorState>, instance_id: Uuid, monitor: usize,
-) -> AppResult<Option<PlacedMedia>> {
-    let target = monitors::monitor_at(&app, monitor)?;
-    let (slot, width, height) = {
-        let editor = state.lock();
-        let Some(item) = editor.working.items.iter().find(|item| item.instance_id == instance_id) else { return Ok(None); };
-        (editor.slot_of(&instance_id), item.width, item.height)
-    };
-
-    let (x, y) = monitors::centered_in(&target, width, height);
-    match slot.and_then(|slot| window_manager::slot_window(&app, slot)) {
-        Some(window) => {
-            window.set_position(PhysicalPosition::new(x, y))?;
-            // crossing to a monitor with another DPI resizes the window, so centre it again with its new size
-            let size = window.outer_size()?;
-            if (size.width, size.height) != (width, height) {
-                let (x, y) = monitors::centered_in(&target, size.width, size.height);
-                window.set_position(PhysicalPosition::new(x, y))?;
-            }
-        }
-        None => { state.lock().apply_geometry(&instance_id, Some((x, y)), None, false); }
-    }
-    Ok(state.lock().working.items.iter().find(|item| item.instance_id == instance_id).cloned())
 }
 
 #[tauri::command]
@@ -725,7 +717,8 @@ pub fn remove_placed_media(app: AppHandle, state: State<EditorState>, instance_i
 }
 
 /// Sizes the window to the media's aspect ratio, shrunk to `MAX_SPAWN_SIDE` (scaled to the monitor's DPI) but never
-/// enlarged, keeping its centre. Runs once per animation (`auto_sized`) so reloading the media doesn't undo a manual resize.
+/// enlarged, plus `HANDLE_MARGIN` of transparent room on every side, keeping its centre. Only runs while `auto_sized`
+/// is false, i.e. at rotation 0 (spawn and reset), so reloading the media doesn't undo a manual resize.
 #[tauri::command]
 pub fn fit_overlay_to_media(
     app: AppHandle, state: State<EditorState>, instance_id: Uuid, natural_width: u32, natural_height: u32,
@@ -734,6 +727,7 @@ pub fn fit_overlay_to_media(
 
     let window = state.lock().slot_of(&instance_id).and_then(|slot| window_manager::slot_window(&app, slot));
     let scale = window.as_ref().and_then(|w| w.scale_factor().ok()).unwrap_or(1.0);
+    let margin = scaled(window_manager::HANDLE_MARGIN, scale);
 
     let (x, y, width, height) = {
         let mut editor = state.lock();
@@ -743,7 +737,7 @@ pub fn fit_overlay_to_media(
         let longest = f64::from(natural_width.max(natural_height));
         let shrink = (MAX_SPAWN_SIDE * scale / longest).min(1.0);
         let fit = |side: u32| ((f64::from(side) * shrink).round() as u32).max(MIN_SIDE);
-        let (width, height) = (fit(natural_width), fit(natural_height));
+        let (width, height) = (fit(natural_width) + 2 * margin, fit(natural_height) + 2 * margin);
         item.x += (item.width as i32 - width as i32) / 2;
         item.y += (item.height as i32 - height as i32) / 2;
         item.width = width;
@@ -753,8 +747,7 @@ pub fn fit_overlay_to_media(
     };
 
     if let Some(window) = window {
-        let _ = window.set_size(PhysicalSize::new(width, height));
-        let _ = window.set_position(PhysicalPosition::new(x, y));
+        let _ = window_manager::place(&window, x, y, width, height);
     }
 }
 

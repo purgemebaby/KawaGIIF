@@ -1,6 +1,6 @@
-/* Small commands that don't belong to a bigger module: the control window, overlay resizing and settings. */
+/* Small commands that don't belong to a bigger module: the control window, overlay placement and settings. */
 use std::path::PathBuf;
-use tauri::{AppHandle, PhysicalSize, WebviewWindow};
+use tauri::{AppHandle, WebviewWindow};
 use tauri_plugin_autostart::ManagerExt;
 use uuid::Uuid;
 
@@ -33,9 +33,10 @@ fn loading_indicator_path() -> Option<PathBuf> {
 #[tauri::command]
 pub fn hide_control_window(app: AppHandle) { window_manager::hide_control(&app); }
 
+/// Moves and resizes the calling overlay in one go (physical px); a corner drag keeps the opposite corner fixed, so the centre moves.
 #[tauri::command]
-pub fn resize_overlay(window: WebviewWindow, width: u32, height: u32) -> AppResult<()> {
-    window.set_size(PhysicalSize::new(width, height))?;
+pub fn set_overlay_rect(window: WebviewWindow, x: i32, y: i32, width: u32, height: u32) -> AppResult<()> {
+    window_manager::place(&window, x, y, width, height)?;
     Ok(())
 }
 

@@ -55,26 +55,12 @@ const MOCK_RESPONSES: Record<string, unknown> = {
 	get_slot_info: null,
 	get_file_size: 1024 * 1024,
 	count_placed_media: 0,
-	list_monitors: [
-		{
-			index: 0,
-			name: null,
-			x: 0,
-			y: 0,
-			width: 2560,
-			height: 1392,
-			primary: true,
-		},
-		{
-			index: 1,
-			name: null,
-			x: 2560,
-			y: 0,
-			width: 1920,
-			height: 1032,
-			primary: false,
-		},
-	],
+	get_system_stats: {
+		total_ram_mb: 16_384,
+		used_ram_mb: 9_830,
+		available_ram_mb: 6_554,
+		app_ram_mb: 214,
+	},
 };
 
 // Mocks that compute a value from their args, mirroring the Rust clamping.

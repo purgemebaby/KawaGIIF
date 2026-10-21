@@ -29,17 +29,16 @@ index.html / overlay.html        one Vite entry per window class
 src/                             React frontend
   main.tsx                       control window entry (applies font settings before rendering)
   entries/overlay.tsx            overlay entry: keep this bundle light, never import control-only code
-  windows/                       ControlApp (screens, boot, exit guard) and OverlayItemApp (media, drag, resize)
-  components/                    screens (Home, Storage, Editor, Settings, Loading), home/RadialMenu (ring menu), BrandBar (section logo), pieces; settings/ holds one file per settings row
+  windows/                       ControlApp (boot, exit guard, composition) and OverlayItemApp (slot, media, playback)
+  components/                    screens (Home, Storage, Editor, Settings, Loading), home/RadialMenu (ring menu), BrandBar (section logo), MediaThumb (shared thumbnail), ui/PixelIcon (pixel-art icons, hover animations via `pixel-hover`), tags/ (chips, popovers, bulk tags, manager), pieces; settings/ holds one file per settings row
   context/LibraryProvider.tsx    media library state shared by the control window
-  hooks/                         useTauriEvent, useEditorSync, useMediaUrl, useDismiss, useLoadingIndicator, useMediaSelection, useMonitors, useSwing (overlay pickup), ...
-  lib/                           ipc.ts (invoke/listen + browser mocks), media.ts, placed.ts, appearance.ts, monitors.ts, zoom.ts, radial.ts (ring geometry), navTransition.ts (screen pan), editorBurst.ts (ring→editor morph), navAnimations.ts
+  hooks/                         useScreenTransitions (pan + burst), useZoomShortcuts, useEditHandles (overlay sphere/corners), useStorageResize, usePersistentState (localStorage + codecs), useTauriEvent, useEditorSync, useMediaUrl, useDismiss, useMediaSelection, useSwing (overlay pickup), ...
+  lib/                           ipc.ts (invoke/listen + browser mocks), config.ts (AppConfig + loadConfig), appEvent.ts (in-window announce/listen), media.ts, mediaFilter.ts (search/tags/sort), tags.ts (clean + colour per tag name), pixelIcons.ts (16×16 letter grids), placed.ts, overlayGeometry.ts, pointerDrag.ts, appearance.ts, zoom.ts, radial.ts (ring geometry), navTransition.ts (screen pan), editorBurst.ts (ring→editor morph), navAnimations.ts
   i18n/en.ts                     every visible string (`t.*`)
   styles/                        tokens, base, motion, components, index (control), overlay
 src-tauri/src/
   lib.rs                         builder, plugins, command registry, setup, exit
-  window_manager.rs              control window (fixed 960×640, max 1920×1080), overlay pool, raising, dormant webviews, BROWSER_ARGS
-  monitors.rs                    monitor list (work areas), centring a box on a monitor
+  window_manager.rs              control window (fixed 960×640, max 1630×1013), overlay pool, raising, dormant webviews, BROWSER_ARGS
   template.rs                    placed animations, slots, template.json, boot placement, edit mode
   library.rs                     media library and tags (library_index.json)
   config.rs                      config.toml, data folder, write_atomic

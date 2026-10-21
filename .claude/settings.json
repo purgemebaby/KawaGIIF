@@ -1,4 +1,8 @@
 {
+  "env": {
+    "KG_OLLAMA_MODEL": "glm-5.3:cloud",
+    "KG_OLLAMA_TIMEOUT": "480"
+  },
   "permissions": {
     "allow": [
       "Bash(cargo check *)",

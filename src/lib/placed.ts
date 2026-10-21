@@ -10,6 +10,7 @@ export interface PlacedMedia {
 	height: number;
 	opacity: number;
 	playback_rate: number | null;
+	rotation: number;
 	auto_sized: boolean;
 }
 

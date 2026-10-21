@@ -1,5 +1,5 @@
 .settings-row.settings-row-indicator {
-	cursor: default;
+	align-items: flex-start;
 }
 
 .settings-indicator-preview {
@@ -10,8 +10,8 @@
 	object-fit: contain;
 }
 
-.settings-row .settings-indicator-actions {
-	flex-direction: row;
+.settings-indicator-actions {
+	display: flex;
 	gap: var(--kg-space-2);
 	margin-top: var(--kg-space-2);
 }

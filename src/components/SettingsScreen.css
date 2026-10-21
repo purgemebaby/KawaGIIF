@@ -1,0 +1,230 @@
+.settings-screen {
+	width: 100%;
+	max-width: 920px;
+	margin-inline: auto;
+	padding: var(--kg-space-5) var(--kg-space-6) var(--kg-space-6);
+}
+
+.settings-screen h1 {
+	margin-bottom: var(--kg-space-5);
+	font-size: var(--kg-text-xl);
+	font-weight: 600;
+}
+
+/* sections on the left, the sticky aside (RAM gauge + pool size) on the right */
+.settings-layout {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) 260px;
+	gap: var(--kg-space-5);
+	align-items: start;
+}
+
+.settings-sections,
+.settings-aside {
+	display: flex;
+	flex-direction: column;
+	gap: var(--kg-space-4);
+	min-width: 0;
+}
+
+.settings-aside {
+	position: sticky;
+	top: 0;
+}
+
+/* The window never gets narrower than 720 px, so this only covers zoomed-in UIs; the aside then follows the sections. */
+@media (max-width: 680px) {
+	.settings-screen {
+		padding-inline: var(--kg-space-4);
+	}
+
+	.settings-layout {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.settings-aside {
+		position: static;
+	}
+}
+
+/* Section card */
+
+.settings-section {
+	border: 1px solid var(--kg-border);
+	border-radius: var(--kg-radius-md);
+	background: var(--kg-bg-panel);
+	box-shadow: var(--kg-shadow-1);
+	padding: var(--kg-space-4) var(--kg-space-5);
+}
+
+.settings-section-header {
+	display: flex;
+	align-items: center;
+	gap: var(--kg-space-3);
+	margin-bottom: var(--kg-space-2);
+}
+
+.settings-section-badge {
+	display: grid;
+	flex: none;
+	place-items: center;
+}
+
+.settings-section-heading {
+	flex: 1;
+	min-width: 0;
+}
+
+.settings-section-heading h2 {
+	font-size: var(--kg-text-heading);
+	font-weight: 600;
+}
+
+/* thin neon underline that fades out to the right */
+.settings-section-heading h2::after {
+	content: '';
+	display: block;
+	height: 2px;
+	margin-top: var(--kg-space-1);
+	border-radius: var(--kg-radius-pill);
+	background: linear-gradient(
+		90deg,
+		var(--kg-accent-2),
+		var(--kg-accent) 55%,
+		transparent
+	);
+}
+
+.settings-section-heading p {
+	margin-top: var(--kg-space-1);
+	color: var(--kg-fg-muted);
+	font-size: var(--kg-text-sm);
+}
+
+/* Rows: label + hint on the left, control on the right */
+
+.settings-section-body > * + * {
+	border-top: 1px solid var(--kg-border);
+}
+
+.settings-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--kg-space-4);
+	padding: var(--kg-space-3) 0;
+}
+
+.settings-row-text {
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+	flex: 1;
+	min-width: 0;
+}
+
+.settings-row-text strong {
+	font-size: var(--kg-text-md);
+	font-weight: 600;
+}
+
+.settings-row-text small {
+	color: var(--kg-fg-muted);
+	font-size: var(--kg-text-sm);
+	line-height: 1.5;
+}
+
+.settings-row-toggle {
+	cursor: pointer;
+}
+
+/* Switch: a real checkbox underneath, drawn as a pill track with a knob */
+
+.settings-switch {
+	position: relative;
+	flex: none;
+	width: 40px;
+	height: 22px;
+}
+
+.settings-switch input {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	margin: 0;
+	opacity: 0;
+	cursor: pointer;
+}
+
+.settings-switch-track {
+	position: absolute;
+	inset: 0;
+	border: 1px solid var(--kg-border-strong);
+	border-radius: var(--kg-radius-pill);
+	background: var(--kg-bg-input);
+	box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.45);
+	pointer-events: none;
+	transition:
+		background var(--kg-dur-fast) var(--kg-ease-out),
+		border-color var(--kg-dur-fast) var(--kg-ease-out);
+}
+
+.settings-switch-track::after {
+	content: '';
+	position: absolute;
+	top: 2px;
+	left: 2px;
+	width: 16px;
+	height: 16px;
+	border-radius: var(--kg-radius-pill);
+	background: var(--kg-fg-muted);
+	box-shadow: var(--kg-shadow-1);
+	transition:
+		transform var(--kg-dur-med) var(--kg-ease-pop),
+		background var(--kg-dur-fast) var(--kg-ease-out);
+}
+
+.settings-switch input:checked + .settings-switch-track {
+	border-color: var(--kg-accent);
+	background: var(--kg-accent);
+}
+
+.settings-switch input:checked + .settings-switch-track::after {
+	background: var(--kg-fg);
+	transform: translateX(18px);
+}
+
+.settings-switch input:focus-visible + .settings-switch-track {
+	outline: 2px solid var(--kg-accent-strong);
+	outline-offset: 2px;
+}
+
+/* Pool size: the hint is long, so the field sits under it */
+
+.settings-row-number {
+	flex-direction: column;
+	align-items: flex-start;
+	cursor: default;
+}
+
+.settings-row-number input[type='number'] {
+	width: 80px;
+	padding: 7px 12px;
+	border: 1px solid var(--kg-border);
+	border-radius: var(--kg-radius-pill);
+	background: var(--kg-bg-input);
+	box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.45);
+	color: var(--kg-fg);
+	font-family: inherit;
+	font-size: var(--kg-text-md);
+	font-variant-numeric: tabular-nums;
+}
+
+.settings-row-number input[type='number']:focus {
+	border-color: var(--kg-accent);
+	outline: none;
+	box-shadow:
+		inset 0 1px 3px rgba(0, 0, 0, 0.45),
+		0 0 0 3px var(--kg-accent-soft);
+}

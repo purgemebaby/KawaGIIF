@@ -29,15 +29,45 @@
 .loading-bar {
 	position: relative;
 	width: min(360px, 60vw);
-	height: 8px;
-	border-radius: var(--kg-radius-pill);
-	background: var(--kg-bg-raised);
 }
 
-.loading-bar-fill {
-	height: 100%;
-	border-radius: inherit;
-	background: linear-gradient(90deg, var(--kg-accent), var(--kg-accent-2));
+/* the blurred halo spills past the viewBox, so the svg must not clip it */
+.loading-neon {
+	display: block;
+	width: 100%;
+	height: auto;
+	overflow: visible;
+}
+
+.loading-track {
+	stroke: var(--kg-bg-raised);
+	stroke-width: 3;
+	stroke-linecap: round;
+}
+
+.loading-glow-halo,
+.loading-glow-line {
+	stroke: url(#loading-glow-gradient);
+}
+
+.loading-glow-halo {
+	filter: url(#loading-glow-blur);
+}
+
+.loading-tip {
+	fill: var(--kg-title-keyline);
+}
+
+.loading-tip-bloom {
+	fill: url(#loading-glow-gradient);
+	filter: url(#loading-glow-blur);
+}
+
+.loading-tip,
+.loading-tip-bloom {
+	animation: kg-tip-pulse 900ms ease-in-out infinite;
+	transform-box: fill-box;
+	transform-origin: center;
 }
 
 .loading-walker {
@@ -51,6 +81,18 @@
 
 .loading-walker--image {
 	object-fit: contain;
+}
+
+@keyframes kg-tip-pulse {
+	0%,
+	100% {
+		opacity: 1;
+		transform: scale(1);
+	}
+	50% {
+		opacity: 0.6;
+		transform: scale(1.4);
+	}
 }
 
 @keyframes kg-walker-bob {

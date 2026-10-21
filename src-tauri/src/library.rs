@@ -183,6 +183,26 @@ pub struct TagCount {
 
 
 
+/** Applies `edit` to the tags of every item it selects, saves and notifies once; returns how many items changed. */
+fn edit_tags(app: &AppHandle, lib: &LibraryState,
+    mut edit: impl FnMut(&mut MediaItem, &HashMap<String, String>) -> bool,
+) -> AppResult<usize> {
+    let mut index = lib.lock();
+    let known = index.known_tags();
+    let mut touched = 0;
+
+    for item in &mut index.items {
+        if edit(item, &known) { touched += 1; }
+    }
+    index.save()?;
+    drop(index);
+
+    notify_library_changed(app);
+    Ok(touched)
+}
+
+
+
 //Tag Commands
 ///Update media tags
 #[tauri::command]
@@ -195,6 +215,24 @@ pub fn update_media_tags(app: AppHandle, lib: State<LibraryState>, id: Uuid, tag
 
     notify_library_changed(&app);
     Ok(())
+}
+
+/// Adds and removes the same tags on many items in one save/notify; returns how many changed.
+#[tauri::command]
+pub fn update_tags_many(app: AppHandle, lib: State<LibraryState>,
+    ids: Vec<Uuid>, add: Vec<String>, remove: Vec<String>,
+) -> AppResult<usize> {
+    let ids: HashSet<Uuid> = ids.into_iter().collect();
+    let remove: HashSet<String> = remove.iter().map(|t| t.to_lowercase()).collect();
+
+    edit_tags(&app, &lib, |item, known| {
+        if !ids.contains(&item.id) { return false; }
+        let before = item.tags.clone();
+        item.tags.retain(|t| !remove.contains(&t.to_lowercase()));
+        item.tags.extend(add.iter().cloned());
+        item.tags = normalize_tags(std::mem::take(&mut item.tags), known);
+        item.tags != before
+    })
 }
 
 #[tauri::command]
@@ -221,51 +259,32 @@ pub fn list_all_tags(library: State<LibraryState>) -> Vec<TagCount> {
 pub fn rename_tag(app: AppHandle, library: State<LibraryState>, from: String, to: String) -> AppResult<usize> {
     let new_name = clean_tag(&to).ok_or(AppError::EmptyTag)?;
     let from_key = from.to_lowercase();
+    // the new spelling must win over any existing one, so renaming normalizes without the known spellings
     let no_known = HashMap::new();
 
-    let mut index = library.lock();
-    let mut touched = 0;
-
-    for item in &mut index.items {
-        if !item.tags.iter().any(|t| t.to_lowercase() == from_key) {
-            continue;
-        }
-
+    edit_tags(&app, &library, |item, _| {
+        if !item.tags.iter().any(|t| t.to_lowercase() == from_key) { return false; }
         let renamed = std::mem::take(&mut item.tags)
-            .into_iter().map(|t| { if t.to_lowercase() == from_key {
-                    new_name.clone()
-                } else {
-                    t
-                }}).collect();
+            .into_iter().map(|t| if t.to_lowercase() == from_key {
+                new_name.clone()
+            } else {
+                t
+            }).collect();
         item.tags = normalize_tags(renamed, &no_known);
-        touched += 1;
-    }
-    index.save()?;
-    drop(index);
-
-    notify_library_changed(&app);
-    Ok(touched)
+        true
+    })
 }
 
 ///Deletes tag from a `MediaItem` of the `LibraryIndex`
 #[tauri::command]
 pub fn delete_tag(app: AppHandle, lib: State<LibraryState>, name: String) -> AppResult<usize> {
     let key = name.to_lowercase();
-    let mut index = lib.lock();
-    let mut touched: usize = 0;
 
-    for item in &mut index.items {
+    edit_tags(&app, &lib, |item, _| {
         let before = item.tags.len();
         item.tags.retain(|t| t.to_lowercase() != key);
-        if item.tags.len() != before {
-            touched += 1;
-        }
-    }
-    index.save()?;
-    drop(index);
-
-    notify_library_changed(&app);
-    Ok(touched)
+        item.tags.len() != before
+    })
 }
 
 

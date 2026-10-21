@@ -24,10 +24,11 @@ Read CLAUDE.md and the code the task needs. Split the task into contracts using 
 - Show the contracts to the user and wait for an OK before launching anything.
 
 ## 3. Pick the worker
-- `ollama-worker`: mechanical work only (repetitive tests, docs/comments, renames from an exact list, moving strings to
-  `src/i18n/en.ts`, boilerplate that copies an existing pattern).
-- `kg-coder`: everything else. Never send `unsafe`, `native/windows.rs`, `window_manager.rs`, `State` locks, dependencies,
-  `capabilities/` or IPC API changes to ollama-worker.
+- `ollama-worker` (default, `KG_OLLAMA_MODEL` in `.claude/settings.json`; fallback `deepseek-v4-pro:cloud`): any contract
+  precise enough to implement, including logic, `window_manager.rs` and IPC changes with both sides in `ALLOWED_FILES`.
+- `kg-coder`: `unsafe`, `native/`, dependencies, `capabilities/`, or a contract ollama-worker failed twice.
+- The lead reads every worker diff itself (correctness, bugs, wasted work, helpers that could be reused) before or
+  instead of `kg-reviewer`.
 
 ## 4. Run
 Launch independent contracts in parallel (one message, several Agent calls), passing the full contract text. Wait for the

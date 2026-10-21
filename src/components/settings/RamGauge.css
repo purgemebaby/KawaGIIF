@@ -7,17 +7,18 @@
 	border: 1px solid var(--kg-border);
 	border-radius: var(--kg-radius-md);
 	background: var(--kg-bg-panel);
+	box-shadow: var(--kg-shadow-1);
 }
 
 .ram-gauge-dial {
-	width: 160px;
-	height: 120px;
+	width: 170px;
+	height: 115px;
 }
 
 .ram-gauge-track,
 .ram-gauge-fill {
 	fill: none;
-	stroke-width: 7;
+	stroke-width: 6;
 	stroke-linecap: round;
 }
 

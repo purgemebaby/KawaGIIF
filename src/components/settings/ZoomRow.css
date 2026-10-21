@@ -1,9 +1,6 @@
-.settings-row.settings-row-zoom {
-	align-items: center;
-}
-
 .zoom-controls {
 	display: inline-flex;
+	flex: none;
 	align-items: center;
 	gap: var(--kg-space-2);
 }

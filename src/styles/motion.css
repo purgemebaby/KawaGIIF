@@ -91,6 +91,45 @@
 	}
 }
 
+@keyframes kg-wiggle {
+	0%,
+	100% {
+		transform: rotate(0);
+	}
+	25% {
+		transform: rotate(-14deg);
+	}
+	50% {
+		transform: rotate(12deg);
+	}
+	75% {
+		transform: rotate(-6deg);
+	}
+}
+
+/* pixel icons: the gear turns in visible steps, the pencil scribbles one pixel each way */
+@keyframes kg-pixel-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+@keyframes kg-pixel-scribble {
+	0%,
+	100% {
+		transform: translate(0, 0);
+	}
+	25% {
+		transform: translate(-1px, 1px);
+	}
+	50% {
+		transform: translate(0, 0);
+	}
+	75% {
+		transform: translate(1px, -1px);
+	}
+}
+
 .kg-wave > span {
 	display: inline-block;
 	animation: kg-wave 4s linear infinite;
@@ -100,6 +139,26 @@
 /* the small logo keeps the title's look without the wave */
 .kg-wave--still > span {
 	animation: none;
+}
+
+/* a keyline that rides inside the panel and follows its shape while it deforms */
+.kg-burst-outline {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	overflow: visible;
+	pointer-events: none;
+	z-index: 1;
+}
+
+/* half the stroke is clipped by the panel's clip-path, so 3 shows as the ring's 1.5 */
+.kg-burst-outline path {
+	fill: none;
+	stroke: var(--kg-title-keyline);
+	stroke-opacity: 0.35;
+	stroke-width: 3;
+	vector-effect: non-scaling-stroke;
 }
 
 @media (prefers-reduced-motion: reduce) {

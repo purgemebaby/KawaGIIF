@@ -2,6 +2,7 @@ import { invoke } from '../lib/ipc';
 import KawaTitle from './brand/KawaTitle';
 import KawaiiBackdrop from './brand/KawaiiBackdrop';
 import RadialMenu from './home/RadialMenu';
+import PixelIcon from './ui/PixelIcon';
 import type { Screen } from './navItems';
 import { t } from '../i18n/en';
 
@@ -18,7 +19,6 @@ function HomeScreen({ quiet = false, onNavigate }: HomeScreenProps) {
 
 			<div className="home-header">
 				<KawaTitle size="clamp(46px, 8cqmin, 110px)" />
-				<p className="home-subtitle">{t.app.tagline}</p>
 			</div>
 
 			<RadialMenu onSelect={onNavigate} />
@@ -33,10 +33,11 @@ function HomeScreen({ quiet = false, onNavigate }: HomeScreenProps) {
 				</button>
 				<button
 					type="button"
-					className="kg-btn kg-btn--danger"
+					className="kg-btn kg-btn--danger pixel-hover"
 					onClick={() => invoke('kill_all_overlays')}
 					title={t.home.panic.description}
 				>
+					<PixelIcon name="skull" />
 					{t.home.panic.button}
 				</button>
 			</div>

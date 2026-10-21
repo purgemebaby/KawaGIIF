@@ -1,6 +1,8 @@
 :root {
 	--kg-accent: #a97bff;
 	--kg-accent-rgb: 169 123 255;
+	--kg-accent-2: #ff7bd0;
+	--kg-title-keyline: #f4eefc;
 }
 
 *,

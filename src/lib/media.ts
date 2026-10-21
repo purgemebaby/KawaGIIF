@@ -26,3 +26,12 @@ export function formatBytes(bytes: number): string {
 export function fileNameOf(path: string): string {
 	return path.split(/[\\/]/).pop() ?? path;
 }
+
+const SHORT_NAME_MAX = 32;
+const SHORT_NAME_TAIL = 8;
+
+/** Cuts a long file name in the middle, keeping its end so the extension stays visible. */
+export function shortFileName(name: string, max = SHORT_NAME_MAX): string {
+	if (name.length <= max) return name;
+	return `${name.slice(0, max - SHORT_NAME_TAIL - 1)}…${name.slice(-SHORT_NAME_TAIL)}`;
+}

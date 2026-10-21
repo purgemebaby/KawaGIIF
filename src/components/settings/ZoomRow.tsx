@@ -17,7 +17,8 @@ interface ZoomRowProps {
 
 function ZoomRow({ zoom: savedZoom, onZoomChange }: ZoomRowProps) {
 	const text = t.settings.zoom;
-	// Follows the keyboard shortcuts too, which change the zoom without going through this row.
+
+	// Follows the keyboard shortcuts too.
 	const [zoom, setZoom] = useState(savedZoom);
 	useEffect(
 		() =>
@@ -37,8 +38,8 @@ function ZoomRow({ zoom: savedZoom, onZoomChange }: ZoomRowProps) {
 	};
 
 	return (
-		<div className="settings-row settings-row-zoom">
-			<span>
+		<div className="settings-row">
+			<span className="settings-row-text">
 				<strong>{text.label}</strong>
 				<small>{text.hint}</small>
 			</span>

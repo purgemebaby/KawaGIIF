@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Runs one kg-swarm contract on an Ollama Cloud model via `ollama launch claude`, then measures what it touched and runs the gate.
-# Usage: ollama-run.sh <contract-file> [model]. Model default: $KG_OLLAMA_MODEL or kimi-k2.7-code:cloud. Exit 0 only if scope and gate pass.
+# Usage: ollama-run.sh <contract-file> [model]. Model default: $KG_OLLAMA_MODEL or glm-5.3:cloud. Exit 0 only if scope and gate pass.
 set -u
 export LC_ALL=C  # sort and comm must agree on byte order
 
 contract="${1:?usage: ollama-run.sh <contract-file> [model]}"
-model="${2:-${KG_OLLAMA_MODEL:-kimi-k2.7-code:cloud}}"
+model="${2:-${KG_OLLAMA_MODEL:-glm-5.3:cloud}}"
 inner_timeout="${KG_OLLAMA_TIMEOUT:-420}"
 [ -f "$contract" ] || { echo "contract not found: $contract"; exit 1; }
 contract="$(cd "$(dirname "$contract")" && pwd)/$(basename "$contract")"

@@ -1,20 +1,9 @@
-.settings-row.settings-row-font {
-	cursor: default;
-}
-
-.font-row-body {
-	display: flex;
-	flex-direction: column;
-	gap: var(--kg-space-3);
-	flex: 1;
-	min-width: 0;
-}
-
 .font-row-controls {
 	display: flex;
-	flex-wrap: wrap;
-	align-items: center;
-	gap: var(--kg-space-3);
+	flex-direction: column;
+	align-items: flex-end;
+	gap: var(--kg-space-2);
+	flex: none;
 }
 
 .font-picker {
@@ -30,7 +19,7 @@
 	position: absolute;
 	z-index: 30;
 	top: calc(100% + var(--kg-space-1));
-	left: 0;
+	right: 0;
 	width: 280px;
 	padding: var(--kg-space-2);
 	border: 1px solid var(--kg-border);
@@ -101,14 +90,16 @@
 .font-size-group {
 	display: inline-flex;
 	border: 1px solid var(--kg-border);
-	border-radius: var(--kg-radius-sm);
+	border-radius: var(--kg-radius-pill);
+	background: var(--kg-bg-input);
+	box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.45);
 	overflow: hidden;
 }
 
 .font-size-option {
 	padding: 6px 12px;
 	border: none;
-	background: var(--kg-bg-raised);
+	background: none;
 	color: var(--kg-fg-muted);
 	font-family: inherit;
 	font-size: var(--kg-text-sm);
@@ -127,10 +118,4 @@
 	background: var(--kg-accent-soft);
 	color: var(--kg-accent-strong);
 	font-weight: 600;
-}
-
-.font-row-preview {
-	margin: 0;
-	color: var(--kg-fg-muted);
-	font-size: var(--kg-text-md);
 }

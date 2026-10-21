@@ -2,14 +2,13 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLibrary } from '../../context/LibraryProvider';
 import { useDismiss } from '../../hooks/useDismiss';
 import { t } from '../../i18n/en';
+import { cleanTag, MAX_TAG_LENGTH, tagStyle } from '../../lib/tags';
 
 interface TagPopoverProps {
 	tags: string[];
 	onChange: (next: string[]) => void;
 	onClose: () => void;
 }
-
-const MAX_TAG_LENGTH = 40;
 
 function TagPopover({ tags, onChange, onClose }: TagPopoverProps) {
 	const { tags: allTags } = useLibrary();
@@ -33,7 +32,7 @@ function TagPopover({ tags, onChange, onClose }: TagPopoverProps) {
 	}, [allTags, draft, tags]);
 
 	const add = (raw: string) => {
-		const cleaned = raw.trim().replace(/\s+/g, ' ');
+		const cleaned = cleanTag(raw);
 		if (!cleaned) return;
 		if (tags.some((tag) => tag.toLowerCase() === cleaned.toLowerCase())) {
 			setDraft('');
@@ -60,7 +59,12 @@ function TagPopover({ tags, onChange, onClose }: TagPopoverProps) {
 
 			<div className="tag-popover-list">
 				{tags.map((tag) => (
-					<span key={tag} className="tag-chip tag-chip-editable" title={tag}>
+					<span
+						key={tag}
+						className="tag-chip tag-chip-editable"
+						title={tag}
+						style={tagStyle(tag)}
+					>
 						{tag}
 						<button
 							type="button"

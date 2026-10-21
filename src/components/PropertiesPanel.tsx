@@ -1,30 +1,16 @@
 import { useEffect, useState } from 'react';
 import { invoke } from '../lib/ipc';
 import { loadPlacedMedia, type PlacedMedia } from '../lib/placed';
-import { monitorIndexAt } from '../lib/monitors';
-import { useMonitors } from '../hooks/useMonitors';
-import { useTauriEvent } from '../hooks/useTauriEvent';
 import { STATIC_TYPES, type MediaType } from '../lib/media';
 import { t } from '../i18n/en';
 import Slider from './ui/Slider';
-import MonitorSelect from './ui/MonitorSelect';
+import PixelIcon from './ui/PixelIcon';
 
-const DEFAULT_OPACITY = 1;
 const DEFAULT_RATE = 1;
 
 function PropertiesPanel({ selectedId }: { selectedId: string | null }) {
 	const [placed, setPlaced] = useState<PlacedMedia | null>(null);
 	const [mediaType, setMediaType] = useState<MediaType | null>(null);
-	const monitors = useMonitors();
-
-	// Keep the monitor picker right when the animation is dragged to another screen.
-	useTauriEvent<string>('overlay-geometry-changed', async (instanceId) => {
-		if (instanceId !== selectedId) return;
-		const item = await invoke<PlacedMedia | null>('get_placed_media', {
-			instanceId,
-		});
-		if (item) setPlaced(item);
-	});
 
 	useEffect(() => {
 		if (!selectedId) {
@@ -66,23 +52,11 @@ function PropertiesPanel({ selectedId }: { selectedId: string | null }) {
 		});
 	};
 
-	const moveToMonitor = async (monitor: number) => {
-		const moved = await invoke<PlacedMedia | null>('move_overlay_to_monitor', {
+	const resetProperties = async () => {
+		const reset = await invoke<PlacedMedia | null>('reset_placed_media', {
 			instanceId: selectedId,
-			monitor,
 		});
-		if (moved) setPlaced(moved);
-	};
-
-	const currentMonitor = monitorIndexAt(
-		monitors,
-		placed.x + placed.width / 2,
-		placed.y + placed.height / 2,
-	);
-
-	const resetProperties = () => {
-		setOpacity(DEFAULT_OPACITY);
-		if (supportsSpeed) setPlaybackRate(DEFAULT_RATE);
+		if (reset) setPlaced(reset);
 	};
 
 	return (
@@ -109,32 +83,26 @@ function PropertiesPanel({ selectedId }: { selectedId: string | null }) {
 				/>
 			)}
 
-			<MonitorSelect
-				monitors={monitors}
-				value={currentMonitor}
-				label={t.editor.monitor.moveLabel}
-				hint={t.editor.monitor.moveHint}
-				onChange={moveToMonitor}
-			/>
-
 			<button
 				type="button"
-				className="kg-btn kg-btn--secondary kg-btn--sm"
+				className="kg-btn kg-btn--secondary kg-btn--sm properties-reset"
 				onClick={resetProperties}
 				title={t.properties.resetHint}
 			>
 				{t.properties.reset}
 			</button>
-
-			<button
-				type="button"
-				className="kg-btn kg-btn--danger kg-btn--sm"
-				onClick={() =>
-					invoke('remove_placed_media', { instanceId: selectedId })
-				}
-			>
-				{t.editor.removeItem}
-			</button>
+			<div className="properties-danger">
+				<button
+					type="button"
+					className="kg-btn kg-btn--danger kg-btn--sm pixel-hover"
+					onClick={() =>
+						invoke('remove_placed_media', { instanceId: selectedId })
+					}
+				>
+					<PixelIcon name="trash" />
+					{t.editor.removeItem}
+				</button>
+			</div>
 		</div>
 	);
 }

@@ -1,19 +1,18 @@
 ---
 name: ollama-worker
-description: Cheap worker that hands one MECHANICAL kg-swarm contract to an Ollama Cloud model (kimi-k2.7-code) and verifies the result with clippy/tests. YES - repetitive tests, docs and comments, renames from an exact list, moving strings into src/i18n/en.ts, boilerplate copying an existing pattern. NO - design or architecture, unsafe code, Win32 / native/windows.rs, window_manager.rs or State locks, Cargo/npm dependencies, capabilities/, IPC API changes, final review. Use only when the user explicitly asks for /kg-swarm or names ollama-worker.
+description: Cheap worker that hands one kg-swarm contract to an Ollama Cloud model (glm-5.3, fallback deepseek-v4-pro) and verifies the result with clippy/tests. YES - feature code and logic from a precise contract, window_manager.rs, IPC additions with both sides in ALLOWED_FILES, tests, docs, i18n. NO - unsafe code, Win32 / native/, Cargo/npm dependencies, capabilities/, final review (the lead reviews every diff). Use only when the user explicitly asks for /kg-swarm or names ollama-worker.
 model: haiku
 tools: Bash, Read, Grep, Glob
 ---
 
 You hand one contract to an Ollama Cloud model and report what really happened. You never edit code yourself.
 
-1. Read the contract you were given. Refuse it (report `REFUSED:` and the reason, nothing else) if it is not mechanical,
-   or if `ALLOWED_FILES` or the goal touches any of: `unsafe`, `src-tauri/src/native/`, `src-tauri/src/window_manager.rs`,
-   `State` locks, `Cargo.toml`, `package.json`, `src-tauri/capabilities/`, Tauri command/event names. Also refuse if it
-   has no `ALLOWED_FILES` list or no acceptance criteria.
+1. Read the contract you were given. Refuse it (report `REFUSED:` and the reason, nothing else) if `ALLOWED_FILES` or
+   the goal touches any of: `unsafe`, `src-tauri/src/native/`, `Cargo.toml`, `package.json`, `src-tauri/capabilities/`.
+   Also refuse if it has no `ALLOWED_FILES` list or no acceptance criteria.
 2. Write the contract text unchanged to a temp file (`mktemp` with a `.md` suffix, via a bash heredoc).
-3. Run, with a 600000 ms Bash timeout:
-   `bash "$CLAUDE_PROJECT_DIR/.claude/scripts/ollama-run.sh" <contract-file>`
+3. Run, with a 600000 ms Bash timeout (add the model as a second argument only when the lead names one):
+   `bash "$CLAUDE_PROJECT_DIR/.claude/scripts/ollama-run.sh" <contract-file> [model]`
    The script runs the model, measures the files it touched, checks scope and runs clippy/tests/tsc. Do not run the
    model any other way.
 4. Report. Copy FILES_TOUCHED, SCOPE_VIOLATIONS and GATE from the script output exactly; they are measured, the model's

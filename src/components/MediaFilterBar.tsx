@@ -1,27 +1,16 @@
-import type { MediaType } from '../lib/media';
 import { t } from '../i18n/en';
 import SortMenu from './ui/SortMenu';
+import type { MediaFilters, SortMode } from '../lib/mediaFilter';
+import { tagStyle } from '../lib/tags';
 
-type SortMode = 'name-asc' | 'name-desc' | 'date-new' | 'date-old';
-
-export interface MediaFilters {
-	type: MediaType | 'all';
-	query: string;
-	sort: SortMode;
-	tags: string[];
-}
-
-export const DEFAULT_FILTERS: MediaFilters = {
-	type: 'all',
-	query: '',
-	sort: 'date-new',
-	tags: [],
-};
+export { DEFAULT_FILTERS } from '../lib/mediaFilter';
+export type { MediaFilters, SortMode } from '../lib/mediaFilter';
 
 interface MediaFilterBarProps {
 	filters: MediaFilters;
 	onChange: (filters: MediaFilters) => void;
 	onOpenTags: () => void;
+	compact?: boolean;
 }
 
 const TYPE_OPTIONS: { value: MediaFilters['type']; label: string }[] = [
@@ -44,27 +33,30 @@ function MediaFilterBar({
 	filters,
 	onChange,
 	onOpenTags,
+	compact,
 }: MediaFilterBarProps) {
 	return (
-		<div className="filter-bar">
+		<div className={compact ? 'filter-bar filter-bar--compact' : 'filter-bar'}>
 			<div className="filter-row">
-				<div className="filter-types">
-					{TYPE_OPTIONS.map((opt) => (
-						<button
-							key={opt.value}
-							type="button"
-							className={
-								filters.type === opt.value
-									? 'filter-type active'
-									: 'filter-type'
-							}
-							aria-pressed={filters.type === opt.value}
-							onClick={() => onChange({ ...filters, type: opt.value })}
-						>
-							{opt.label}
-						</button>
-					))}
-				</div>
+				{!compact && (
+					<div className="filter-types">
+						{TYPE_OPTIONS.map((opt) => (
+							<button
+								key={opt.value}
+								type="button"
+								className={
+									filters.type === opt.value
+										? 'filter-type active'
+										: 'filter-type'
+								}
+								aria-pressed={filters.type === opt.value}
+								onClick={() => onChange({ ...filters, type: opt.value })}
+							>
+								{opt.label}
+							</button>
+						))}
+					</div>
+				)}
 
 				<input
 					className="filter-search"
@@ -100,6 +92,7 @@ function MediaFilterBar({
 							type="button"
 							className="kg-pill active"
 							title={t.tags.removeFilter(tag)}
+							style={tagStyle(tag)}
 							onClick={() =>
 								onChange({
 									...filters,

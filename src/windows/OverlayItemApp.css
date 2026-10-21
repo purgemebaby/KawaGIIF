@@ -5,6 +5,12 @@
 	justify-content: center;
 	width: 100%;
 	height: 100vh;
+}
+
+/* sized to the media box; `flex: none` keeps the shell from shrinking it */
+.overlay-media-frame {
+	position: relative;
+	flex: none;
 	cursor: move;
 }
 
@@ -41,7 +47,7 @@
 	}
 }
 
-.overlay-shell.selected::after {
+.overlay-media-frame.selected::after {
 	content: '';
 	position: absolute;
 	inset: 0;
@@ -104,17 +110,63 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-	.overlay-shell.selected::after {
+	.overlay-media-frame.selected::after {
 		animation: none;
 	}
 }
 
-.resize-handle {
+/* rotate sphere: centred in the 32px margin above the media, below it when flipped (7px = (32 - 18) / 2) */
+.overlay-sphere {
 	position: absolute;
-	right: 0;
-	bottom: 0;
+	left: calc(50% - 9px);
+	top: 7px;
 	width: 18px;
 	height: 18px;
+	border-radius: 50%;
+	background: radial-gradient(
+		circle at 35% 30%,
+		var(--kg-title-keyline) 0 18%,
+		var(--kg-accent-2) 45%,
+		var(--kg-accent) 100%
+	);
+	box-shadow:
+		0 0 6px rgb(var(--kg-accent-rgb) / 0.9),
+		0 0 14px rgb(var(--kg-accent-rgb) / 0.5);
+}
+
+.overlay-sphere.is-flipped {
+	top: auto;
+	bottom: 7px;
+}
+
+.overlay-sphere--rotate {
+	cursor: grab;
+}
+
+.overlay-sphere--rotate:active {
+	cursor: grabbing;
+}
+
+/* resize handles on the media's own corners: they turn with the media */
+.overlay-corner {
+	position: absolute;
+	width: 12px;
+	height: 12px;
+	border-radius: 3px;
+	background: var(--kg-accent);
+	border: 2px solid var(--kg-title-keyline);
+	box-shadow: 0 0 6px rgb(var(--kg-accent-rgb) / 0.8);
+	transform: translate(-50%, -50%);
 	cursor: nwse-resize;
-	background: linear-gradient(135deg, transparent 50%, var(--kg-accent) 50%);
+	z-index: 1;
+}
+
+.overlay-corner--tl {
+	left: 0;
+	top: 0;
+}
+
+.overlay-corner--br {
+	left: 100%;
+	top: 100%;
 }

@@ -3,7 +3,6 @@ mod commands;
 mod config;
 mod error;
 mod library;
-mod monitors;
 #[cfg(windows)]
 mod native;
 mod system_stats;
@@ -27,12 +26,13 @@ use template::EditorState;
 
 
 
-/** Turns click-through off on every overlay. */
+/** Turns click-through off on every overlay and drops the selection, which means nothing outside the editor. */
 fn release_all_click_through(app: &AppHandle) {
     for window in window_manager::overlay_windows(app) {
         window_manager::set_overlay_click_through(&window, false);
         let _ = app.emit_to(EventTarget::webview_window(window.label()), "click-through-changed", false);
     }
+    template::clear_selection(app);
 }
 
 /** The X button hides to the tray; with unsaved editor changes it emits `close-requested` instead so React can ask. */
@@ -74,7 +74,7 @@ pub fn run() {
         )
         .invoke_handler(tauri::generate_handler![
             commands::hide_control_window,
-            commands::resize_overlay,
+            commands::set_overlay_rect,
             commands::get_config,
             commands::set_launch_on_startup,
             commands::set_start_minimized_to_tray,
@@ -91,13 +91,13 @@ pub fn run() {
             library::import_media,
             library::list_media,
             library::update_media_tags,
+            library::update_tags_many,
             library::list_all_tags,
             library::rename_tag,
             library::delete_tag,
             library::delete_media,
             library::get_media_path,
             library::get_file_size,
-            monitors::list_monitors,
             system_stats::get_system_stats,
             #[cfg(debug_assertions)]
             system_stats::debug_memory_breakdown,
@@ -115,8 +115,9 @@ pub fn run() {
             template::get_editor_status,
             template::set_item_opacity,
             template::set_item_playback_rate,
+            template::rotate_overlay,
+            template::reset_placed_media,
             template::spawn_placed_media,
-            template::move_overlay_to_monitor,
             template::count_placed_media,
             template::remove_placed_media,
             template::nudge_overlay,
