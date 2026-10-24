@@ -6,6 +6,7 @@ use uuid::Uuid;
 
 use crate::config::{self, AppConfig};
 use crate::error::{AppError, AppResult};
+use crate::tray;
 use crate::window_manager;
 #[cfg(windows)]
 use crate::native::windows as native;
@@ -74,6 +75,20 @@ pub fn set_confirm_media_delete(enabled: bool) -> AppResult<()> {
 #[tauri::command]
 pub fn set_nav_animations(enabled: bool) -> AppResult<()> {
     config::update(|c| c.nav_animations = enabled)
+}
+
+/// Only saved: the control window reads it from `get_config` and from the `kg-show-mascot` window event.
+#[tauri::command]
+pub fn set_show_mascot(enabled: bool) -> AppResult<()> {
+    config::update(|c| c.show_mascot = enabled)
+}
+
+/// Saves the UI language and relabels the tray; the control window reloads itself to apply it.
+#[tauri::command]
+pub fn set_language(app: AppHandle, language: String) -> AppResult<()> {
+    if !config::LANGUAGES.contains(&language.as_str()) { return Err(AppError::UnsupportedLanguage(language)); }
+    config::update(|c| c.language = language.clone())?;
+    Ok(tray::apply_language(&app, &language)?)
 }
 
 /// Only saved: the overlay pool is created at startup, so the new size applies on the next launch.

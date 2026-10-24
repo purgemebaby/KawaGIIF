@@ -12,7 +12,24 @@
   "app": {
     "windows": [],
     "security": {
-      "csp": null,
+      "csp": {
+        "default-src": "'self'",
+        "script-src": "'self'",
+        "style-src": "'self' 'unsafe-inline'",
+        "img-src": "'self' asset: http://asset.localhost data: blob:",
+        "media-src": "'self' asset: http://asset.localhost blob:",
+        "connect-src": "ipc: http://ipc.localhost asset: http://asset.localhost",
+        "worker-src": "'self' blob:",
+        "font-src": "'self' data:",
+        "object-src": "'none'",
+        "base-uri": "'self'",
+        "form-action": "'none'",
+        "frame-src": "'none'"
+      },
+      "devCsp": null,
+      "dangerousDisableAssetCspModification": [
+        "style-src"
+      ],
       "assetProtocol": {
         "enable": true,
         "scope": [
@@ -29,7 +46,6 @@
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
-      "icons/icon.icns",
       "icons/icon.ico"
     ]
   }

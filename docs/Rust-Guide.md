@@ -26,9 +26,9 @@ in this order:
    A `#[tauri::command]` that isn't here doesn't exist in the frontend.
 
 4. **`setup()`** runs once, on the main thread, before the event loop:
-   1. `window_manager::create_control_window` (hidden), at a fixed 960×640 logical px (`CONTROL_BASE`), centred. Sizing it to the monitor cost ~30 % fps in screen transitions. It cannot grow past 1630×1013 logical px (`MAX_CONTROL`, fewer pixels composited per frame), and right after it is built the saved `ui_zoom` is applied with the webview zoom (`Webview::set_zoom`, WebView2's ZoomFactor).
+   1. `window_manager::create_control_window` (hidden), at a fixed 960×640 logical px (`CONTROL_BASE`), centred. Sizing it to the monitor cost ~30 % fps in screen transitions. It cannot grow past 1700×1056 logical px (`MAX_CONTROL`, fewer pixels composited per frame); `fit_control_to_monitor` also caps its min/max size to the work area of the monitor it is on (at startup and on every `Moved` that lands on another monitor) and shrinks it back onto a screen too small for it, such as a TV. Then right after it is built the saved `ui_zoom` is applied with the webview zoom (`Webview::set_zoom`, WebView2's ZoomFactor).
    2. `window_manager::create_overlay_pool`: Creates **all** overlay windows (`OV-SLOT-0..N`), hidden.
-   3. `template::load_saved_template_on_boot`: Reads `template.json` into the editor without showing it. `show_saved_overlays` places the animations click-through once the loading screen ends (`show_boot_overlays`), right away when starting in the tray, or after 15 s as a fallback.
+   3. `template::load_saved_template_on_boot`: Reads `template.json` into the editor without showing it. `show_saved_overlays` places the animations click-through once the loading screen ends (`show_boot_overlays`), right away when starting in the tray, or after 15 s as a fallback. Items whose media file is gone from `media/` (deleted by hand) are skipped and stay saved; `list_media` flags them `missing`, so the Library shows a "File missing" badge.
    4. Registers the `Ctrl+Alt+Esc` shortcut.
    5. `tray::setup`
    6. `window_manager::spawn_topmost_keeper` background thread, every 2 s.
@@ -226,12 +226,16 @@ from the any-foreground hook (a click on the control window raises it).
 | `set_font_scale` | `scale: f32` (clamped 0.85 to 1.3) | `AppResult<()>` |
 | `set_ui_zoom` | `zoom: f32` (caller window) | `AppResult<f32>` (clamps to 0.7–1.5, saves `ui_zoom` in config.toml, applies the webview zoom, returns the applied value) |
 | `set_nav_animations` | `enabled: bool` | `AppResult<()>` (saves `nav_animations`: the ring menu, the screen pan and the editor burst; off = instant switches) |
+| `set_show_mascot` | `enabled: bool` | `AppResult<()>` (saves `show_mascot`: the chibi mascot in Home, Settings, the Editor and the empty Library) |
+| `set_language` | `language: String` (`"en"` or `"es"`, `config::LANGUAGES`) | `AppResult<()>` (saves the UI language and relabels the tray menu; the control window reloads itself to apply the rest of the UI) |
 
 **library.rs**
 | Command | Args | Returns |
 |---|---|---|
-| `import_media` | `paths: Vec<PathBuf>` (React sends `{ paths }`) | `AppResult<Vec<MediaItem>>` |
-| `list_media` | — | `Vec<MediaItem>` |
+| `find_reimports` | `paths: Vec<PathBuf>` | `Vec<String>` (the given paths whose file is already in the library, matched on `MediaItem.source_path`) |
+| `import_media` | `paths: Vec<PathBuf>, replace_existing: bool` (React sends `{ paths, replaceExisting }`) | `AppResult<Vec<MediaItem>>` (new and replaced items; a path already in the library is replaced when `replace_existing` (same id, tags, name and placements; new stored file, old one deleted), else skipped; a name already used becomes `name (2).ext`) |
+| `rename_media` | `id: Uuid, name: String` | `AppResult<()>` (trims, collapses spaces, max 120 chars, empty is an error; sets `original_file_name` only, never touches files) |
+| `list_media` | — | `Vec<MediaItem>` (`missing: true` when the file is gone; never stored) |
 | `update_media_tags` | `id: Uuid, tags: Vec<String>` | `AppResult<()>` |
 | `update_tags_many` | `ids: Vec<Uuid>, add: Vec<String>, remove: Vec<String>` | `AppResult<usize>` (items changed; one save, one `library-changed`) |
 | `list_all_tags` | — | `Vec<TagCount>` |
@@ -240,6 +244,8 @@ from the any-foreground hook (a click on the control window raises it).
 | `delete_media` | `ids: Vec<Uuid>, force: bool` | `AppResult<usize>` (files deleted) |
 | `get_media_path` | `id: Uuid` | `AppResult<String>` |
 | `get_file_size` | `path: PathBuf` | `AppResult<u64>` |
+
+`MediaItem.original_file_name` is the editable display name (kept under that name to avoid a migration). `MediaItem.source_path` is the canonicalized, lowercased path of the imported file (`Option`, absent in old indexes), used to detect a re-import.
 
 **template.rs**
 | Command | Args | Returns |

@@ -45,12 +45,17 @@ fn process_family(sys: &System) -> HashSet<Pid> {
     loop {
         let before: usize = family.len();
         for (pid, process) in sys.processes() {
-            if process.parent().is_some_and(|parent| family.contains(&parent)) {
+            if process.parent().is_some_and(|parent| family.contains(&parent) && is_child_of(sys, process, parent)) {
                 family.insert(*pid);
             }
         }
         if family.len() == before { return family; }
     }
+}
+
+/** Windows keeps a dead parent's PID and reuses it, so a process older than its "parent" is not its child (wininit once pulled in all of Windows' services). */
+fn is_child_of(sys: &System, process: &sysinfo::Process, parent: Pid) -> bool {
+    sys.process(parent).is_some_and(|p| process.start_time() >= p.start_time())
 }
 
 /** An estimated way to calculate RAM usage of the app (including spawned windows*/

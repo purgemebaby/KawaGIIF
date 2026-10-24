@@ -371,16 +371,27 @@ pub fn spawn_boot_fallback(app: &AppHandle) {
 
 /**
  * Places the saved template click-through (live wallpaper without opening the editor), once per run. Running out of
- * slots must not fail: the pool size is a setting. Extra items stay saved.
+ * slots must not fail: the pool size is a setting. Extra items stay saved, and so do items whose media file was
+ * deleted from the media folder by hand.
  */
 pub fn show_saved_overlays(app: &AppHandle) {
     if BOOT_SHOWN.swap(true, Ordering::SeqCst) { return; }
 
     let state = app.state::<EditorState>();
     let tpl: Template = state.lock().saved.clone();
+
+    // placed items whose media still exists on disk, read under the library lock alone (never with the editor lock)
+    let (placeable, missing): (Vec<&PlacedMedia>, Vec<&PlacedMedia>) = {
+        let lib_state = app.state::<LibraryState>();
+        let lib = lib_state.lock();
+        tpl.items.iter().partition(|item| lib.has_file(&item.media_id))
+    };
+    let missing = missing.len();
+    if missing > 0 { eprintln!("[kawagiif] {missing} saved animation(s) skipped: their media file is missing."); }
+
     release_all_slots(app, &state);
 
-    let skipped = tpl.items.iter().filter(|item| place_item_in_slot(app, &state, item, false, Arrival::Pop).is_err()).count();
+    let skipped = placeable.into_iter().filter(|item| place_item_in_slot(app, &state, item, false, Arrival::Pop).is_err()).count();
     if skipped > 0 {
         eprintln!(
             "[kawagiif] {skipped} saved animation(s) were not placed: the template has {} items and the pool holds {}. \

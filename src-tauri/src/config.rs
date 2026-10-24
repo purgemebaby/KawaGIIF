@@ -18,6 +18,11 @@ fn default_font_scale() -> f32 { 1.0 }
 
 fn default_ui_zoom() -> f32 { 1.0 }
 
+/** UI languages the app accepts; the first one is the default. */
+pub const LANGUAGES: [&str; 2] = ["en", "es"];
+
+fn default_language() -> String { LANGUAGES[0].to_owned() }
+
 fn config_path() -> PathBuf { data_dir().join("config.toml") }
 
 /** `%LOCALAPPDATA%\KawaGiif*/
@@ -65,7 +70,7 @@ pub struct AppConfig {
     pub confirm_media_delete: bool,
     #[serde(default = "default_overlay_pool_size")]
     pub overlay_pool_size: u32,
-    /// File name (inside the data folder) of the custom loading-screen image; `None` means the default ball.
+    /// File name (inside the data folder) of the custom loading-screen image; `None` means the default mascot head.
     #[serde(default)]
     pub loading_indicator: Option<String>,
     /// Font family of the UI text; `None` means the system default.
@@ -80,6 +85,12 @@ pub struct AppConfig {
     /// Whether the ring menu, section sliding and editor opening animate; off switches screens instantly.
     #[serde(default = "default_true")]
     pub nav_animations: bool,
+    /// Whether the chibi mascot appears in Home, Settings, the Editor and the empty Library.
+    #[serde(default = "default_true")]
+    pub show_mascot: bool,
+    /// UI language of the app ("en" or "es").
+    #[serde(default = "default_language")]
+    pub language: String,
 }
 impl Default for AppConfig {
     fn default() -> Self {
@@ -93,6 +104,8 @@ impl Default for AppConfig {
             font_scale: default_font_scale(),
             ui_zoom: default_ui_zoom(),
             nav_animations: true,
+            show_mascot: true,
+            language: default_language(),
         }
     }
 }

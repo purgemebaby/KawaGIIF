@@ -20,7 +20,10 @@ fn notify_library_changed(app: &AppHandle) {
     let _ = app.emit("library-changed", ());
 }
 
-fn clean_tag(raw: &str) -> Option<String> {
+const MAX_NAME_CHARS: usize = 120;
+
+/** Trims and collapses whitespace; `None` when nothing is left.*/
+fn collapse_spaces(raw: &str) -> Option<String> {
     let cleaned = raw
         .split_whitespace()
         .collect::<Vec<_>>().join(" ");
@@ -33,7 +36,7 @@ fn normalize_tags(raw: Vec<String>, known: &HashMap<String, String>) -> Vec<Stri
     let mut out: Vec<String> = Vec::with_capacity(raw.len());               //output
 
     for tag in raw {
-        let Some(cleaned) = clean_tag(&tag) else { continue; };
+        let Some(cleaned) = collapse_spaces(&tag) else { continue; };
         let key = cleaned.to_lowercase();
 
         if seen.contains(&key) { continue; }
@@ -83,24 +86,25 @@ pub struct MediaItem {
 
     #[serde(default)]
     pub tags: Vec<String>,
+
+    // Normalised path of the file this was imported from, to spot a re-import
+    #[serde(default)]
+    pub source_path: Option<String>,
+
+    // set by list_media when the file is gone from the media folder; never stored as true
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub missing: bool,
 }
 impl MediaItem {
     //Copies `source` into the media folder and builds its `MediaItem`.
     fn from_source(source: &Path) -> AppResult<Option<Self>> {
-        let ext: &str = source.extension()
-            .and_then(|e| e.to_str())
-            .unwrap_or_default();
-
         // if media type isn't supported, it will return nothing
-        let Some(media_type) = MediaType::from_extension(ext) else { return Ok(None); };
+        let Some(media_type) = media_type_of(source) else { return Ok(None); };
 
         let id = Uuid::new_v4();
-        let stored_file_name = format!("{id}.{}", media_type.extension());
-        std::fs::copy(source, LibraryIndex::media_dir().join(&stored_file_name))?;
-
         Ok(Some(Self {
             id,
-            stored_file_name,
+            stored_file_name: copy_to_media(source, id, media_type)?,
             original_file_name: source
                 .file_name().and_then(|n| n.to_str())
                 .unwrap_or("file")
@@ -108,8 +112,44 @@ impl MediaItem {
             media_type,
             imported_at_unix: now_unix(),
             tags: Vec::new(),
+            source_path: Some(source_key(source)),
+            missing: false,
         }))
     }
+}
+
+fn media_type_of(source: &Path) -> Option<MediaType> {
+    MediaType::from_extension(source.extension().and_then(|e| e.to_str()).unwrap_or_default())
+}
+
+/** Copies `source` into the media folder as `<id>.<ext>` and returns the stored file name.*/
+fn copy_to_media(source: &Path, id: Uuid, media_type: MediaType) -> AppResult<String> {
+    let stored_file_name = format!("{id}.{}", media_type.extension());
+    std::fs::copy(source, LibraryIndex::media_dir().join(&stored_file_name))?;
+    Ok(stored_file_name)
+}
+
+/** Lowercased absolute path, so the same file is recognised again (Windows paths ignore case).*/
+fn source_key(source: &Path) -> String {
+    std::fs::canonicalize(source)
+        .unwrap_or_else(|_| source.to_path_buf())
+        .to_string_lossy().to_lowercase()
+}
+
+/** Returns `name`, or `stem (n).ext` with the smallest free n >= 2 when it is taken (case-insensitive), and marks it taken.*/
+fn claim_unique_name(name: &str, taken: &mut HashSet<String>) -> String {
+    let path = Path::new(name);
+    let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or(name);
+    let ext = path.extension().and_then(|e| e.to_str()).map(|e| format!(".{e}")).unwrap_or_default();
+
+    let mut candidate = name.to_owned();
+    let mut n = 2;
+    while taken.contains(&candidate.to_lowercase()) {
+        candidate = format!("{stem} ({n}){ext}");
+        n += 1;
+    }
+    taken.insert(candidate.to_lowercase());
+    candidate
 }
 
 
@@ -134,6 +174,15 @@ impl LibraryIndex {
         known
     }
 
+    // Item id of every known source path.
+    fn ids_by_source(&self) -> HashMap<String, Uuid> {
+        self.items.iter().filter_map(|item| Some((item.source_path.clone()?, item.id))).collect()
+    }
+    // Every display name in use, lowercase.
+    fn taken_names(&self) -> HashSet<String> {
+        self.items.iter().map(|item| item.original_file_name.to_lowercase()).collect()
+    }
+
     //Returns a reference to a media file indexed using its UUID.
     pub fn find(&self, id: &Uuid) -> Option<&MediaItem> {
         self.items.iter().find(|item| item.id == *id)
@@ -142,6 +191,11 @@ impl LibraryIndex {
     fn find_mut(&mut self, id: &Uuid) -> AppResult<&mut MediaItem> {
         self.items.iter_mut().find(|item| item.id == *id).ok_or(AppError::MediaNotFound(*id))
     }
+
+    /** Whether `item`'s file is still in the media folder. */
+    fn file_exists(item: &MediaItem) -> bool { Self::media_dir().join(&item.stored_file_name).is_file() }
+    /** Whether media `id` exists in the index and its file is still in the media folder. */
+    pub fn has_file(&self, id: &Uuid) -> bool { self.find(id).is_some_and(Self::file_exists) }
 
     //Serialize entire index as a JSON and write it
     fn save(&self) -> AppResult<()> {
@@ -257,7 +311,7 @@ pub fn list_all_tags(library: State<LibraryState>) -> Vec<TagCount> {
 /// Renames a tag across the whole library and returns how many items changed.
 #[tauri::command]
 pub fn rename_tag(app: AppHandle, library: State<LibraryState>, from: String, to: String) -> AppResult<usize> {
-    let new_name = clean_tag(&to).ok_or(AppError::EmptyTag)?;
+    let new_name = collapse_spaces(&to).ok_or(AppError::EmptyTag)?;
     let from_key = from.to_lowercase();
     // the new spelling must win over any existing one, so renaming normalizes without the known spellings
     let no_known = HashMap::new();
@@ -320,10 +374,12 @@ pub fn delete_media(app: AppHandle, lib: State<LibraryState>,
     Ok(doomed.len())
 }
 
-///List all media saved at the moment in the `LibraryIndex`
+///List all media saved at the moment in the `LibraryIndex`, flagging each whose file was deleted from the media folder.
 #[tauri::command]
 pub fn list_media(library: State<LibraryState>) -> Vec<MediaItem> {
-    library.lock().items.clone()
+    let mut items = library.lock().items.clone();
+    for item in &mut items { item.missing = !LibraryIndex::file_exists(item); }
+    items
 }
 
 ///Absolute path of a media file, which the frontend turns into an `asset://` URL with `convertFileSrc`.
@@ -334,26 +390,96 @@ pub fn get_media_path(library: State<LibraryState>, id: Uuid) -> AppResult<Strin
     Ok(LibraryIndex::media_dir().join(&item.stored_file_name).to_string_lossy().into_owned())
 }
 
-///Import media file to the `LibraryIndex` (accept more than one file)
+/// Paths (as given) whose file is already in the library, so the UI can ask before replacing.
 #[tauri::command]
-pub fn import_media(app: AppHandle, lib: State<LibraryState>, paths: Vec<PathBuf>,) -> AppResult<Vec<MediaItem>> {
+pub fn find_reimports(lib: State<LibraryState>, paths: Vec<PathBuf>) -> Vec<String> {
+    let known = lib.lock().ids_by_source();
+    paths.iter()
+        .filter(|path| known.contains_key(&source_key(path)))
+        .map(|path| path.to_string_lossy().into_owned())
+        .collect()
+}
+
+///Import media files to the `LibraryIndex`. A file imported before is replaced when `replace_existing`, else skipped.
+///Returns the new and the replaced items.
+#[tauri::command]
+pub fn import_media(app: AppHandle, lib: State<LibraryState>, paths: Vec<PathBuf>, replace_existing: bool) -> AppResult<Vec<MediaItem>> {
     std::fs::create_dir_all(LibraryIndex::media_dir())?;
-    let mut imported = Vec::with_capacity(paths.len());
+    let (known, mut taken) = {
+        let index = lib.lock();
+        (index.ids_by_source(), index.taken_names())
+    };
+
+    let mut added: Vec<MediaItem> = Vec::with_capacity(paths.len());
+    let mut replacements: Vec<(Uuid, String, MediaType)> = Vec::new();
+    let mut seen: HashSet<String> = HashSet::with_capacity(paths.len());
     for source in &paths {
-        if let Some(item) = MediaItem::from_source(source)? {
-            imported.push(item);
-        }
+        let key = source_key(source);
+        if !seen.insert(key.clone()) { continue; }
+
+        let Some(&id) = known.get(&key) else {
+            if let Some(mut item) = MediaItem::from_source(source)? {
+                item.original_file_name = claim_unique_name(&item.original_file_name, &mut taken);
+                added.push(item);
+            }
+            continue;
+        };
+        if !replace_existing { continue; }
+        let Some(media_type) = media_type_of(source) else { continue; };
+        replacements.push((id, copy_to_media(source, Uuid::new_v4(), media_type)?, media_type));
     }
 
     let mut index = lib.lock();
-    index.items.extend(imported.iter().cloned());
+    let mut changed: Vec<MediaItem> = Vec::with_capacity(added.len() + replacements.len());
+    let mut stale: Vec<String> = Vec::with_capacity(replacements.len());
+    for (id, stored_file_name, media_type) in replacements {
+        // the item may have been deleted meanwhile: drop the fresh copy then
+        let Ok(item) = index.find_mut(&id) else {
+            stale.push(stored_file_name);
+            continue;
+        };
+        stale.push(std::mem::replace(&mut item.stored_file_name, stored_file_name));
+        item.media_type = media_type;
+        changed.push(item.clone());
+    }
+    changed.extend(added.iter().cloned());
+    index.items.extend(added);
+    index.save()?;
+    drop(index);
+
+    // only once the index no longer points at them, so a failed save never leaves an item without its file
+    for name in stale { let _ = std::fs::remove_file(LibraryIndex::media_dir().join(name)); }
+    notify_library_changed(&app);
+    Ok(changed)
+}
+
+/// Changes the name shown for a media item. The file on disk is never renamed.
+#[tauri::command]
+pub fn rename_media(app: AppHandle, lib: State<LibraryState>, id: Uuid, name: String) -> AppResult<()> {
+    let name = collapse_spaces(&name).ok_or(AppError::EmptyName)?;
+    let mut index = lib.lock();
+    index.find_mut(&id)?.original_file_name = name.chars().take(MAX_NAME_CHARS).collect();
     index.save()?;
     drop(index);
 
     notify_library_changed(&app);
-    Ok(imported)
+    Ok(())
 }
 
 ///Obtains media file's size
 #[tauri::command]
 pub fn get_file_size(path: PathBuf) -> AppResult<u64> {Ok(std::fs::metadata(path)?.len())}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn duplicate_names_get_the_smallest_free_number() {
+        let mut taken: HashSet<String> = ["cat.gif".into(), "cat (2).gif".into()].into();
+        assert_eq!(claim_unique_name("Cat.gif", &mut taken), "Cat (3).gif");
+        assert_eq!(claim_unique_name("Cat.gif", &mut taken), "Cat (4).gif");
+        assert_eq!(claim_unique_name("dog.gif", &mut taken), "dog.gif");
+    }
+}

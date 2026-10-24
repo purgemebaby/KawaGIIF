@@ -38,6 +38,12 @@ pub enum AppError {
     #[error("New tag name cannot be empty")]
     EmptyTag,
 
+    #[error("Name cannot be empty")]
+    EmptyName,
+
+    #[error("Unsupported UI language {0}")]
+    UnsupportedLanguage(String),
+
     #[error("All {0} animation slots are in use")]
     PoolFull(usize),
 

@@ -1,7 +1,7 @@
 /* Window manager. Creates the control window and the fixed pool of transparent overlay windows at startup,
 and moves, shows, hides and restyles the overlays when animations are placed or removed. */
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::OnceLock;
+use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 use tauri::webview::Color;
 use tauri::{
@@ -18,8 +18,13 @@ const OV_LABEL: &str = "OV-SLOT-";
 const KEEPER_INTERVAL: Duration = Duration::from_secs(2);
 const CARRY_TICK: Duration = Duration::from_millis(8); //about 120 moves per second while an overlay is carried
 const CONTROL_BASE: (f64, f64) = (960.0, 640.0);
-const MAX_CONTROL: (f64, f64) = (1630.0, 1013.0); //the owner's preferred largest size; bigger only spreads the panels out
-//every webview shares one WebView2 environment, so they must all get the same args
+const MIN_CONTROL: (f64, f64) = (720.0, 480.0);
+/** (x, y, width, height, scale factor bits). */
+type MonitorKey = (i32, i32, u32, u32, u64);
+
+static FITTED_AREA: Mutex<Option<MonitorKey>> = Mutex::new(None);
+const MAX_CONTROL: (f64, f64) = (1700.0, 1056.0);
+
 const BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --process-per-site --enable-gpu-rasterization --enable-zero-copy --ignore-gpu-blocklist";
 
 static CARRIED_SLOT: AtomicUsize = AtomicUsize::new(usize::MAX); //the overlay hanging from the cursor
@@ -210,7 +215,7 @@ pub fn create_control_window(app: &AppHandle) -> tauri::Result<WebviewWindow> {
         .title("KawaGiif")
         .inner_size(CONTROL_BASE.0, CONTROL_BASE.1)
         .center()
-        .min_inner_size(720.0, 480.0)
+        .min_inner_size(MIN_CONTROL.0, MIN_CONTROL.1)
         .max_inner_size(MAX_CONTROL.0, MAX_CONTROL.1)
         .maximizable(false) //the owner keeps it at a chosen size; resizing by the edges still works
         .decorations(true)
@@ -220,7 +225,40 @@ pub fn create_control_window(app: &AppHandle) -> tauri::Result<WebviewWindow> {
         .build()?;
     // a failed zoom must not stop startup: the window just opens at 100 %
     let _ = window.set_zoom(f64::from(crate::config::load().ui_zoom));
+    fit_control_to_monitor(&window);
     Ok(window)
+}
+
+/**
+ * Caps the control window's size limits to the work area of the monitor it is on (a small TV can't hold `MAX_CONTROL`),
+ * and shrinks it back onto that monitor when it no longer fits. Called at startup and whenever the window moves.
+ */
+pub fn fit_control_to_monitor(window: &WebviewWindow) {
+    let Ok(Some(monitor)) = window.current_monitor() else { return; };
+    let area = monitor.work_area();
+    let scale = monitor.scale_factor();
+    // a drag fires dozens of `Moved` per second, and every new size limit makes tao re-apply the size
+    let key = (area.position.x, area.position.y, area.size.width, area.size.height, scale.to_bits());
+    let mut fitted = FITTED_AREA.lock().unwrap_or_else(|e| e.into_inner());
+    if *fitted == Some(key) { return; }
+    *fitted = Some(key);
+    drop(fitted);
+
+    let (Ok(outer), Ok(inner), Ok(pos)) = (window.outer_size(), window.inner_size(), window.outer_position()) else { return; };
+    // the title bar and borders have to fit too
+    let (frame_w, frame_h) = (outer.width.saturating_sub(inner.width), outer.height.saturating_sub(inner.height));
+    let room_w = area.size.width.saturating_sub(frame_w);
+    let room_h = area.size.height.saturating_sub(frame_h);
+    let cap = |logical: f64, room: u32| ((logical * scale).round() as u32).min(room);
+    let max = PhysicalSize::new(cap(MAX_CONTROL.0, room_w), cap(MAX_CONTROL.1, room_h));
+    let _ = window.set_min_size(Some(PhysicalSize::new(cap(MIN_CONTROL.0, room_w), cap(MIN_CONTROL.1, room_h))));
+    let _ = window.set_max_size(Some(max));
+    if inner.width <= max.width && inner.height <= max.height { return; }
+
+    let (width, height) = (inner.width.min(max.width), inner.height.min(max.height));
+    let last_x = area.position.x + (room_w - width) as i32;
+    let last_y = area.position.y + (room_h - height) as i32;
+    let _ = place(window, pos.x.min(last_x).max(area.position.x), pos.y.min(last_y).max(area.position.y), width, height);
 }
 
 /**

@@ -80,6 +80,8 @@ pub fn run() {
             commands::set_start_minimized_to_tray,
             commands::set_confirm_media_delete,
             commands::set_nav_animations,
+            commands::set_show_mascot,
+            commands::set_language,
             commands::set_overlay_pool_size,
             commands::set_loading_indicator,
             commands::reset_loading_indicator,
@@ -89,6 +91,8 @@ pub fn run() {
             commands::set_font_scale,
             commands::set_ui_zoom,
             library::import_media,
+            library::find_reimports,
+            library::rename_media,
             library::list_media,
             library::update_media_tags,
             library::update_tags_many,
@@ -140,6 +144,8 @@ pub fn run() {
                     api.prevent_close();
                     handle_control_close(&control_for_close);
                 }
+                // dragged onto another monitor (a TV, say): it may now be bigger than that screen
+                WindowEvent::Moved(_) => window_manager::fit_control_to_monitor(&control_for_close),
                 // minimize/restore (a resize) and focus changes decide whether editing is live
                 WindowEvent::Resized(_) | WindowEvent::Focused(_) => template::refresh_edit_activity_soon(&app_for_events),
                 _ => {}
