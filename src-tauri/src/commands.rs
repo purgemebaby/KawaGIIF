@@ -97,6 +97,15 @@ pub fn set_overlay_pool_size(count: u32) -> AppResult<()> {
     config::update(|c| c.overlay_pool_size = count.clamp(1, window_manager::MAX_POOL))
 }
 
+/// Opens the data folder (config, library, media) in Explorer; creates it first if it is missing.
+#[tauri::command]
+pub fn open_data_folder() -> AppResult<()> {
+    std::fs::create_dir_all(config::data_dir())?;
+    // Explorer exits with code 1 even on success, so never wait on it or check its status.
+    std::process::Command::new("explorer").arg(config::data_dir()).spawn()?;
+    Ok(())
+}
+
 
 
 // Loading indicator commands

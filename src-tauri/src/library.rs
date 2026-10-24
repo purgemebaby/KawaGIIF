@@ -1,6 +1,7 @@
 /**Media library. Imports files into the app's own `media` folder, keeps the index of what is there (`library_index.json`) and manages each item's tags.*/
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, MutexGuard, PoisonError};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -49,7 +50,7 @@ fn normalize_tags(raw: Vec<String>, known: &HashMap<String, String>) -> Vec<Stri
 
 
 /**Define extensions accepted by the app*/
-#[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Debug)]
 #[serde(rename_all = "lowercase")]
 pub enum MediaType {
     Gif, Mp4,
@@ -106,7 +107,7 @@ impl MediaItem {
             id,
             stored_file_name: copy_to_media(source, id, media_type)?,
             original_file_name: source
-                .file_name().and_then(|n| n.to_str())
+                .file_stem().and_then(|n| n.to_str())
                 .unwrap_or("file")
                 .to_owned(),
             media_type,
@@ -120,6 +121,32 @@ impl MediaItem {
 
 fn media_type_of(source: &Path) -> Option<MediaType> {
     MediaType::from_extension(source.extension().and_then(|e| e.to_str()).unwrap_or_default())
+}
+
+/** Reads up to 512 bytes of `path` and sniffs its real media type from their content.*/
+fn sniff_type(path: &Path) -> Option<MediaType> {
+    let mut buf = [0u8; 512];
+    let n = std::fs::File::open(path).ok()?.read(&mut buf).ok()?;
+    sniff_bytes(&buf[..n])
+}
+
+/** Detects the media type from raw bytes: signatures for PNG/JPEG/GIF/WEBP/MP4, `<svg` for SVG.*/
+fn sniff_bytes(bytes: &[u8]) -> Option<MediaType> {
+    if bytes.starts_with(&[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]) { return Some(MediaType::Png); }
+    if bytes.starts_with(&[0xFF, 0xD8, 0xFF]) { return Some(MediaType::Jpeg); }
+    if bytes.starts_with(b"GIF87a") || bytes.starts_with(b"GIF89a") { return Some(MediaType::Gif); }
+    if bytes.starts_with(b"RIFF") && bytes.get(8..12) == Some(b"WEBP") { return Some(MediaType::Webp); }
+    if bytes.get(4..8) == Some(b"ftyp") { return Some(MediaType::Mp4); }
+    looks_like_svg(bytes).then_some(MediaType::Svg)
+}
+
+/** Whether `bytes` hold an SVG document (a `<svg` tag after optional BOM/whitespace).*/
+fn looks_like_svg(bytes: &[u8]) -> bool {
+    String::from_utf8_lossy(bytes)
+        .trim_start_matches('\u{feff}')
+        .trim_start()
+        .to_ascii_lowercase()
+        .contains("<svg")
 }
 
 /** Copies `source` into the media folder as `<id>.<ext>` and returns the stored file name.*/
@@ -136,20 +163,25 @@ fn source_key(source: &Path) -> String {
         .to_string_lossy().to_lowercase()
 }
 
-/** Returns `name`, or `stem (n).ext` with the smallest free n >= 2 when it is taken (case-insensitive), and marks it taken.*/
+/** Returns `name`, or `name (n)` with the smallest free n >= 2 when it is taken (case-insensitive), and marks it taken.*/
 fn claim_unique_name(name: &str, taken: &mut HashSet<String>) -> String {
-    let path = Path::new(name);
-    let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or(name);
-    let ext = path.extension().and_then(|e| e.to_str()).map(|e| format!(".{e}")).unwrap_or_default();
-
     let mut candidate = name.to_owned();
     let mut n = 2;
     while taken.contains(&candidate.to_lowercase()) {
-        candidate = format!("{stem} ({n}){ext}");
+        candidate = format!("{name} ({n})");
         n += 1;
     }
     taken.insert(candidate.to_lowercase());
     candidate
+}
+
+/** Strips a trailing known extension from a legacy display name (case-insensitive); `None` otherwise.*/
+fn strip_known_extension(name: &str) -> Option<&str> {
+    const EXTS: [&str; 7] = ["gif", "mp4", "jpg", "jpeg", "png", "webp", "svg"];
+    let lower = name.to_lowercase();
+    EXTS.iter().find_map(|ext| {
+        lower.strip_suffix(&format!(".{ext}")).map(|stem| &name[..stem.len()])
+    })
 }
 
 
@@ -201,7 +233,7 @@ impl LibraryIndex {
     fn save(&self) -> AppResult<()> {
         config::write_atomic(&Self::index_path(), &serde_json::to_vec_pretty(self)?)
     }
-    //Loads the index and normalizes its tags.
+    //Loads the index, normalizes its tags and strips legacy extensions from display names.
     fn load() -> Self {
         let mut index: Self = std::fs::read_to_string(Self::index_path())
             .ok()
@@ -212,6 +244,18 @@ impl LibraryIndex {
         for item in &mut index.items {
             item.tags = normalize_tags(std::mem::take(&mut item.tags), &known);
         }
+
+        // Migrate names that still carry their extension, re-claiming collisions.
+        let mut taken = index.taken_names();
+        let mut changed = false;
+        for item in &mut index.items {
+            let Some(stem) = strip_known_extension(&item.original_file_name) else { continue; };
+            let stem = stem.to_owned();
+            taken.remove(&item.original_file_name.to_lowercase());
+            item.original_file_name = claim_unique_name(&stem, &mut taken);
+            changed = true;
+        }
+        if changed { let _ = index.save(); }
         index
     }
 }
@@ -233,6 +277,13 @@ impl LibraryState {
 pub struct TagCount {
     pub name: String,
     pub count: usize,
+}
+
+/** What an import did: the items added or replaced, and the file names whose content was rejected.*/
+#[derive(Serialize)]
+pub struct ImportResult {
+    pub items: Vec<MediaItem>,
+    pub rejected: Vec<String>,
 }
 
 
@@ -401,9 +452,9 @@ pub fn find_reimports(lib: State<LibraryState>, paths: Vec<PathBuf>) -> Vec<Stri
 }
 
 ///Import media files to the `LibraryIndex`. A file imported before is replaced when `replace_existing`, else skipped.
-///Returns the new and the replaced items.
+///Returns the new and the replaced items, plus the file names whose content did not match their extension.
 #[tauri::command]
-pub fn import_media(app: AppHandle, lib: State<LibraryState>, paths: Vec<PathBuf>, replace_existing: bool) -> AppResult<Vec<MediaItem>> {
+pub fn import_media(app: AppHandle, lib: State<LibraryState>, paths: Vec<PathBuf>, replace_existing: bool) -> AppResult<ImportResult> {
     std::fs::create_dir_all(LibraryIndex::media_dir())?;
     let (known, mut taken) = {
         let index = lib.lock();
@@ -412,10 +463,19 @@ pub fn import_media(app: AppHandle, lib: State<LibraryState>, paths: Vec<PathBuf
 
     let mut added: Vec<MediaItem> = Vec::with_capacity(paths.len());
     let mut replacements: Vec<(Uuid, String, MediaType)> = Vec::new();
+    let mut rejected: Vec<String> = Vec::new();
     let mut seen: HashSet<String> = HashSet::with_capacity(paths.len());
     for source in &paths {
         let key = source_key(source);
         if !seen.insert(key.clone()) { continue; }
+
+        // Reject files whose content does not match their extension; unsupported extensions skip silently.
+        if let Some(ext_type) = media_type_of(source) {
+            if sniff_type(source) != Some(ext_type) {
+                rejected.push(source.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| source.to_string_lossy().into_owned()));
+                continue;
+            }
+        }
 
         let Some(&id) = known.get(&key) else {
             if let Some(mut item) = MediaItem::from_source(source)? {
@@ -450,7 +510,7 @@ pub fn import_media(app: AppHandle, lib: State<LibraryState>, paths: Vec<PathBuf
     // only once the index no longer points at them, so a failed save never leaves an item without its file
     for name in stale { let _ = std::fs::remove_file(LibraryIndex::media_dir().join(name)); }
     notify_library_changed(&app);
-    Ok(changed)
+    Ok(ImportResult { items: changed, rejected })
 }
 
 /// Changes the name shown for a media item. The file on disk is never renamed.
@@ -477,9 +537,37 @@ mod tests {
 
     #[test]
     fn duplicate_names_get_the_smallest_free_number() {
-        let mut taken: HashSet<String> = ["cat.gif".into(), "cat (2).gif".into()].into();
-        assert_eq!(claim_unique_name("Cat.gif", &mut taken), "Cat (3).gif");
-        assert_eq!(claim_unique_name("Cat.gif", &mut taken), "Cat (4).gif");
-        assert_eq!(claim_unique_name("dog.gif", &mut taken), "dog.gif");
+        let mut taken: HashSet<String> = ["cat".into(), "cat (2)".into()].into();
+        assert_eq!(claim_unique_name("Cat", &mut taken), "Cat (3)");
+        assert_eq!(claim_unique_name("Cat", &mut taken), "Cat (4)");
+        assert_eq!(claim_unique_name("dog", &mut taken), "dog");
+    }
+
+    #[test]
+    fn stem_with_dots_stays_whole() {
+        let mut taken: HashSet<String> = HashSet::new();
+        assert_eq!(claim_unique_name("my.photo", &mut taken), "my.photo");
+        assert_eq!(claim_unique_name("my.photo", &mut taken), "my.photo (2)");
+    }
+
+    #[test]
+    fn sniffs_each_format() {
+        assert_eq!(sniff_bytes(&[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]), Some(MediaType::Png));
+        assert_eq!(sniff_bytes(&[0xFF, 0xD8, 0xFF, 0xE0]), Some(MediaType::Jpeg));
+        assert_eq!(sniff_bytes(b"GIF89a...."), Some(MediaType::Gif));
+        assert_eq!(sniff_bytes(b"GIF87a...."), Some(MediaType::Gif));
+        assert_eq!(sniff_bytes(b"RIFF\x00\x00\x00\x00WEBPVP8 "), Some(MediaType::Webp));
+        assert_eq!(sniff_bytes(b"\x00\x00\x00\x18ftypisom"), Some(MediaType::Mp4));
+        assert_eq!(sniff_bytes(b"<svg xmlns=\"http://www.w3.org/2000/svg\"></svg>"), Some(MediaType::Svg));
+        assert_eq!(sniff_bytes(b"\xEF\xBB\xBF  <svg></svg>"), Some(MediaType::Svg));
+        assert_eq!(sniff_bytes(b"not a known file"), None);
+    }
+
+    #[test]
+    fn png_bytes_under_a_jpg_name_mismatch() {
+        // PNG content sniffs as Png, but a `.jpg` name maps to Jpeg, so import_media would reject it.
+        let png = &[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
+        assert_eq!(sniff_bytes(png), Some(MediaType::Png));
+        assert_ne!(sniff_bytes(png), MediaType::from_extension("jpg"));
     }
 }

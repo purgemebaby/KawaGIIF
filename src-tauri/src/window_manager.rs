@@ -1,6 +1,6 @@
 /* Window manager. Creates the control window and the fixed pool of transparent overlay windows at startup,
 and moves, shows, hides and restyles the overlays when animations are placed or removed. */
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 use tauri::webview::Color;
@@ -14,8 +14,11 @@ use crate::native::windows as native;
 pub const MAX_POOL: u32 = 20;
 pub const HANDLE_MARGIN: u32 = 32; //logical px of transparent room on every side of the media
 pub const CONTROL_LABEL: &str = "control";
+/** Set while a dropped overlay eases back to the screen edge, so the `Moved` clamp doesn't jump it there first. */
+pub static SLIDING: AtomicBool = AtomicBool::new(false);
 const OV_LABEL: &str = "OV-SLOT-";
 const KEEPER_INTERVAL: Duration = Duration::from_secs(2);
+const KEEPER_FULLSCREEN_INTERVAL: Duration = Duration::from_millis(250); //a borderless game that goes topmost buries the overlays within this
 const CARRY_TICK: Duration = Duration::from_millis(8); //about 120 moves per second while an overlay is carried
 const CONTROL_BASE: (f64, f64) = (960.0, 640.0);
 const MIN_CONTROL: (f64, f64) = (720.0, 480.0);
@@ -298,18 +301,42 @@ pub fn create_overlay_pool(app: &AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
+/** The keeper's next sleep and whether it raises this pass, from what the foreground window does to the screen. */
+#[cfg(windows)]
+fn keeper_plan() -> (Duration, bool) {
+    match native::foreground_fullscreen() {
+        native::Fullscreen::Borderless => (KEEPER_FULLSCREEN_INTERVAL, true),
+        native::Fullscreen::Exclusive => (KEEPER_INTERVAL, false),
+        native::Fullscreen::None => (KEEPER_INTERVAL, true),
+    }
+}
+
+#[cfg(not(windows))]
+fn keeper_plan() -> (Duration, bool) { (KEEPER_INTERVAL, true) }
+
 /**
- * Restyles and re-raises the visible overlays every `KEEPER_INTERVAL` (`raise_visible_overlays`): click-through overlays
- * never get focus, so a borderless game going topmost would bury them (exclusive fullscreen is out of reach). A topmost app that
- * re-raises itself constantly can still win for up to one interval. Window calls run on the main thread; the loop ends
- * when the event loop is gone.
+ * Restyles and re-raises the visible overlays (`raise_visible_overlays`) so a topmost app cannot bury click-through overlays
+ * that never get focus. No fullscreen app: every `KEEPER_INTERVAL`. Borderless fullscreen game: every `KEEPER_FULLSCREEN_INTERVAL`,
+ * since it may re-raise itself. Exclusive fullscreen: no raise (nothing can show over it; raising only forces DWM back into
+ * compositing). Window calls run on the main thread; the loop ends when the event loop is gone.
  */
 pub fn spawn_topmost_keeper(app: &AppHandle) {
     let app = app.clone();
-    std::thread::spawn(move || loop {
-        std::thread::sleep(KEEPER_INTERVAL);
-        let handle = app.clone();
-        if app.run_on_main_thread(move || raise_visible_overlays(&handle, true)).is_err() { break; }
+    std::thread::spawn(move || {
+        let mut interval = KEEPER_INTERVAL;
+        // restyling redraws the frames (`SWP_FRAMECHANGED`): the fast fullscreen passes only raise, one in `KEEPER_INTERVAL` restyles
+        let mut since_restyle = KEEPER_INTERVAL;
+        loop {
+            std::thread::sleep(interval);
+            since_restyle += interval;
+            let (next, raise) = keeper_plan();
+            interval = next;
+            if !raise { continue; }
+            let restyle = since_restyle >= KEEPER_INTERVAL;
+            if restyle { since_restyle = Duration::ZERO; }
+            let handle = app.clone();
+            if app.run_on_main_thread(move || raise_visible_overlays(&handle, restyle)).is_err() { break; }
+        }
     });
 }
 
@@ -323,7 +350,9 @@ pub fn watch_foreground_changes(app: &AppHandle) {
     #[cfg(windows)]
     {
         let raising = app.clone();
-        native::watch_foreground(move || raise_visible_overlays(&raising, false));
+        native::watch_foreground(move || {
+            if native::foreground_fullscreen() != native::Fullscreen::Exclusive { raise_visible_overlays(&raising, false); }
+        });
         let editing = app.clone();
         native::watch_any_foreground(move || {
             crate::template::refresh_edit_activity_soon(&editing);
@@ -351,7 +380,7 @@ fn watch_overlay_events(app: &AppHandle, window: &WebviewWindow, slot: usize) {
     window.on_window_event(move |event| match event {
         WindowEvent::Focused(_) => reapply_overlay_style(&this),
         WindowEvent::Moved(pos) => {
-            if !clamp_to_work_area(&this) { crate::template::update_slot_geometry(&app, slot, Some((pos.x, pos.y)), None); }
+            if SLIDING.load(Ordering::Relaxed) || !clamp_to_work_area(&this) { crate::template::update_slot_geometry(&app, slot, Some((pos.x, pos.y)), None); }
         }
         WindowEvent::Resized(size) => crate::template::update_slot_geometry(&app, slot, None, Some((size.width, size.height))),
         _ => {}

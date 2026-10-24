@@ -31,7 +31,7 @@ in this order:
    3. `template::load_saved_template_on_boot`: Reads `template.json` into the editor without showing it. `show_saved_overlays` places the animations click-through once the loading screen ends (`show_boot_overlays`), right away when starting in the tray, or after 15 s as a fallback. Items whose media file is gone from `media/` (deleted by hand) are skipped and stay saved; `list_media` flags them `missing`, so the Library shows a "File missing" badge.
    4. Registers the `Ctrl+Alt+Esc` shortcut.
    5. `tray::setup`
-   6. `window_manager::spawn_topmost_keeper` background thread, every 2 s.
+   6. `window_manager::spawn_topmost_keeper` background thread, every 2 s; every 250 ms while the foreground app is a borderless fullscreen window (it may re-raise itself), and no raise at all while it is exclusive-fullscreen Direct3D (nothing can show over it). `native::foreground_fullscreen` tells the three states apart (`SHQueryUserNotificationState` plus a window-rect == monitor-rect check). Over true exclusive fullscreen the game must be set to borderless windowed.
 
 5. **Event loop** (`.run(...)`): On `RunEvent::ExitRequested` → `handle_exit`
    (discard unsaved edits, hide every overlay).
@@ -226,6 +226,7 @@ from the any-foreground hook (a click on the control window raises it).
 | `set_font_scale` | `scale: f32` (clamped 0.85 to 1.3) | `AppResult<()>` |
 | `set_ui_zoom` | `zoom: f32` (caller window) | `AppResult<f32>` (clamps to 0.7–1.5, saves `ui_zoom` in config.toml, applies the webview zoom, returns the applied value) |
 | `set_nav_animations` | `enabled: bool` | `AppResult<()>` (saves `nav_animations`: the ring menu, the screen pan and the editor burst; off = instant switches) |
+| `open_data_folder` | — | `AppResult<()>` (opens `%LOCALAPPDATA%\KawaGiif` in Explorer, creating it if missing) |
 | `set_show_mascot` | `enabled: bool` | `AppResult<()>` (saves `show_mascot`: the chibi mascot in Home, Settings, the Editor and the empty Library) |
 | `set_language` | `language: String` (`"en"` or `"es"`, `config::LANGUAGES`) | `AppResult<()>` (saves the UI language and relabels the tray menu; the control window reloads itself to apply the rest of the UI) |
 
@@ -233,7 +234,7 @@ from the any-foreground hook (a click on the control window raises it).
 | Command | Args | Returns |
 |---|---|---|
 | `find_reimports` | `paths: Vec<PathBuf>` | `Vec<String>` (the given paths whose file is already in the library, matched on `MediaItem.source_path`) |
-| `import_media` | `paths: Vec<PathBuf>, replace_existing: bool` (React sends `{ paths, replaceExisting }`) | `AppResult<Vec<MediaItem>>` (new and replaced items; a path already in the library is replaced when `replace_existing` (same id, tags, name and placements; new stored file, old one deleted), else skipped; a name already used becomes `name (2).ext`) |
+| `import_media` | `paths: Vec<PathBuf>, replace_existing: bool` (React sends `{ paths, replaceExisting }`) | `AppResult<ImportResult>` = `{ items, rejected }` (new and replaced items; `rejected` lists the file names whose real content (`sniff_bytes`: PNG/JPEG/GIF/WEBP/MP4 signatures, `<svg` for SVG) does not match the extension, which are not imported and which the Library shows in a notice; a path already in the library is replaced when `replace_existing` (same id, tags, name and placements; new stored file, old one deleted), else skipped; names are stored without the extension, and a name already used becomes `name (2)`; entries saved with an extension are stripped once on load) |
 | `rename_media` | `id: Uuid, name: String` | `AppResult<()>` (trims, collapses spaces, max 120 chars, empty is an error; sets `original_file_name` only, never touches files) |
 | `list_media` | — | `Vec<MediaItem>` (`missing: true` when the file is gone; never stored) |
 | `update_media_tags` | `id: Uuid, tags: Vec<String>` | `AppResult<()>` |

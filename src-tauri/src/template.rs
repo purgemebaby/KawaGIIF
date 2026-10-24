@@ -13,6 +13,9 @@ use crate::error::{AppError, AppResult};
 use crate::library::{LibraryState, MediaType};
 use crate::window_manager;
 
+#[cfg(windows)]
+use crate::native::windows as native;
+
 /* Personal Note for me:
 - tauri::Emitter + EventTarget: `emit_to(EventTarget::webview_window(label), ..)` sends an event to one window only.
 */
@@ -727,6 +730,50 @@ pub fn remove_placed_media(app: AppHandle, state: State<EditorState>, instance_i
     notify_placed_items_changed(&app);
 }
 
+/** Where `clamp_to_work_area` would move a window: the top-left `pos` is pulled back inside the monitor (minus `inset`), so the transparent `HANDLE_MARGIN` may overhang the edge. */
+fn limit_to_monitor(pos: (i32, i32), size: (u32, u32), monitor_rect: (i32, i32, i32, i32), inset: i32) -> (i32, i32) {
+    let (wx, wy, ww, wh) = monitor_rect;
+    let x = pos.0.min(wx + ww - size.0 as i32 + inset).max(wx - inset);
+    let y = pos.1.min(wy + wh - size.1 as i32 + inset).max(wy - inset);
+    (x, y)
+}
+
+/**
+ * Slides a grown overlay back onto its monitor instead of teleporting it. `fit_overlay_to_media` can grow a dropped
+ * animation past the screen edge; `clamp_to_work_area` jumps it there, so this eases it over ~10 frames and clamps at
+ * the end as a safety net. Jumps straight there when the nav animations are off or the window already fits.
+ */
+fn slide_into_view(window: &WebviewWindow) {
+    #[cfg(windows)]
+    {
+        let Ok(hwnd) = window.hwnd() else { window_manager::clamp_to_work_area(window); return; };
+        let Some(rect) = native::force_work_area(hwnd) else { window_manager::clamp_to_work_area(window); return; };
+        let (Ok(pos), Ok(size), Ok(scale)) = (window.outer_position(), window.outer_size(), window.scale_factor()) else { return; };
+        let inset = (f64::from(window_manager::HANDLE_MARGIN) * scale).round() as i32;
+        let target = limit_to_monitor((pos.x, pos.y), (size.width, size.height), rect, inset);
+        if target == (pos.x, pos.y) { return; }
+        if !config::load().nav_animations { window_manager::clamp_to_work_area(window); return; }
+
+        let window = window.clone();
+        let start = (pos.x, pos.y);
+        window_manager::SLIDING.store(true, Ordering::Relaxed);
+        std::thread::spawn(move || {
+            for i in 1..=10 {
+                let t = i as f64 / 10.0;
+                let ease = t * (2.0 - t); // ease-out quad
+                let x = start.0 + ((target.0 - start.0) as f64 * ease).round() as i32;
+                let y = start.1 + ((target.1 - start.1) as f64 * ease).round() as i32;
+                let _ = window.set_position(PhysicalPosition::new(x, y));
+                std::thread::sleep(Duration::from_millis(16));
+            }
+            window_manager::SLIDING.store(false, Ordering::Relaxed);
+            window_manager::clamp_to_work_area(&window); // safety net
+        });
+    }
+    #[cfg(not(windows))]
+    window_manager::clamp_to_work_area(window);
+}
+
 /// Sizes the window to the media's aspect ratio, shrunk to `MAX_SPAWN_SIDE` (scaled to the monitor's DPI) but never
 /// enlarged, plus `HANDLE_MARGIN` of transparent room on every side, keeping its centre. Only runs while `auto_sized`
 /// is false, i.e. at rotation 0 (spawn and reset), so reloading the media doesn't undo a manual resize.
@@ -759,6 +806,7 @@ pub fn fit_overlay_to_media(
 
     if let Some(window) = window {
         let _ = window_manager::place(&window, x, y, width, height);
+        slide_into_view(&window);
     }
 }
 
@@ -768,4 +816,22 @@ pub fn nudge_overlay(window: WebviewWindow, dx: i32, dy: i32) -> AppResult<()> {
     window.set_position(PhysicalPosition::new(pos.x + dx, pos.y + dy))?;
     window_manager::clamp_to_work_area(&window);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::limit_to_monitor;
+
+    #[test]
+    fn limit_keeps_inside_and_pulls_edges_back() {
+        let monitor = (100, 100, 500, 500);
+        let size = (100, 100);
+        let inset = 32;
+        // fully inside stays put
+        assert_eq!(limit_to_monitor((200, 200), size, monitor, inset), (200, 200));
+        // overflowing right and bottom slides to the far edge, inset in from it
+        assert_eq!(limit_to_monitor((900, 900), size, monitor, inset), (532, 532));
+        // overflowing left and top slides to the near edge, inset in from it
+        assert_eq!(limit_to_monitor((-50, -50), size, monitor, inset), (68, 68));
+    }
 }

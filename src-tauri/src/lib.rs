@@ -83,6 +83,7 @@ pub fn run() {
             commands::set_show_mascot,
             commands::set_language,
             commands::set_overlay_pool_size,
+            commands::open_data_folder,
             commands::set_loading_indicator,
             commands::reset_loading_indicator,
             commands::get_loading_indicator,

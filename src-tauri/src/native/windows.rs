@@ -31,10 +31,12 @@ use windows::Win32::Graphics::Gdi::{
 
 use windows::Win32::UI::HiDpi::GetDpiForWindow;
 use windows::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_LBUTTON, VK_RBUTTON};
-use windows::Win32::UI::Shell::{DefSubclassProc, RemoveWindowSubclass, SetWindowSubclass};
+use windows::Win32::UI::Shell::{
+    DefSubclassProc, RemoveWindowSubclass, SetWindowSubclass, SHQueryUserNotificationState, QUNS_RUNNING_D3D_FULL_SCREEN,
+};
 
 use windows::Win32::UI::WindowsAndMessaging::{
-    GetCursorPos, GetForegroundWindow, GetSystemMetrics, GetWindowLongPtrW, GetWindowThreadProcessId, SetClassLongPtrW, SetWindowLongPtrW, SetWindowPos, SM_SWAPBUTTON,
+    GetClassNameW, GetCursorPos, GetForegroundWindow, GetSystemMetrics, GetWindowRect, GetWindowLongPtrW, GetWindowThreadProcessId, SetClassLongPtrW, SetWindowLongPtrW, SetWindowPos, SM_SWAPBUTTON,
     EVENT_SYSTEM_FOREGROUND, GCLP_HBRBACKGROUND, GWL_EXSTYLE, GWL_STYLE,
     HWND_TOPMOST, SET_WINDOW_POS_FLAGS,
     SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER,
@@ -87,6 +89,7 @@ use windows::Win32::UI::WindowsAndMessaging::WS_EX_TRANSPARENT;
 
 
 const GUARD_SUBCLASS_ID: usize = 0x4B47_4E43;
+const SHELL_CLASSES: [&str; 3] = ["Progman", "WorkerW", "Shell_TrayWnd"]; //desktop and taskbar windows span the monitor too
 static ON_FOREGROUND: OnceLock<Box<dyn Fn() + Send + Sync>> = OnceLock::new();
 static FOREGROUND_HOOK: AtomicUsize = AtomicUsize::new(0);
 static ON_ANY_FOREGROUND: OnceLock<Box<dyn Fn() + Send + Sync>> = OnceLock::new();
@@ -286,6 +289,42 @@ pub fn foreground_is_ours() -> bool {
     if window.0.is_null() { return false; }
     unsafe { GetWindowThreadProcessId(window, Some(std::ptr::from_mut(&mut process))); }
     process == std::process::id()
+}
+
+/** What the foreground window does to the screen: nothing, a borderless window covering its monitor, or exclusive Direct3D fullscreen. */
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum Fullscreen { None, Borderless, Exclusive }
+
+/** Whether `window` is the desktop or the taskbar, which cover a monitor without being a game. */
+fn is_shell_window(window: HWND) -> bool {
+    let mut class = [0u16; 32];
+    // SAFETY: `class` is a valid writable buffer; the call returns the characters copied (0 on failure).
+    let len = unsafe { GetClassNameW(window, &mut class) };
+    SHELL_CLASSES.contains(&String::from_utf16_lossy(&class[..len.max(0) as usize]).as_str())
+}
+
+/** Whether `window` covers its whole monitor, give or take 1 px. */
+fn covers_monitor(window: HWND) -> bool {
+    let mut rect = RECT::default();
+    let mut info = MONITORINFO { cbSize: size_of::<MONITORINFO>() as u32, ..Default::default() };
+    // SAFETY: `window` is a live handle from `GetForegroundWindow`; `rect` and `info` are valid for writes.
+    let found = unsafe {
+        GetWindowRect(window, &mut rect).is_ok()
+            && GetMonitorInfoW(MonitorFromWindow(window, MONITOR_DEFAULTTONEAREST), &mut info).as_bool()
+    };
+    let screen = info.rcMonitor;
+    let near = |a: i32, b: i32| (a - b).abs() <= 1;
+    found && near(rect.left, screen.left) && near(rect.top, screen.top) && near(rect.right, screen.right) && near(rect.bottom, screen.bottom)
+}
+
+/** What the foreground window (never ours, the desktop or the taskbar) does to the screen right now. */
+pub fn foreground_fullscreen() -> Fullscreen {
+    // SAFETY: takes no arguments and only reads the shell's state.
+    if unsafe { SHQueryUserNotificationState() }.is_ok_and(|state| state == QUNS_RUNNING_D3D_FULL_SCREEN) { return Fullscreen::Exclusive; }
+    // SAFETY: takes no arguments; returns null when no window is foreground.
+    let window: HWND = unsafe { GetForegroundWindow() };
+    if window.0.is_null() || foreground_is_ours() || is_shell_window(window) || !covers_monitor(window) { return Fullscreen::None; }
+    Fullscreen::Borderless
 }
 
 /** Whether the primary mouse button is held right now, anywhere on screen (respects swapped buttons). */
