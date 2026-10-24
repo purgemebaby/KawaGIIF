@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { invoke } from '../../lib/ipc';
 import { applyAppearance, fontStack } from '../../lib/appearance';
 import { useDismiss } from '../../hooks/useDismiss';
-import { t } from '../../i18n/en';
+import { t } from '../../i18n';
 import './FontRow.css';
 
 interface FontRowProps {

@@ -7,7 +7,7 @@ import {
 	type MediaFilters,
 } from '../lib/mediaFilter';
 import { useLibrary } from '../context/LibraryProvider';
-import { t } from '../i18n/en';
+import { t } from '../i18n';
 import MediaFilterBar from './MediaFilterBar';
 import MediaThumb from './MediaThumb';
 import TagManager from './tags/TagManager';

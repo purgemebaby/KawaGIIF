@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { invoke } from '../lib/ipc';
 import { useTauriEvent } from '../hooks/useTauriEvent';
 import type { MediaType } from '../lib/media';
-import { t } from '../i18n/en';
+import { t } from '../i18n';
 
 interface PlacedItemSummary {
 	instance_id: string;

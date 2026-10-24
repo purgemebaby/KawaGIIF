@@ -37,10 +37,10 @@
 	min-height: 0;
 	display: flex;
 	flex-direction: column;
-	border: 1px solid var(--kg-border);
-	border-radius: var(--kg-radius-md);
-	background: var(--kg-bg-panel);
-	box-shadow: var(--kg-shadow-1);
+	border: none;
+	border-radius: var(--kg-island-radius);
+	background: var(--kg-island-bg);
+	box-shadow: var(--kg-island-shadow);
 }
 
 .editor-panel--storage {
@@ -335,16 +335,6 @@
 	background: var(--kg-bg-input);
 }
 
-.sidebar-thumb-placeholder {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	background: var(--kg-bg-input);
-	color: var(--kg-fg-faint);
-	font-family: var(--kg-font-mono);
-	font-size: var(--kg-text-3xs);
-}
-
 .editor-actions {
 	display: flex;
 	gap: var(--kg-space-2);
@@ -362,20 +352,59 @@
 	max-width: none;
 }
 
+/* The mascot (see Mascot.css) fills the hint area. */
 .editor-canvas-hint {
 	grid-area: hint;
-	align-self: center;
-	justify-self: center;
-	max-width: 42ch;
-	max-height: 100%;
-	overflow-y: auto;
-	padding: var(--kg-space-4);
-	color: var(--kg-fg-muted);
-	font-size: var(--kg-text-md);
-	line-height: 1.6;
-	text-align: center;
 }
 
-.editor-canvas-hint p {
-	margin-bottom: var(--kg-space-2);
+/* A paw presses or pulls the tab it just clicked, once. It sits on the tab's outer side; --hand-x/--hand-y point away from the panel. */
+.editor-panel-hand {
+	--hand-w: 40px;
+	--hand-h: calc(var(--hand-w) * 52 / 76);
+	/* half the tab's thickness: the paw starts at its outer edge */
+	--tab-reach: 9px;
+
+	position: absolute;
+	z-index: 2;
+	width: var(--hand-w);
+	height: var(--hand-h);
+	pointer-events: none;
+	user-select: none;
+	animation: var(--kg-dur-slow) var(--kg-ease-out) both;
+}
+
+.editor-panel-hand[data-action='push'] {
+	animation-name: kg-hand-push;
+}
+
+.editor-panel-hand[data-action='pull'] {
+	animation-name: kg-hand-pull;
+}
+
+/* the image points its fingers down; each panel turns them towards its tab */
+.editor-panel--storage .editor-panel-hand {
+	--hand-x: 0;
+	--hand-y: 1;
+
+	left: calc(50% - var(--hand-w) / 2);
+	top: calc(100% + var(--tab-reach));
+	rotate: 180deg;
+}
+
+.editor-panel--control .editor-panel-hand {
+	--hand-x: 1;
+	--hand-y: 0;
+
+	top: calc(50% - var(--hand-h) / 2);
+	left: calc(100% + var(--tab-reach) + (var(--hand-h) - var(--hand-w)) / 2);
+	rotate: 90deg;
+}
+
+.editor-panel--edit .editor-panel-hand {
+	--hand-x: -1;
+	--hand-y: 0;
+
+	top: calc(50% - var(--hand-h) / 2);
+	left: calc(0px - var(--tab-reach) - (var(--hand-h) + var(--hand-w)) / 2);
+	rotate: -90deg;
 }

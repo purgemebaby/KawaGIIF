@@ -1,4 +1,4 @@
-export const t = {
+export const en = {
 	app: {
 		name: 'KawaGIIF',
 	},
@@ -24,7 +24,6 @@ export const t = {
 	home: {
 		minimizeToTray: 'Hide as icon',
 		panic: {
-			title: 'Kill all animations',
 			description:
 				'Tired of the animations? Close them all in one click (you will keep the configuration)',
 			button: 'Remove windows',
@@ -61,6 +60,17 @@ export const t = {
 				`You're about to import ${list}. Together they take ${total} on disk, and KawaGIIF keeps its own copy of each file. Continue?`,
 			confirm: 'Import anyway',
 		},
+		replaceImport: {
+			title: 'Replace files?',
+			body: 'These files are already in your library. Replace them with the new version? Tags and placed animations are kept.',
+			confirm: 'Replace',
+			skip: 'Skip',
+		},
+		renameHint: 'Double-click to rename',
+		renameLabel: 'File name',
+		missingFile: 'File missing',
+		missingFileHint:
+			'This file was deleted from the media folder. Delete the entry or import the file again.',
 		select: {
 			start: 'Select',
 			all: 'Select all',
@@ -126,9 +136,7 @@ export const t = {
 		sidebarEmpty: 'Import files on the Library first (≧◡≦).',
 		sidebarHint: 'Drag it onto the desktop to place it',
 		sidebarNoMatches: 'No files match the search.',
-		canvasHint: [
-			'Drag an animation from Storage onto the desktop to place it.',
-		],
+		canvasHint: 'Drag an animation from Storage onto the desktop to place it.',
 		placedTitle: 'Placed',
 		placedEmpty: "You haven't placed any animations yet.",
 		removeItem: 'Remove from desktop',
@@ -162,26 +170,11 @@ export const t = {
 	settings: {
 		title: 'Settings',
 		sections: {
-			startup: {
-				title: 'Startup',
-				description: 'How KawaGIIF launches with your computer.',
-			},
-			library: {
-				title: 'Library',
-				description: 'How your media files are handled.',
-			},
-			appearance: {
-				title: 'Appearance',
-				description: 'Font, text size and zoom of the interface.',
-			},
-			motion: {
-				title: 'Motion',
-				description: 'Animations and the loading screen.',
-			},
-			performance: {
-				title: 'Performance',
-				description: 'How many animations you can place at once.',
-			},
+			startup: { title: 'Startup' },
+			library: { title: 'Library' },
+			appearance: { title: 'Appearance' },
+			motion: { title: 'Motion' },
+			performance: { title: 'Performance' },
 		},
 		launchOnStartup: {
 			label: 'Start with Windows',
@@ -201,6 +194,10 @@ export const t = {
 		confirmDelete: {
 			label: 'Confirm before deleting files',
 			hint: "Ask before removing a file from library. Only KawaGIIF's copy is deleted, never your original.",
+		},
+		language: {
+			label: 'Language',
+			hint: 'The window reloads to switch language.',
 		},
 		font: {
 			label: 'Interface font',
@@ -228,7 +225,11 @@ export const t = {
 		},
 		navAnimations: {
 			label: 'Navigation animations',
-			hint: 'Screens switch instantly when this option is turned off.',
+			hint: 'Screens switch instantly and the mascot holds still when this option is turned off.',
+		},
+		showMascot: {
+			label: 'Show mascot',
+			hint: 'The chibi in Home, Settings, the Editor and the empty Library.',
 		},
 		loadingIndicator: {
 			label: 'Loading animation',
@@ -246,3 +247,11 @@ export const t = {
 		},
 	},
 } as const;
+
+/** The shape every language fills in: same keys as `en`, plain strings instead of literals. */
+type Widen<T> = T extends string
+	? string
+	: T extends (...args: infer A) => string
+		? (...args: A) => string
+		: { readonly [K in keyof T]: Widen<T[K]> };
+export type Strings = Widen<typeof en>;

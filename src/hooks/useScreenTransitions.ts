@@ -11,6 +11,7 @@ import type { AppConfig } from '../lib/config';
 import {
 	announceNavAnimations,
 	onNavAnimationsChanged,
+	prefersReducedMotion,
 } from '../lib/navAnimations';
 import { transitionKind, worldOffset } from '../lib/navTransition';
 import {
@@ -46,7 +47,7 @@ interface Running {
 }
 
 /** One screen layer of the stage, with what the render needs to draw it. */
-export interface ScreenLayer {
+interface ScreenLayer {
 	id: Screen;
 	quiet: boolean;
 	inert: boolean;
@@ -139,9 +140,7 @@ export function useScreenTransitions(
 		if (from === 'editor' && to !== 'editor')
 			invoke('set_edit_mode', { enabled: false });
 		const content = contentRef.current;
-		const reduced = window.matchMedia(
-			'(prefers-reduced-motion: reduce)',
-		).matches;
+		const reduced = prefersReducedMotion();
 		const kind = transitionKind(from, to);
 		if (
 			!content ||

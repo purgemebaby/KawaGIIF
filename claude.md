@@ -30,15 +30,15 @@ src/                             React frontend
   main.tsx                       control window entry (applies font settings before rendering)
   entries/overlay.tsx            overlay entry: keep this bundle light, never import control-only code
   windows/                       ControlApp (boot, exit guard, composition) and OverlayItemApp (slot, media, playback)
-  components/                    screens (Home, Storage, Editor, Settings, Loading), home/RadialMenu (ring menu), BrandBar (section logo), MediaThumb (shared thumbnail), ui/PixelIcon (pixel-art icons, hover animations via `pixel-hover`), tags/ (chips, popovers, bulk tags, manager), pieces; settings/ holds one file per settings row
+  components/                    screens (Home, Storage, Editor, Settings, Loading), home/RadialMenu (ring menu), BrandBar (section logo), MediaThumb (shared thumbnail), ui/SketchIcon (hand-drawn icons, draw-in + hover animations via a `pixel-hover` ancestor; ui/PixelIcon is the old pixel-art set, kept unused until the owner decides), tags/ (chips, popovers, bulk tags, manager), pieces; settings/ holds one file per settings row
   context/LibraryProvider.tsx    media library state shared by the control window
-  hooks/                         useScreenTransitions (pan + burst), useZoomShortcuts, useEditHandles (overlay sphere/corners), useStorageResize, usePersistentState (localStorage + codecs), useTauriEvent, useEditorSync, useMediaUrl, useDismiss, useMediaSelection, useSwing (overlay pickup), ...
-  lib/                           ipc.ts (invoke/listen + browser mocks), config.ts (AppConfig + loadConfig), appEvent.ts (in-window announce/listen), media.ts, mediaFilter.ts (search/tags/sort), tags.ts (clean + colour per tag name), pixelIcons.ts (16×16 letter grids), placed.ts, overlayGeometry.ts, pointerDrag.ts, appearance.ts, zoom.ts, radial.ts (ring geometry), navTransition.ts (screen pan), editorBurst.ts (ring→editor morph), navAnimations.ts
+  hooks/                         useScreenTransitions (pan + burst), useZoomShortcuts, useEditHandles (overlay sphere/corners), useStorageResize, usePersistentState (localStorage + codecs), useTauriEvent, useEditorSync, useMediaUrl, useDismiss, useMediaSelection, useSwing (overlay pickup), useFlipGrid (Polaroid slides), ...
+  lib/                           ipc.ts (invoke/listen + browser mocks), config.ts (AppConfig + loadConfig), appEvent.ts (in-window announce/listen), media.ts, mediaFilter.ts (search/tags/sort), tags.ts (clean + colour per tag name), sketch.ts (seeded hand-drawn strokes) + sketchIcons.ts (24×24 shapes), pixelIcons.ts (old 16×16 grids), placed.ts, overlayGeometry.ts, pointerDrag.ts, appearance.ts, zoom.ts, radial.ts (ring geometry), navTransition.ts (screen pan), editorBurst.ts (ring→editor morph), navAnimations.ts
   i18n/en.ts                     every visible string (`t.*`)
   styles/                        tokens, base, motion, components, index (control), overlay
 src-tauri/src/
   lib.rs                         builder, plugins, command registry, setup, exit
-  window_manager.rs              control window (fixed 960×640, max 1630×1013), overlay pool, raising, dormant webviews, BROWSER_ARGS
+  window_manager.rs              control window (fixed 960×640, max 1700×1056), overlay pool, raising, dormant webviews, BROWSER_ARGS
   template.rs                    placed animations, slots, template.json, boot placement, edit mode
   library.rs                     media library and tags (library_index.json)
   config.rs                      config.toml, data folder, write_atomic
@@ -63,7 +63,7 @@ User data: `%LOCALAPPDATA%\KawaGiif` → `config.toml`, `library_index.json`, `t
 ## Visual design
 
 - Dark, soft, "kawaii": surfaces `--kg-bg-*`, accent purple `#a97bff` (`--kg-accent`), pink `--kg-accent-2`, danger `--kg-danger`.
-- Fonts: **Modak** (`--kg-font-display`) only for the title and loading screen, never scaled or user-changed. Everything else uses the
+- Fonts: **Modak** (`--kg-font-display`) only for the title and loading screen, never scaled or user-changed. **Fredoka** (`--kg-font-heading`) for screen and section headings. Everything else uses the
   user's UI font (`--kg-font-ui`, set through `fontStack` in `lib/appearance.ts`) and `--kg-font-scale`, which multiplies every `--kg-text-*`.
 - Everything visual comes from `src/styles/tokens.css` (colors, space, shadows, durations, text sizes). Motion lives in `motion.css`.
   No hard-coded `font-size`, color or spacing when a token exists. Visible strings go through `src/i18n/en.ts`, in English.
@@ -108,3 +108,6 @@ User data: `%LOCALAPPDATA%\KawaGiif` → `config.toml`, `library_index.json`, `t
 - Repo content (code, comments, docs, commits) is English.
 - Commit messages: `type(scope): summary`, then a bulleted body.
 - After changing commands, windows or the boot flow, update `docs/Rust-Guide.md`.
+
+
+Use the following swarm agent system. Delegate every task to a GLM/DeepSeek subagent called via Ollama to do the simple tasks. You are in charge of supervising their task, optimising the code, refactorization, reduce the quantity of code lines by using other existing functions and use Context7 MCP to read library and language updated documentation.

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { invoke } from '../../lib/ipc';
-import { t } from '../../i18n/en';
+import { t } from '../../i18n';
 import {
 	ZOOM_MAX,
 	ZOOM_MIN,

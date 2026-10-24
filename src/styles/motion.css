@@ -91,6 +91,41 @@
 	}
 }
 
+/* Storage polaroids: the newest import is pasted on, other new ones fade in, filters settle the tilt */
+@keyframes kg-sticker-paste {
+	0% {
+		scale: 1.25;
+		opacity: 0;
+		filter: drop-shadow(0 18px 18px var(--kg-scrim));
+	}
+	60% {
+		scale: 0.97;
+		opacity: 1;
+	}
+	100% {
+		scale: 1;
+		filter: none;
+	}
+}
+
+@keyframes kg-card-arrive {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+
+@keyframes kg-polaroid-settle {
+	from {
+		rotate: calc(var(--polaroid-tilt) * -2);
+	}
+	to {
+		rotate: var(--polaroid-tilt);
+	}
+}
+
 @keyframes kg-wiggle {
 	0%,
 	100% {
@@ -130,6 +165,183 @@
 	}
 }
 
+/* sketch icons: strokes redraw themselves on hover, then wiggle, twinkle or spin while held */
+@keyframes kg-sketch-draw {
+	from {
+		stroke-dashoffset: 1;
+	}
+	to {
+		stroke-dashoffset: 0;
+	}
+}
+
+@keyframes kg-sketch-spin {
+	from {
+		transform: rotate(0deg);
+	}
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+@keyframes kg-sketch-wiggle {
+	0%,
+	100% {
+		transform: rotate(-8deg);
+	}
+	50% {
+		transform: rotate(8deg);
+	}
+}
+
+@keyframes kg-sketch-twinkle {
+	0%,
+	100% {
+		transform: scale(1) rotate(0deg);
+	}
+	50% {
+		transform: scale(1.15) rotate(6deg);
+	}
+}
+
+/* mascots: a gentle idle float, the once-per-launch greeting slide and the empty library's soft wave */
+@keyframes kg-mascot-float {
+	0%,
+	100% {
+		translate: 0 0;
+	}
+	50% {
+		translate: 0 -4px;
+	}
+}
+
+@keyframes kg-mascot-slide-in {
+	from {
+		translate: -120% 0;
+		opacity: 0;
+	}
+	to {
+		translate: 0 0;
+		opacity: 1;
+	}
+}
+
+@keyframes kg-mascot-wave {
+	0%,
+	100% {
+		translate: 0 0;
+		rotate: 0deg;
+	}
+	25% {
+		translate: 0 -3px;
+		rotate: -0.8deg;
+	}
+	50% {
+		translate: 0 0;
+		rotate: 0deg;
+	}
+	75% {
+		translate: 0 3px;
+		rotate: 0.8deg;
+	}
+}
+
+/* a puff grows, drifts up and outwards (--drift is -1 left, 1 right) and fades */
+@keyframes kg-smoke-puff {
+	0% {
+		translate: 0 0;
+		scale: 0.4;
+		opacity: 0;
+	}
+	20% {
+		opacity: 0.8;
+	}
+	100% {
+		translate: calc(var(--drift) * 14px) -38px;
+		scale: 1.3;
+		opacity: 0;
+	}
+}
+
+/* the camera flash: a quick pop that swells and fades */
+@keyframes kg-camera-flash {
+	0% {
+		scale: 0.3;
+		opacity: 0;
+	}
+	20% {
+		scale: 1;
+		opacity: 1;
+	}
+	100% {
+		scale: 1.7;
+		opacity: 0;
+	}
+}
+
+/* navigation animations off in Settings (data-nav-animations set by the toggle): every mascot holds still */
+:root[data-nav-animations='off']
+	:is(
+		.home-mascot,
+		.storage-empty-mascot,
+		.library-mascot,
+		.settings-mascot,
+		.editor-mascot-bubble,
+		.editor-mascot-chibi
+	) {
+	animation: none;
+}
+
+:root[data-nav-animations='off'] .settings-mascot-wrench {
+	transition: none;
+}
+
+/* the steam and the flash only exist in motion */
+:root[data-nav-animations='off'] :is(.storage-smoke, .library-mascot-flash) {
+	display: none;
+}
+
+/* A paw presses or pulls a panel's tab; --hand-x/--hand-y point away from the panel. */
+@keyframes kg-hand-push {
+	0% {
+		translate: calc(var(--hand-x) * 28px) calc(var(--hand-y) * 28px);
+		scale: 1;
+		opacity: 0;
+	}
+	30% {
+		translate: 0 0;
+		opacity: 1;
+	}
+	55% {
+		translate: calc(var(--hand-x) * -6px) calc(var(--hand-y) * -6px);
+		scale: 0.92;
+		opacity: 1;
+	}
+	100% {
+		translate: calc(var(--hand-x) * 20px) calc(var(--hand-y) * 20px);
+		scale: 1;
+		opacity: 0;
+	}
+}
+
+@keyframes kg-hand-pull {
+	0% {
+		translate: calc(var(--hand-x) * 28px) calc(var(--hand-y) * 28px);
+		scale: 1;
+		opacity: 0;
+	}
+	35% {
+		translate: 0 0;
+		scale: 0.92;
+		opacity: 1;
+	}
+	100% {
+		translate: calc(var(--hand-x) * 18px) calc(var(--hand-y) * 18px);
+		scale: 0.92;
+		opacity: 0;
+	}
+}
+
 .kg-wave > span {
 	display: inline-block;
 	animation: kg-wave 4s linear infinite;
@@ -162,6 +374,26 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+	/* mascots hold still: the float, slide-in and wave never run (the wrench still turns); the panel hand is not shown */
+	.home-mascot,
+	.storage-empty-mascot,
+	.library-mascot,
+	.settings-mascot,
+	.editor-mascot-bubble,
+	.editor-mascot-chibi {
+		animation: none;
+	}
+
+	.settings-mascot-wrench {
+		transition: none;
+	}
+
+	.storage-smoke,
+	.library-mascot-flash,
+	.editor-panel-hand {
+		display: none;
+	}
+
 	*,
 	*::before,
 	*::after {

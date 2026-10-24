@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react';
 import { useLibrary } from '../../context/LibraryProvider';
-import { t } from '../../i18n/en';
+import { t } from '../../i18n';
 import { tagStyle } from '../../lib/tags';
 import Modal from '../ui/Modal';
-import PixelIcon from '../ui/PixelIcon';
+import SketchIcon from '../ui/SketchIcon';
 
 interface TagManagerProps {
 	activeFilters: string[];
@@ -119,7 +119,7 @@ function TagManager({
 														setDeleting({ name: tag.name, count: tag.count })
 													}
 												>
-													<PixelIcon name="trash" />
+													<SketchIcon name="trash" />
 													{t.common.delete}
 												</button>
 											</>

@@ -18,7 +18,7 @@ export interface Template {
 	items: PlacedMedia[];
 }
 
-export interface PlacedWithType {
+interface PlacedWithType {
 	item: PlacedMedia;
 	mediaType: MediaType | null;
 }

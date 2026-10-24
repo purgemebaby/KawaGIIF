@@ -1,4 +1,4 @@
-import { t } from '../i18n/en';
+import { t } from '../i18n';
 import SortMenu from './ui/SortMenu';
 import type { MediaFilters, SortMode } from '../lib/mediaFilter';
 import { tagStyle } from '../lib/tags';

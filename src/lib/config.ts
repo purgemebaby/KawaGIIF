@@ -11,6 +11,8 @@ export interface AppConfig {
 	font_scale: number;
 	ui_zoom: number;
 	nav_animations: boolean;
+	show_mascot: boolean;
+	language: string;
 }
 
 export function loadConfig(): Promise<AppConfig> {

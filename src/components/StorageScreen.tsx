@@ -13,17 +13,21 @@ import {
 	useMediaSelection,
 	type SelectModifiers,
 } from '../hooks/useMediaSelection';
-import { t } from '../i18n/en';
+import { useImportCount } from '../hooks/useImportCount';
+import { useMascotShown } from '../hooks/useMascotShown';
+import { t } from '../i18n';
 import { filterMedia, toggleTagFilter } from '../lib/mediaFilter';
 import MediaFilterBar, {
 	DEFAULT_FILTERS,
 	type MediaFilters,
 } from './MediaFilterBar';
+import EmptyLibraryMascot from './mascot/EmptyLibraryMascot';
+import LibraryMascot from './mascot/LibraryMascot';
 import MediaGrid from './MediaGrid';
 import BulkTagPopover from './tags/BulkTagPopover';
 import TagManager from './tags/TagManager';
 import Modal from './ui/Modal';
-import PixelIcon from './ui/PixelIcon';
+import SketchIcon from './ui/SketchIcon';
 import WaveText from './brand/WaveText';
 import './StorageScreen.css';
 
@@ -38,10 +42,13 @@ function StorageScreen() {
 		loading,
 		importFiles,
 		confirmImport,
+		renameMedia,
 		updateTags,
 		updateTagsMany,
 		deleteMedia,
 	} = useLibrary();
+	const showMascot = useMascotShown();
+	const imports = useImportCount(items, loading);
 	const [filters, setFilters] = useState<MediaFilters>(DEFAULT_FILTERS);
 	const [managingTags, setManagingTags] = useState(false);
 	const [deleting, setDeleting] = useState<DeleteRequest | null>(null);
@@ -68,6 +75,7 @@ function StorageScreen() {
 		() => filterMedia(items, filters),
 		[items, filters],
 	);
+	const filterKey = useMemo(() => JSON.stringify(filters), [filters]);
 
 	// Files on the desktop always ask first, even with confirmation turned off in Settings.
 	const requestDelete = useCallback(
@@ -118,6 +126,21 @@ function StorageScreen() {
 			filteredItems.map((item) => item.id),
 		);
 
+	// Skipping drops the files already in the library; large files still ask next.
+	const answerReplace = async (request: PendingImport, replace: boolean) => {
+		const paths = replace
+			? request.paths
+			: request.paths.filter((path) => !request.reimports.includes(path));
+		const large = request.large.filter((f) => paths.includes(f.path));
+		const next = { paths, large, reimports: [], replaceExisting: replace };
+		if (large.length > 0) {
+			setPendingImport(next);
+			return;
+		}
+		setPendingImport(null);
+		if (paths.length > 0) await confirmImport(paths, replace);
+	};
+
 	const deletingName = (request: DeleteRequest) =>
 		shortFileName(
 			items.find((item) => item.id === request.ids[0])?.original_file_name ??
@@ -166,7 +189,7 @@ function StorageScreen() {
 								disabled={selectedIds.size === 0}
 								onClick={deleteSelected}
 							>
-								<PixelIcon name="trash" />
+								<SketchIcon name="trash" />
 								{t.storage.select.delete(selectedIds.size)}
 							</button>
 							<button
@@ -199,38 +222,51 @@ function StorageScreen() {
 				</div>
 			</div>
 
-			<MediaFilterBar
-				filters={filters}
-				onChange={setFilters}
-				onOpenTags={() => setManagingTags(true)}
-			/>
-
-			{loading ? (
-				<p className="empty-state">{t.common.loading}</p>
-			) : items.length === 0 ? (
-				<div className="storage-empty">
-					<WaveText as="p" className="storage-empty-title">
-						{t.storage.emptyLibrary}
-					</WaveText>
-					<p className="storage-empty-hint">{t.storage.emptyHint}</p>
-				</div>
-			) : filteredItems.length === 0 ? (
-				<div className="storage-empty">
-					<WaveText as="p" className="storage-empty-title">
-						{t.storage.empty}
-					</WaveText>
-					<p className="storage-empty-hint">{t.storage.emptyFilteredHint}</p>
-				</div>
-			) : (
-				<MediaGrid
-					items={filteredItems}
-					selectedIds={selectedIds}
-					selecting={selecting}
-					onSelect={onSelect}
-					onUpdateTags={updateTags}
-					onDelete={(item: MediaItem) => requestDelete([item.id])}
+			<section className="library-island">
+				{showMascot && items.length > 0 && <LibraryMascot flashes={imports} />}
+				<MediaFilterBar
+					filters={filters}
+					onChange={setFilters}
+					onOpenTags={() => setManagingTags(true)}
 				/>
-			)}
+
+				{loading ? (
+					<p className="empty-state">{t.common.loading}</p>
+				) : items.length === 0 ? (
+					<div className="storage-empty">
+						{showMascot && <EmptyLibraryMascot />}
+						<WaveText as="p" className="storage-empty-title">
+							{t.storage.emptyLibrary}
+						</WaveText>
+						<p className="storage-empty-hint">{t.storage.emptyHint}</p>
+					</div>
+				) : (
+					filteredItems.length === 0 && (
+						<div className="storage-empty">
+							<WaveText as="p" className="storage-empty-title">
+								{t.storage.empty}
+							</WaveText>
+							<p className="storage-empty-hint">
+								{t.storage.emptyFilteredHint}
+							</p>
+						</div>
+					)
+				)}
+
+				{/* Stays mounted while empty, so the first import and an emptied filter still animate. */}
+				{!loading && (
+					<MediaGrid
+						items={filteredItems}
+						selectedIds={selectedIds}
+						selecting={selecting}
+						onSelect={onSelect}
+						onUpdateTags={updateTags}
+						onRename={renameMedia}
+						onDelete={(item: MediaItem) => requestDelete([item.id])}
+						filterKey={filterKey}
+					/>
+				)}
+			</section>
 
 			{managingTags && (
 				<TagManager
@@ -242,15 +278,32 @@ function StorageScreen() {
 				/>
 			)}
 
-			{pendingImport && (
+			{pendingImport && pendingImport.reimports.length > 0 && (
+				<Modal
+					title={t.storage.replaceImport.title}
+					confirmLabel={t.storage.replaceImport.confirm}
+					cancelLabel={t.storage.replaceImport.skip}
+					onCancel={() => answerReplace(pendingImport, false)}
+					onConfirm={() => answerReplace(pendingImport, true)}
+				>
+					<p className="modal-body">
+						{pendingImport.reimports
+							.map((path) => shortFileName(fileNameOf(path)))
+							.join(', ')}
+					</p>
+					<p className="modal-body">{t.storage.replaceImport.body}</p>
+				</Modal>
+			)}
+
+			{pendingImport && pendingImport.reimports.length === 0 && (
 				<Modal
 					title={t.storage.largeImport.title}
 					confirmLabel={t.storage.largeImport.confirm}
 					onCancel={() => setPendingImport(null)}
 					onConfirm={async () => {
-						const paths = pendingImport.paths;
+						const { paths, replaceExisting } = pendingImport;
 						setPendingImport(null);
-						await confirmImport(paths);
+						await confirmImport(paths, replaceExisting);
 					}}
 				>
 					<p className="modal-body">

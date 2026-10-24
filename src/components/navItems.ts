@@ -1,5 +1,5 @@
-import { t } from '../i18n/en';
-import type { PixelIconName } from '../lib/pixelIcons';
+import { t } from '../i18n';
+import type { SketchIconName } from '../lib/sketchIcons';
 
 // Menus
 export type Screen = 'home' | 'storage' | 'editor' | 'settings';
@@ -8,7 +8,7 @@ interface NavItem {
 	id: Screen;
 	label: string;
 	/** Shown on the home ring; Home itself is not on it. */
-	icon?: PixelIconName;
+	icon?: SketchIconName;
 }
 
 export const NAV_ITEMS: NavItem[] = [

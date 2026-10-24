@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLibrary } from '../../context/LibraryProvider';
 import { useDismiss } from '../../hooks/useDismiss';
-import { t } from '../../i18n/en';
+import { t } from '../../i18n';
 import { cleanTag, MAX_TAG_LENGTH, tagStyle } from '../../lib/tags';
 
 interface TagPopoverProps {

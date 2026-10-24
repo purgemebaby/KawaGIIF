@@ -4,6 +4,7 @@ import { animate } from 'motion/mini';
 import { invoke } from '../lib/ipc';
 import { loadPlacedMedia } from '../lib/placed';
 import { isVideoType, type MediaType } from '../lib/media';
+import { prefersReducedMotion } from '../lib/navAnimations';
 import { useMediaUrl } from '../hooks/useMediaUrl';
 import { useTauriEvent } from '../hooks/useTauriEvent';
 import { useDeleteShortcut } from '../hooks/useDeleteShortcut';
@@ -34,7 +35,7 @@ const POP_FROM_SCALE = 0.05;
 /** Plays the appear animation on `el` (hidden until now). */
 function popIn(el: HTMLElement) {
 	el.style.opacity = '';
-	if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+	if (prefersReducedMotion()) {
 		animate(el, { opacity: [0, 1] }, { duration: 0.2 });
 		return;
 	}

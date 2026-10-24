@@ -12,6 +12,7 @@
 }
 
 .storage-header h1 {
+	font-family: var(--kg-font-heading);
 	font-size: var(--kg-text-xl);
 	font-weight: 600;
 }
@@ -27,6 +28,14 @@
 .storage-selected-count {
 	color: var(--kg-fg-muted);
 	font-size: var(--kg-text-md);
+}
+
+/* No overflow clipping: tilted cards and the hover lift may poke past the padding. */
+.library-island {
+	padding: var(--kg-space-5);
+	border-radius: var(--kg-island-radius);
+	background: var(--kg-island-bg);
+	box-shadow: var(--kg-island-shadow);
 }
 
 .media-grid.selecting .media-card {
@@ -71,6 +80,10 @@
 	line-height: 1.6;
 }
 
+.media-grid:empty {
+	display: none;
+}
+
 .media-grid {
 	display: grid;
 	grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
@@ -85,24 +98,22 @@
 	--polaroid-ink: var(--kg-fg-on-accent);
 	--polaroid-ink-muted: color-mix(
 		in srgb,
-		var(--polaroid-ink) 65%,
-		var(--kg-title-keyline)
+		var(--polaroid-ink) 75%,
+		var(--kg-polaroid-paper)
 	);
 	position: relative;
 	display: flex;
 	flex-direction: column;
 	padding: var(--kg-space-2) var(--kg-space-2) 0;
 	border-radius: calc(var(--kg-radius-sm) / 2);
-	background: color-mix(
-		in srgb,
-		var(--kg-title-keyline) 92%,
-		var(--kg-bg-raised)
-	);
+	background: var(--kg-polaroid-paper);
 	box-shadow: var(--kg-shadow-1);
-	transform: rotate(var(--polaroid-tilt));
+	/* Independent rotate/translate/scale properties let the card's animations compose. */
+	rotate: var(--polaroid-tilt);
 	transition:
 		box-shadow var(--kg-dur-med) var(--kg-ease-out),
-		transform var(--kg-dur-med) var(--kg-ease-out);
+		translate var(--kg-dur-med) var(--kg-ease-out),
+		rotate var(--kg-dur-med) var(--kg-ease-out);
 }
 
 .polaroid:nth-child(4n + 1) {
@@ -126,14 +137,28 @@
 .polaroid:focus-within {
 	z-index: 1;
 	box-shadow: var(--kg-shadow-2);
-	transform: translateY(calc(var(--kg-space-1) * -1)) rotate(0deg);
+	translate: 0 calc(var(--kg-space-1) * -1);
+	rotate: 0deg;
 }
 
 .polaroid.selected {
 	box-shadow:
 		0 0 0 3px var(--kg-accent),
 		var(--kg-shadow-1);
-	transform: rotate(0deg);
+	rotate: 0deg;
+}
+
+/* One-shot entrances, set by MediaGrid and removed when they end. */
+.polaroid.is-pasting {
+	animation: kg-sticker-paste var(--kg-dur-slow) var(--kg-ease-out);
+}
+
+.polaroid.is-arriving {
+	animation: kg-card-arrive var(--kg-dur-fast) ease-out;
+}
+
+.polaroid.is-settling {
+	animation: kg-polaroid-settle var(--kg-dur-slow) var(--kg-ease-out);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -143,11 +168,12 @@
 
 	.polaroid:hover,
 	.polaroid:focus-within {
-		transform: rotate(var(--polaroid-tilt));
+		translate: none;
+		rotate: var(--polaroid-tilt);
 	}
 
 	.polaroid.selected {
-		transform: rotate(0deg);
+		rotate: 0deg;
 	}
 }
 
@@ -180,6 +206,26 @@
 	object-fit: cover;
 }
 
+/* "File missing" pill over the photo of an item whose file was deleted from the media folder. */
+.polaroid-missing {
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	translate: -50% -50%;
+	z-index: 2;
+	padding: var(--kg-space-1) var(--kg-space-2);
+	border-radius: var(--kg-radius-pill);
+	background: var(--kg-danger);
+	color: var(--kg-fg-on-accent);
+	font-size: var(--kg-text-xs);
+}
+
+/* The dimmed media keeps its place but steps back behind the pill. */
+.polaroid.is-missing .polaroid-photo img,
+.polaroid.is-missing .polaroid-photo video {
+	opacity: 0.25;
+}
+
 .polaroid .media-card-delete {
 	box-shadow: var(--kg-shadow-1);
 }
@@ -204,6 +250,43 @@
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
+}
+
+.media-name-label {
+	display: flex;
+	align-items: center;
+	gap: var(--kg-space-1);
+}
+
+.media-name-text {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.media-name-hint {
+	flex: none;
+	opacity: 0;
+	transition: opacity var(--kg-dur-fast) var(--kg-ease-out);
+}
+
+.media-name-label:hover .media-name-hint {
+	opacity: 0.6;
+}
+
+.media-name-input {
+	width: 100%;
+	padding: 0;
+	border: none;
+	border-bottom: 1px solid
+		color-mix(in srgb, var(--polaroid-ink) 45%, transparent);
+	background: none;
+	font-family: inherit;
+	outline: none;
+}
+
+.media-name-input:focus {
+	border-bottom-color: var(--kg-accent);
 }
 
 .media-meta {

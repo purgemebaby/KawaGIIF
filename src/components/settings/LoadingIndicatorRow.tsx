@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { open } from '@tauri-apps/plugin-dialog';
 import { invoke } from '../../lib/ipc';
 import { useLoadingIndicator } from '../../hooks/useLoadingIndicator';
-import { t } from '../../i18n/en';
+import { t } from '../../i18n';
+import loadingIcon from '../../assets/mascot/loading-icon.png';
 import './LoadingIndicatorRow.css';
 
 const INDICATOR_EXTENSIONS = ['gif', 'png', 'jpg', 'jpeg'];
@@ -12,7 +13,7 @@ function LoadingIndicatorRow() {
 	const { url, refresh } = useLoadingIndicator();
 	const [oversized, setOversized] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	// Every new image gets a new URL, so a broken file falls back to the ball without a manual reset.
+	// Every new image gets a new URL, so a broken file falls back to the mascot without a manual reset.
 	const [failedUrl, setFailedUrl] = useState<string | null>(null);
 	const text = t.settings.loadingIndicator;
 	const showImage = url !== null && url !== failedUrl;
@@ -56,7 +57,12 @@ function LoadingIndicatorRow() {
 					onError={() => setFailedUrl(url)}
 				/>
 			) : (
-				<div className="settings-indicator-preview kg-walker-ball" />
+				<img
+					className="settings-indicator-preview"
+					src={loadingIcon}
+					alt=""
+					draggable={false}
+				/>
 			)}
 			<span className="settings-row-text">
 				<strong>{text.label}</strong>

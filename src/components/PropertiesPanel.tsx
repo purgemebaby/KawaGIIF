@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react';
 import { invoke } from '../lib/ipc';
 import { loadPlacedMedia, type PlacedMedia } from '../lib/placed';
 import { STATIC_TYPES, type MediaType } from '../lib/media';
-import { t } from '../i18n/en';
+import { t } from '../i18n';
 import Slider from './ui/Slider';
-import PixelIcon from './ui/PixelIcon';
+import SketchIcon from './ui/SketchIcon';
 
 const DEFAULT_RATE = 1;
 
@@ -99,7 +99,7 @@ function PropertiesPanel({ selectedId }: { selectedId: string | null }) {
 						invoke('remove_placed_media', { instanceId: selectedId })
 					}
 				>
-					<PixelIcon name="trash" />
+					<SketchIcon name="trash" />
 					{t.editor.removeItem}
 				</button>
 			</div>

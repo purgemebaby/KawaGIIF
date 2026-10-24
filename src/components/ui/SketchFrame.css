@@ -1,0 +1,24 @@
+/* One wobbly hand-drawn shape (a bubble, a puff) stretched over whatever sizes it. */
+.sketch-frame {
+	overflow: visible;
+}
+
+.sketch-frame-stroke {
+	fill: none;
+	stroke: var(--sketch-ink, var(--kg-fg));
+	stroke-width: var(--sketch-width, 2px);
+	stroke-linecap: round;
+	stroke-linejoin: round;
+	vector-effect: non-scaling-stroke;
+}
+
+/* the second pen pass, thinner and fainter so both read as one loose line */
+.sketch-frame-stroke--second {
+	stroke-width: calc(var(--sketch-width, 2px) * 0.7);
+	stroke-opacity: 0.55;
+}
+
+.sketch-frame-fill {
+	fill: var(--sketch-paper, none);
+	stroke: none;
+}

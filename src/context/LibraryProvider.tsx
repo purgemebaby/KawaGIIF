@@ -14,6 +14,10 @@ import { useTauriEvent } from '../hooks/useTauriEvent';
 export interface PendingImport {
 	paths: string[];
 	large: { path: string; bytes: number }[];
+	/** Paths already in the library: asked about first, then emptied. */
+	reimports: string[];
+	/** Answer to the re-import question, sent along with the import. */
+	replaceExisting: boolean;
 }
 
 interface LibraryContextValue {
@@ -22,7 +26,8 @@ interface LibraryContextValue {
 	loading: boolean;
 	refresh: () => Promise<void>;
 	importFiles: () => Promise<PendingImport | null>;
-	confirmImport: (paths: string[]) => Promise<void>;
+	confirmImport: (paths: string[], replaceExisting: boolean) => Promise<void>;
+	renameMedia: (id: string, name: string) => Promise<void>;
 	updateTags: (id: string, tags: string[]) => Promise<void>;
 	updateTagsMany: (
 		ids: string[],
@@ -43,8 +48,8 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
 	const [tags, setTags] = useState<TagCount[]>([]);
 	const [loading, setLoading] = useState(true);
 
+	// `loading` only covers the first fetch: a refresh keeps the grid mounted so its cards can animate.
 	const refresh = useCallback(async () => {
-		setLoading(true);
 		try {
 			const [media, tagCounts] = await Promise.all([
 				invoke<MediaItem[]>('list_media'),
@@ -64,8 +69,8 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
 	useTauriEvent('library-changed', refresh);
 
 	const confirmImport = useCallback(
-		async (paths: string[]) => {
-			await invoke('import_media', { paths });
+		async (paths: string[], replaceExisting: boolean) => {
+			await invoke('import_media', { paths, replaceExisting });
 			await refresh();
 		},
 		[refresh],
@@ -84,6 +89,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
 		if (!selected) return null;
 		const paths = Array.isArray(selected) ? selected : [selected];
 
+		const reimports = await invoke<string[]>('find_reimports', { paths });
 		const sizes = await Promise.all(
 			paths.map(async (path) => {
 				try {
@@ -98,12 +104,16 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
 		);
 		const large = sizes.filter((f) => f.bytes >= LARGE_FILE_BYTES);
 
-		if (large.length === 0) {
-			await confirmImport(paths);
+		if (large.length === 0 && reimports.length === 0) {
+			await confirmImport(paths, false);
 			return null;
 		}
-		return { paths, large };
+		return { paths, large, reimports, replaceExisting: false };
 	}, [confirmImport]);
+
+	const renameMedia = useCallback(async (id: string, name: string) => {
+		await invoke('rename_media', { id, name });
+	}, []);
 
 	const updateTags = useCallback(async (id: string, next: string[]) => {
 		await invoke('update_media_tags', { id, tags: next });
@@ -137,6 +147,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
 				refresh,
 				importFiles,
 				confirmImport,
+				renameMedia,
 				updateTags,
 				updateTagsMany,
 				renameTag,

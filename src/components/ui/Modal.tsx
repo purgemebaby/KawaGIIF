@@ -1,7 +1,7 @@
 import { useEffect, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { t } from '../../i18n/en';
-import PixelIcon from './PixelIcon';
+import { t } from '../../i18n';
+import SketchIcon from './SketchIcon';
 
 // Screens are CSS-contained (trapping `position: fixed`), so modals render into this node, inside the control shell.
 export const MODAL_ROOT_ID = 'modal-root';
@@ -65,7 +65,7 @@ function Modal({
 							}
 							onClick={onConfirm}
 						>
-							{destructive && <PixelIcon name="trash" />}
+							{destructive && <SketchIcon name="trash" />}
 							{confirmLabel}
 						</button>
 					)}

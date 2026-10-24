@@ -64,6 +64,7 @@ const FLING_DEG = (ORBIT_DEG_PER_MS * MORPH_MS) / 2;
 // starts at the orbit speed and eases out: the sector is flung, not stopped
 const FLING_EASING = 'cubic-bezier(0.33, 0.66, 0.66, 1)';
 const HOME_FADE_MS = 500;
+const MASCOT_EXIT_MS = 450;
 
 const SECTOR_POINTS = 48;
 // The finished polygon reaches past the panel so its shadow is not clipped at the end.
@@ -131,9 +132,20 @@ function fade(
 	);
 }
 
-/** Fades the title, buttons and backdrop away, or back in when `reverse`. */
+/** The chibi slips out past the left edge, the way it slides in; coming back, Home's own greeting brings it in. */
+function hideMascot(home: Element): Animation[] {
+	return [...home.querySelectorAll('.home-mascot')].map((mascot) =>
+		mascot.animate(
+			{ translate: '-120% 0', opacity: 0 },
+			{ duration: MASCOT_EXIT_MS, easing: 'ease-in', fill: 'both' },
+		),
+	);
+}
+
+/** Fades the title, buttons and backdrop away, or back in when `reverse`; the chibi leaves sideways. */
 export function fadeHome(home: Element, reverse: boolean): Animation[] {
-	return fade(home, HOME_FADED, reverse, HOME_FADE_MS);
+	const fades = fade(home, HOME_FADED, reverse, HOME_FADE_MS);
+	return reverse ? fades : [...fades, ...hideMascot(home)];
 }
 
 /** Resolves when every animation ends; rejects if one is cancelled. */

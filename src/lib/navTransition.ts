@@ -23,7 +23,7 @@ export function worldOffset(
 	return { x: Math.round(b.x - a.x), y: Math.round(b.y - a.y) };
 }
 
-export type TransitionKind = 'pan' | 'burst' | 'unburst' | 'instant';
+type TransitionKind = 'pan' | 'burst' | 'unburst' | 'instant';
 
 /** How a screen change is shown; one place to give a pair its own animation. */
 export function transitionKind(from: Screen, to: Screen): TransitionKind {

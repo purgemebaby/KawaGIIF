@@ -4,6 +4,7 @@ import {
 } from '@tauri-apps/api/core';
 import { listen as tauriListen, type UnlistenFn } from '@tauri-apps/api/event';
 import { ZOOM_MAX, ZOOM_MIN } from './zoom';
+import { clamp } from './overlayGeometry';
 
 const IS_TAURI = '__TAURI_INTERNALS__' in window;
 
@@ -38,6 +39,8 @@ const MOCK_CONFIG = {
 	font_scale: 1,
 	ui_zoom: 1,
 	nav_animations: true,
+	show_mascot: true,
+	language: 'en',
 };
 
 const MOCK_RESPONSES: Record<string, unknown> = {
@@ -46,6 +49,8 @@ const MOCK_RESPONSES: Record<string, unknown> = {
 	get_config: MOCK_CONFIG,
 	get_loading_indicator: null,
 	set_nav_animations: null,
+	set_show_mascot: null,
+	set_language: null,
 	list_system_fonts: ['Segoe UI', 'Arial', 'Consolas'],
 	get_working_template: { items: [] },
 	load_template: { items: [] },
@@ -55,6 +60,9 @@ const MOCK_RESPONSES: Record<string, unknown> = {
 	get_slot_info: null,
 	get_file_size: 1024 * 1024,
 	count_placed_media: 0,
+	find_reimports: [],
+	import_media: [],
+	rename_media: null,
 	get_system_stats: {
 		total_ram_mb: 16_384,
 		used_ram_mb: 9_830,
@@ -70,9 +78,7 @@ const MOCK_HANDLERS: Record<
 > = {
 	set_ui_zoom: (args) => {
 		const zoom = Number(args?.zoom);
-		return Number.isFinite(zoom)
-			? Math.min(Math.max(zoom, ZOOM_MIN), ZOOM_MAX)
-			: 1;
+		return Number.isFinite(zoom) ? clamp(zoom, ZOOM_MIN, ZOOM_MAX) : 1;
 	},
 };
 

@@ -7,6 +7,8 @@ export interface MediaItem {
 	media_type: MediaType;
 	imported_at_unix: number;
 	tags: string[];
+	/** Set by the backend when the file was deleted from the media folder. */
+	missing?: boolean;
 }
 
 export interface TagCount {

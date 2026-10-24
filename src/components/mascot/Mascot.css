@@ -1,0 +1,236 @@
+/* The chibi stands in Home's bottom-left corner, out of the ring's and the buttons' way. */
+.home-mascot {
+	--home-mascot-h: clamp(150px, 34vh, 260px);
+
+	position: absolute;
+	left: var(--kg-space-5);
+	/* sunk past the window edge so the feet are half hidden */
+	bottom: calc(var(--home-mascot-h) * -0.06);
+	height: var(--home-mascot-h);
+	width: auto;
+	pointer-events: none;
+	animation: kg-mascot-float 4.5s ease-in-out infinite;
+}
+
+.home-mascot.is-entering {
+	animation:
+		kg-mascot-slide-in 700ms var(--kg-ease-out),
+		kg-mascot-float 4.5s ease-in-out 700ms infinite;
+}
+
+/* Too little height left next to the ring: the corner stays empty. */
+@media (max-height: 420px) {
+	.home-mascot {
+		display: none;
+	}
+}
+
+/* Settings: the chibi leans over the RAM gauge's top edge, low enough to look like it climbs out from behind; the wrench hangs in front of the card. */
+.settings-mascot {
+	position: absolute;
+	right: var(--kg-space-4);
+	bottom: calc(100% - var(--settings-mascot-sink));
+	z-index: 1;
+	width: var(--settings-mascot-w);
+	aspect-ratio: 420 / 348;
+	pointer-events: none;
+	animation: kg-mascot-float 4.5s ease-in-out infinite;
+}
+
+/* The layers share the 420x348 canvas, so they stack exactly. */
+.settings-mascot img {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+}
+
+/* The pivot is the gripping hand; the overshoot of the pop easing reads as a tap. */
+.settings-mascot-wrench {
+	transform-origin: 87.4% 81.6%;
+	rotate: var(--wrench-angle, 0deg);
+	transition: rotate 520ms var(--kg-ease-pop);
+}
+
+/* No room for the chibi above the card: the aside goes back to plain cards. */
+@media (max-width: 680px), (max-height: 560px) {
+	.settings-mascot {
+		display: none;
+	}
+}
+
+/* Library with media: the chibi rises from the window's bottom-right corner; fixed sticks to the screen layer, so it never scrolls. */
+.library-mascot {
+	--library-mascot-h: clamp(150px, 32vh, 250px);
+
+	position: fixed;
+	right: var(--kg-space-5);
+	/* sunk past the window edge so the sleeves are cut off */
+	bottom: calc(var(--library-mascot-h) * -0.1);
+	z-index: 6;
+	height: var(--library-mascot-h);
+	aspect-ratio: 480 / 447;
+	pointer-events: none;
+	animation: kg-mascot-float 4.5s ease-in-out infinite;
+}
+
+.library-mascot img {
+	display: block;
+	width: 100%;
+	height: 100%;
+}
+
+/* A small bright Gaussian glow on the camera's flash window (it rides the float with the chibi). */
+.library-mascot-flash {
+	position: absolute;
+	left: 70%;
+	top: 71.5%;
+	width: 26%;
+	aspect-ratio: 1;
+	translate: -50% -50%;
+	border-radius: 50%;
+	box-shadow: 0 0 10px 3px rgb(255 255 255 / 0.55);
+	background: radial-gradient(
+		circle,
+		rgb(255 255 255) 0%,
+		rgb(255 255 255 / 0.9) 22%,
+		rgb(255 255 255 / 0.45) 45%,
+		transparent 72%
+	);
+	opacity: 0;
+	animation: kg-camera-flash 520ms ease-out;
+}
+
+/* Too short a window: the chibi would cover most of the grid. */
+@media (max-height: 420px) {
+	.library-mascot {
+		display: none;
+	}
+}
+
+/* Editor: a speech bubble over the chibi, who peeks up from the canvas area's bottom edge. */
+.editor-mascot {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	min-width: 0;
+	min-height: 0;
+	padding: var(--kg-space-2) var(--kg-space-3) 0;
+	overflow: hidden;
+}
+
+/* margin-top: auto pins bubble and chibi to the bottom; a short area squeezes the chibi first, never the text. */
+.editor-mascot-bubble {
+	--sketch-ink: var(--kg-title-outline);
+	--sketch-paper: var(--kg-title-keyline);
+	--sketch-width: 3px;
+
+	position: relative;
+	z-index: 1;
+	/* isolation keeps the frame's z-index: -1 behind the text, never behind the canvas */
+	isolation: isolate;
+	flex: none;
+	max-width: min(100%, 34ch);
+	/* the extra 14px gives the tail room below without covering the chibi */
+	margin: auto 0 calc(var(--kg-space-3) + 14px);
+	padding: var(--kg-space-3) var(--kg-space-4);
+	color: var(--kg-title-outline);
+	font-family: var(--kg-font-ui);
+	font-size: var(--kg-text-md);
+	line-height: 1.4;
+	text-align: center;
+	animation: kg-mascot-float 4.5s ease-in-out infinite;
+}
+
+/* The hand-drawn outline stretched over the bubble; its tail is drawn past the bottom edge. */
+.editor-mascot-bubble-frame {
+	position: absolute;
+	inset: 0;
+	z-index: -1;
+	width: 100%;
+	height: 100%;
+}
+
+/* The whole canvas, so the hard hat and pencil stay fully in view. */
+.editor-mascot-peek {
+	position: relative;
+	flex: 0 1 auto;
+	width: clamp(150px, 70%, 240px);
+	min-height: 0;
+	aspect-ratio: 480 / 392;
+	overflow: hidden;
+}
+
+/* sunk one float step so the image's edge never lifts off the clip line */
+.editor-mascot-chibi {
+	position: absolute;
+	top: var(--kg-space-1);
+	left: 0;
+	display: block;
+	width: 100%;
+	height: auto;
+	aspect-ratio: 480 / 392;
+	animation: kg-mascot-float 4.5s ease-in-out infinite;
+}
+
+/* Storage, empty library: the lying-down chibi greets it with a very soft wave. */
+.storage-empty-chibi {
+	position: relative;
+	width: clamp(160px, 30vw, 240px);
+	margin: 0 auto var(--kg-space-3);
+}
+
+.storage-empty-mascot {
+	width: 100%;
+	height: auto;
+	display: block;
+	filter: drop-shadow(0 10px 12px rgb(0 0 0 / 0.45));
+	animation: kg-mascot-wave 6s ease-in-out infinite;
+}
+
+/* Grumpy steam puffs rise from both sides of the head, three each, one after another. */
+.storage-smoke {
+	position: absolute;
+	top: 2%;
+	width: 11%;
+	aspect-ratio: 1;
+	pointer-events: none;
+}
+
+.storage-smoke--left {
+	left: 6%;
+	--drift: -1;
+}
+
+.storage-smoke--right {
+	right: 6%;
+	--drift: 1;
+	--side-delay: 0.4s;
+}
+
+/* Each puff is a wobbly sketch ellipse, no longer a filled circle. */
+.storage-smoke i {
+	--sketch-ink: var(--kg-fg-muted);
+	--sketch-paper: color-mix(in srgb, var(--kg-fg-muted) 35%, transparent);
+	--sketch-width: 1.5px;
+
+	position: absolute;
+	inset: 0;
+	opacity: 0;
+	animation: kg-smoke-puff 2.4s ease-out infinite;
+	animation-delay: calc(var(--n, 0) * 0.8s + var(--side-delay, 0s));
+}
+
+.storage-smoke svg {
+	display: block;
+	width: 100%;
+	height: 100%;
+}
+
+.storage-smoke i:nth-child(2) {
+	--n: 1;
+}
+
+.storage-smoke i:nth-child(3) {
+	--n: 2;
+}

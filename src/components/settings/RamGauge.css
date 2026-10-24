@@ -4,10 +4,10 @@
 	align-items: center;
 	gap: var(--kg-space-1);
 	padding: var(--kg-space-4);
-	border: 1px solid var(--kg-border);
-	border-radius: var(--kg-radius-md);
-	background: var(--kg-bg-panel);
-	box-shadow: var(--kg-shadow-1);
+	border: none;
+	border-radius: var(--kg-island-radius);
+	background: var(--kg-island-bg);
+	box-shadow: var(--kg-island-shadow);
 }
 
 .ram-gauge-dial {
@@ -75,9 +75,4 @@
 	font-size: var(--kg-text-sm);
 	font-variant-numeric: tabular-nums;
 	text-align: center;
-}
-
-.ram-gauge-estimate {
-	color: var(--kg-fg-faint);
-	font-size: var(--kg-text-xs);
 }

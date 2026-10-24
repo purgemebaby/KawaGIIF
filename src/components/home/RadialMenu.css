@@ -58,7 +58,7 @@
 	filter: url(#radial-glow-blur);
 }
 
-/*Text from sectors; the pixel icon above it is a nested svg*/
+/*Text from sectors; the sketch icon above it is a nested svg*/
 .radial-label {
 	fill: var(--kg-fg);
 	text-anchor: middle;
@@ -71,6 +71,6 @@
 }
 
 /* the icon ignores clicks like the label, so the whole sector stays the button */
-.radial-sector .pixel-icon {
+.radial-sector .sketch-icon {
 	pointer-events: none;
 }

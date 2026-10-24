@@ -1,11 +1,12 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { invoke } from '../lib/ipc';
 import { loadConfig } from '../lib/config';
+import { announceShowMascot } from '../lib/mascot';
 import { useTauriEvent } from '../hooks/useTauriEvent';
 import { useScreenTransitions } from '../hooks/useScreenTransitions';
 import { useZoomShortcuts } from '../hooks/useZoomShortcuts';
 import { LibraryProvider } from '../context/LibraryProvider';
-import { t } from '../i18n/en';
+import { t } from '../i18n';
 import BrandBar from '../components/BrandBar';
 import { NAV_ITEMS, type Screen } from '../components/navItems';
 import HomeScreen from '../components/HomeScreen';
@@ -32,16 +33,18 @@ let hasBooted = devParams?.get('boot') === '0';
 interface ScreenViewProps {
 	id: Screen;
 	quiet: boolean;
+	booting: boolean;
 	onNavigate: (screen: Screen) => void;
 }
 
-/** One world tile: a section brings its own top bar, so the logo travels with it. */
-function ScreenView({ id, quiet, onNavigate }: ScreenViewProps) {
+function ScreenView({ id, quiet, booting, onNavigate }: ScreenViewProps) {
 	return (
 		<>
 			{id !== 'home' && <BrandBar onNavigate={onNavigate} />}
 			<div className="screen-slot">
-				{id === 'home' && <HomeScreen quiet={quiet} onNavigate={onNavigate} />}
+				{id === 'home' && (
+					<HomeScreen quiet={quiet} booting={booting} onNavigate={onNavigate} />
+				)}
 				{id === 'storage' && <StorageScreen />}
 				{id === 'editor' && <EditorScreen />}
 				{id === 'settings' && <SettingsScreen />}
@@ -54,10 +57,14 @@ function ControlApp() {
 	const [pendingExit, setPendingExit] = useState<PendingExit | null>(null);
 	const [booting, setBooting] = useState(!hasBooted);
 
-	// one request for the whole window: the boot bar waits on it and the hooks below read it
+	// one request for the whole window
 	const configPromise = useMemo(loadConfig, []);
 
-	// what the UI needs before it's usable; the loading bar advances as each one finishes
+	useEffect(() => {
+		configPromise.then((c) => announceShowMascot(c.show_mascot ?? true));
+	}, [configPromise]);
+
+	// what the UI needs before it's usable. The loading bar advances as each one finishes
 	const bootSteps = useMemo(
 		() => [
 			configPromise,
@@ -140,6 +147,7 @@ function ControlApp() {
 								<ScreenView
 									id={id}
 									quiet={quiet}
+									booting={booting}
 									onNavigate={(next) =>
 										requestExit({ kind: 'navigate', screen: next })
 									}

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useLoadingIndicator } from '../hooks/useLoadingIndicator';
 import KawaTitle from './brand/KawaTitle';
+import loadingIcon from '../assets/mascot/loading-icon.png';
 import './LoadingScreen.css';
 
 // floor so the neon bar is on screen long enough to be seen; the real length comes from `steps`
@@ -148,8 +149,11 @@ function LoadingScreen({ onDone, steps }: LoadingScreenProps) {
 							onError={() => setWalkerFailed(true)}
 						/>
 					) : (
-						<div
-							className="loading-walker kg-walker-ball"
+						<img
+							className="loading-walker loading-walker--image"
+							src={loadingIcon}
+							alt=""
+							draggable={false}
 							style={walkerStyle}
 						/>
 					))}

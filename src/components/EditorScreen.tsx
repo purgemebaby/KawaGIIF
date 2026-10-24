@@ -7,12 +7,14 @@ import {
 	type ReactNode,
 } from 'react';
 import { invoke } from '../lib/ipc';
+import { requestHomeGreeting } from '../lib/mascot';
 import type { Template } from '../lib/placed';
 import { useEditorSync } from '../hooks/useEditorSync';
 import { useDeleteShortcut } from '../hooks/useDeleteShortcut';
 import { booleanCodec, usePersistentState } from '../hooks/usePersistentState';
 import { useStorageResize } from '../hooks/useStorageResize';
-import { t } from '../i18n/en';
+import { t } from '../i18n';
+import EditorMascot from './mascot/EditorMascot';
 import EditorPanelHeader from './EditorPanelHeader';
 import MediaSidebar from './MediaSidebar';
 import PlacedItemsList from './PlacedItemsList';
@@ -76,6 +78,9 @@ function EditorScreen() {
 	}, [selectedId]);
 
 	useDeleteShortcut(selectedId !== null, deleteSelected);
+
+	// Home greets the user again once they have visited the Editor.
+	useEffect(requestHomeGreeting, []);
 
 	// Selecting opens the drawer once; collapsing it afterwards sticks until another selection.
 	useEffect(() => {
@@ -190,11 +195,7 @@ function EditorScreen() {
 				</PanelCollapse>
 			</section>
 
-			<div className="editor-canvas-hint">
-				{t.editor.canvasHint.map((line) => (
-					<p key={line}>{line}</p>
-				))}
-			</div>
+			<EditorMascot />
 
 			<section
 				className="editor-panel editor-panel--edit"

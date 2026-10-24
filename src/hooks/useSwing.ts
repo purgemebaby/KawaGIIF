@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, type RefObject } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { motionValue, springValue, type MotionValue } from 'motion';
 import { invoke } from '../lib/ipc';
+import { prefersReducedMotion } from '../lib/navAnimations';
+import { clamp } from '../lib/overlayGeometry';
 import { useTauriEvent } from './useTauriEvent';
 
 // Pendulum: tilt from the grip, proportional to the horizontal speed (logical px/s).
@@ -34,9 +36,6 @@ interface Session {
 	finish: () => void;
 }
 
-const clamp = (value: number, limit: number) =>
-	Math.max(-limit, Math.min(limit, value));
-
 const carriedScale = () =>
 	Math.min(
 		MAX_CARRIED_SCALE,
@@ -55,7 +54,7 @@ export function useSwing(target: RefObject<HTMLElement | null>) {
 	const start = useCallback(() => {
 		const el = target.current;
 		if (!el || session.current) return;
-		if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+		if (prefersReducedMotion()) return;
 		carrying.current = true;
 
 		const goals = {
@@ -105,10 +104,14 @@ export function useSwing(target: RefObject<HTMLElement | null>) {
 				const vx = (payload.x - last.x) / window.devicePixelRatio / seconds;
 				const vy = (payload.y - last.y) / window.devicePixelRatio / seconds;
 				const speed = Math.hypot(vx, vy);
-				goals.tilt.set(clamp(vx * TILT_PER_SPEED, MAX_TILT));
-				goals.skew.set(clamp(-vx * SKEW_PER_SPEED, MAX_SKEW));
+				goals.tilt.set(clamp(vx * TILT_PER_SPEED, -MAX_TILT, MAX_TILT));
+				goals.skew.set(clamp(-vx * SKEW_PER_SPEED, -MAX_SKEW, MAX_SKEW));
 				goals.stretch.set(
-					clamp(speed * STRETCH_PER_SPEED - vy * STRETCH_PER_RISE, MAX_STRETCH),
+					clamp(
+						speed * STRETCH_PER_SPEED - vy * STRETCH_PER_RISE,
+						-MAX_STRETCH,
+						MAX_STRETCH,
+					),
 				);
 			}
 			last = { x: payload.x, y: payload.y, t: now };

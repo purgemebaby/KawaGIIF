@@ -1,4 +1,4 @@
-import { t } from '../i18n/en';
+import { t } from '../i18n';
 import type { Screen } from './navItems';
 import KawaTitle from './brand/KawaTitle';
 import './BrandBar.css';

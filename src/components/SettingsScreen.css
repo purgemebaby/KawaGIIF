@@ -7,6 +7,7 @@
 
 .settings-screen h1 {
 	margin-bottom: var(--kg-space-5);
+	font-family: var(--kg-font-heading);
 	font-size: var(--kg-text-xl);
 	font-weight: 600;
 }
@@ -27,9 +28,17 @@
 	min-width: 0;
 }
 
+/* The mascot (Mascot.css) peeks over the first card; the sticky offset keeps its visible part on screen. */
 .settings-aside {
+	--settings-mascot-w: 130px;
+	/* how far its paws sink into the card's top edge */
+	--settings-mascot-sink: calc(var(--settings-mascot-w) * 0.21 - 4px);
+
 	position: sticky;
-	top: 0;
+	top: calc(
+		var(--settings-mascot-w) * 348 / 420 - var(--settings-mascot-sink) +
+			var(--kg-space-2)
+	);
 }
 
 /* The window never gets narrower than 720 px, so this only covers zoomed-in UIs; the aside then follows the sections. */
@@ -47,13 +56,25 @@
 	}
 }
 
+/* Too short for the mascot (hidden in Mascot.css): the aside sticks to the top again. */
+@media (max-height: 560px) {
+	.settings-aside {
+		top: 0;
+	}
+}
+
+/* No mascot, no room to leave: the aside sticks to the top when the setting hides it. */
+.settings-aside:not(:has(.settings-mascot)) {
+	top: 0;
+}
+
 /* Section card */
 
 .settings-section {
-	border: 1px solid var(--kg-border);
-	border-radius: var(--kg-radius-md);
-	background: var(--kg-bg-panel);
-	box-shadow: var(--kg-shadow-1);
+	border: none;
+	border-radius: var(--kg-island-radius);
+	background: var(--kg-island-bg);
+	box-shadow: var(--kg-island-shadow);
 	padding: var(--kg-space-4) var(--kg-space-5);
 }
 
@@ -76,29 +97,9 @@
 }
 
 .settings-section-heading h2 {
+	font-family: var(--kg-font-heading);
 	font-size: var(--kg-text-heading);
 	font-weight: 600;
-}
-
-/* thin neon underline that fades out to the right */
-.settings-section-heading h2::after {
-	content: '';
-	display: block;
-	height: 2px;
-	margin-top: var(--kg-space-1);
-	border-radius: var(--kg-radius-pill);
-	background: linear-gradient(
-		90deg,
-		var(--kg-accent-2),
-		var(--kg-accent) 55%,
-		transparent
-	);
-}
-
-.settings-section-heading p {
-	margin-top: var(--kg-space-1);
-	color: var(--kg-fg-muted);
-	font-size: var(--kg-text-sm);
 }
 
 /* Rows: label + hint on the left, control on the right */
@@ -107,19 +108,32 @@
 	border-top: 1px solid var(--kg-border);
 }
 
+/* Controls too wide to sit beside the label (long translations, big font scale) wrap under it, right-aligned. */
 .settings-row {
 	display: flex;
+	flex-wrap: wrap;
 	align-items: center;
 	justify-content: space-between;
-	gap: var(--kg-space-4);
+	gap: var(--kg-space-3) var(--kg-space-4);
 	padding: var(--kg-space-3) 0;
+}
+
+.settings-row:not(.settings-row-number) > :not(.settings-row-text) {
+	margin-inline-start: auto;
+}
+
+/* the language buttons sit side by side and never shrink under the label */
+.settings-language {
+	display: flex;
+	flex: none;
+	gap: var(--kg-space-2);
 }
 
 .settings-row-text {
 	display: flex;
 	flex-direction: column;
 	gap: 3px;
-	flex: 1;
+	flex: 1 1 16em;
 	min-width: 0;
 }
 
@@ -211,10 +225,10 @@
 .settings-row-number input[type='number'] {
 	width: 80px;
 	padding: 7px 12px;
-	border: 1px solid var(--kg-border);
+	border: none;
 	border-radius: var(--kg-radius-pill);
-	background: var(--kg-bg-input);
-	box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.45);
+	background: var(--kg-well-bg);
+	box-shadow: var(--kg-well-shadow);
 	color: var(--kg-fg);
 	font-family: inherit;
 	font-size: var(--kg-text-md);
@@ -222,9 +236,8 @@
 }
 
 .settings-row-number input[type='number']:focus {
-	border-color: var(--kg-accent);
 	outline: none;
 	box-shadow:
-		inset 0 1px 3px rgba(0, 0, 0, 0.45),
-		0 0 0 3px var(--kg-accent-soft);
+		var(--kg-well-shadow),
+		0 0 0 2px var(--kg-accent);
 }

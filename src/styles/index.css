@@ -1,4 +1,5 @@
 @import '@fontsource/modak/latin-400.css';
+@import '@fontsource/fredoka/latin-600.css';
 @import './tokens.css';
 @import './base.css';
 @import './motion.css';
@@ -15,11 +16,6 @@
 	background: none;
 	cursor: pointer;
 	text-align: left;
-}
-
-.tag-chips-empty {
-	color: var(--kg-fg-faint);
-	font-size: var(--kg-text-xs);
 }
 
 .tag-chip {
@@ -43,11 +39,6 @@
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
-}
-
-.tag-chip-more {
-	background: var(--kg-bg-raised);
-	color: var(--kg-fg-muted);
 }
 
 .tag-chip-remove {

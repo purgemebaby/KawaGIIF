@@ -1,9 +1,10 @@
 import { createAppEvent } from './appEvent';
+import { clamp } from './overlayGeometry';
 
 // Same range as UI_ZOOM_MIN/MAX in commands.rs.
 export const ZOOM_MIN = 0.7;
 export const ZOOM_MAX = 1.5;
-export const ZOOM_STEP = 0.1;
+const ZOOM_STEP = 0.1;
 
 const zoomEvent = createAppEvent<number>('kg-zoom-changed');
 
@@ -17,5 +18,5 @@ export const onZoomAnnounced = zoomEvent.listen;
 export function nextZoom(current: number, direction: 1 | -1 | 0): number {
 	if (direction === 0) return 1;
 	const rounded = Math.round((current + direction * ZOOM_STEP) * 100) / 100;
-	return Math.min(Math.max(rounded, ZOOM_MIN), ZOOM_MAX);
+	return clamp(rounded, ZOOM_MIN, ZOOM_MAX);
 }

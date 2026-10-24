@@ -1,6 +1,6 @@
 import './RadialMenu.css';
 import { HOME_TILES, type Screen } from '../navItems';
-import PixelIcon from '../ui/PixelIcon';
+import SketchIcon from '../ui/SketchIcon';
 import {
 	RING_INNER,
 	RING_OUTER,
@@ -17,7 +17,7 @@ interface RadialMenuProps {
 }
 
 const LABEL_RADIUS = 145;
-// ring units; a multiple of 16 keeps every icon pixel the same size
+// ring units: the 24-unit icon drawn at 2x
 const ICON_SIZE = 48;
 // small sideways nudges so each icon sits optically centred over its label
 const ICON_NUDGE: Partial<Record<Screen, number>> = {
@@ -96,7 +96,7 @@ function RadialMenu({ onSelect }: RadialMenuProps) {
 						</g>
 						<g transform={`translate(${x} ${y})`} aria-hidden="true">
 							{tile.icon && (
-								<PixelIcon
+								<SketchIcon
 									name={tile.icon}
 									size={ICON_SIZE}
 									x={-ICON_SIZE / 2 + (ICON_NUDGE[tile.id] ?? 0)}
