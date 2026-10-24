@@ -12,16 +12,16 @@ use tauri::{
 use crate::native::windows as native;
 
 pub const MAX_POOL: u32 = 20;
-pub const HANDLE_MARGIN: u32 = 32; //logical px of transparent room on every side of the media
+pub const HANDLE_MARGIN: u32 = 32; // logical px of transparent room on every side of the media
 pub const CONTROL_LABEL: &str = "control";
 /** Set while a dropped overlay eases back to the screen edge, so the `Moved` clamp doesn't jump it there first. */
 pub static SLIDING: AtomicBool = AtomicBool::new(false);
 const OV_LABEL: &str = "OV-SLOT-";
 const KEEPER_INTERVAL: Duration = Duration::from_secs(2);
-const KEEPER_FULLSCREEN_INTERVAL: Duration = Duration::from_millis(250); //a borderless game that goes topmost buries the overlays within this
-const CARRY_TICK: Duration = Duration::from_millis(8); //about 120 moves per second while an overlay is carried
+const KEEPER_FULLSCREEN_INTERVAL: Duration = Duration::from_millis(250); // a borderless game that goes topmost buries the overlays within this
+const CARRY_TICK: Duration = Duration::from_millis(8); // about 120 moves per second while an overlay is carried
 const CONTROL_BASE: (f64, f64) = (960.0, 640.0);
-const MIN_CONTROL: (f64, f64) = (720.0, 480.0);
+const MIN_CONTROL: (f64, f64) = CONTROL_BASE; // the opening size is also the smallest (a smaller monitor still caps it)
 /** (x, y, width, height, scale factor bits). */
 type MonitorKey = (i32, i32, u32, u32, u64);
 
@@ -30,7 +30,7 @@ const MAX_CONTROL: (f64, f64) = (1700.0, 1056.0);
 
 const BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --process-per-site --enable-gpu-rasterization --enable-zero-copy --ignore-gpu-blocklist";
 
-static CARRIED_SLOT: AtomicUsize = AtomicUsize::new(usize::MAX); //the overlay hanging from the cursor
+static CARRIED_SLOT: AtomicUsize = AtomicUsize::new(usize::MAX); // the overlay hanging from the cursor
 
 
 
@@ -150,7 +150,7 @@ fn after_queued(window: &WebviewWindow, fix: impl FnOnce(&WebviewWindow) + Send 
 }
 
 /**
- * Turns click-through on or off for an overlay; use this instead of `set_ignore_cursor_events` alone.
+ * Turns click-through on or off for an overlay. Use this instead of `set_ignore_cursor_events` alone.
  * Tauri drops `WS_EX_LAYERED` when turning it off (opaque grey frame) and re-adds `WS_CAPTION` (white strip on
  * activation), so `force_layered` and `force_borderless` restore them once that change has been applied.
  */
@@ -220,7 +220,7 @@ pub fn create_control_window(app: &AppHandle) -> tauri::Result<WebviewWindow> {
         .center()
         .min_inner_size(MIN_CONTROL.0, MIN_CONTROL.1)
         .max_inner_size(MAX_CONTROL.0, MAX_CONTROL.1)
-        .maximizable(false) //the owner keeps it at a chosen size; resizing by the edges still works
+        .maximizable(false) // the owner keeps it at a chosen size. Resizing by the edges still works
         .decorations(true)
         .transparent(false)
         .resizable(true)
@@ -317,8 +317,8 @@ fn keeper_plan() -> (Duration, bool) { (KEEPER_INTERVAL, true) }
 /**
  * Restyles and re-raises the visible overlays (`raise_visible_overlays`) so a topmost app cannot bury click-through overlays
  * that never get focus. No fullscreen app: every `KEEPER_INTERVAL`. Borderless fullscreen game: every `KEEPER_FULLSCREEN_INTERVAL`,
- * since it may re-raise itself. Exclusive fullscreen: no raise (nothing can show over it; raising only forces DWM back into
- * compositing). Window calls run on the main thread; the loop ends when the event loop is gone.
+ * since it may re-raise itself. Exclusive fullscreen: no raise (nothing can show over it. Raising only forces DWM back into
+ * compositing). Window calls run on the main thread. The loop ends when the event loop is gone.
  */
 pub fn spawn_topmost_keeper(app: &AppHandle) {
     let app = app.clone();
@@ -342,7 +342,7 @@ pub fn spawn_topmost_keeper(app: &AppHandle) {
 
 /**
  * Instant re-raise every time another app takes the foreground (taskbar click, Start, a game). Raise only: restyling on
- * every focus change would redraw the frames (`SWP_FRAMECHANGED`) and risk flicker; the keeper restyles.
+ * every focus change would redraw the frames (`SWP_FRAMECHANGED`) and risk flicker. The keeper restyles.
  * A second hook also sees our own windows taking the foreground, so editing resumes when the app returns to the front,
  * and the overlays go back above the control window that a click on it just raised.
  */
@@ -370,8 +370,8 @@ pub fn stop_watching_foreground_changes() {
 }
 
 /**
- * Hooks an overlay's window events: `Focused` re-forces the styles (Tauri redoes its `skip_taskbar` fix); `Moved`/
- * `Resized` store the geometry in the template; `Moved` also clamps to the monitor (the corrective `Moved` needs no
+ * Hooks an overlay's window events: `Focused` re-forces the styles (Tauri redoes its `skip_taskbar` fix). `Moved`/
+ * `Resized` store the geometry in the template. `Moved` also clamps to the monitor (the corrective `Moved` needs no
  * correction, so no loop). A drag is constrained by the subclass's `WM_MOVING` clamp, so this covers programmatic moves.
  */
 fn watch_overlay_events(app: &AppHandle, window: &WebviewWindow, slot: usize) {
@@ -380,7 +380,7 @@ fn watch_overlay_events(app: &AppHandle, window: &WebviewWindow, slot: usize) {
     window.on_window_event(move |event| match event {
         WindowEvent::Focused(_) => reapply_overlay_style(&this),
         WindowEvent::Moved(pos) => {
-            if SLIDING.load(Ordering::Relaxed) || !clamp_to_work_area(&this) { crate::template::update_slot_geometry(&app, slot, Some((pos.x, pos.y)), None); }
+            if SLIDING.load(Ordering::Relaxed) || is_carried(slot) || !clamp_to_work_area(&this) { crate::template::update_slot_geometry(&app, slot, Some((pos.x, pos.y)), None); }
         }
         WindowEvent::Resized(size) => crate::template::update_slot_geometry(&app, slot, None, Some((size.width, size.height))),
         _ => {}
@@ -395,7 +395,7 @@ pub fn hide_control(app: &AppHandle) {
     let Some(control) = app.get_webview_window(CONTROL_LABEL) else { return; };
     let _ = control.hide();
     let check = control.clone();
-    set_slot_dormant(&control, true, move || !check.is_visible().unwrap_or(false)); //shown again meanwhile → stay awake
+    set_slot_dormant(&control, true, move || !check.is_visible().unwrap_or(false)); // shown again meanwhile → stay awake
     let handle = app.clone();
     after_queued(&control, move |_| crate::template::refresh_edit_activity(&handle));
 }
@@ -429,7 +429,7 @@ pub fn app_is_foreground() -> bool {
 // Slot Commands
 /**
  * Moves, sizes and shows the pool window of `slot` (this is what "places" an animation). Geometry is physical pixels,
- * like `Moved`/`Resized`. Styles are reapplied because tao leaves `WS_EX_APPWINDOW`/`WS_EX_WINDOWEDGE` on new windows;
+ * like `Moved`/`Resized`. Styles are reapplied because tao leaves `WS_EX_APPWINDOW`/`WS_EX_WINDOWEDGE` on new windows.
  * the clamp covers old templates placed over the taskbar. A free slot may be asleep, so it is woken first.
  */
 pub fn show_slot(
@@ -494,6 +494,9 @@ pub fn carry_with_cursor(app: &AppHandle, slot: usize, grip_y: i32, on_drop: imp
         on_drop();
     });
 }
+
+/** Whether `slot` is the overlay hanging from the cursor right now (it goes anywhere until the drop). */
+pub fn is_carried(slot: usize) -> bool { CARRIED_SLOT.load(Ordering::Relaxed) == slot }
 
 fn primary_button_down() -> bool {
     #[cfg(windows)]

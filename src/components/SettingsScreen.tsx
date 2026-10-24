@@ -4,6 +4,8 @@ import { loadConfig, type AppConfig } from '../lib/config';
 import { t } from '../i18n';
 import { announceNavAnimations } from '../lib/navAnimations';
 import { announceShowMascot } from '../lib/mascot';
+import { clamp } from '../lib/overlayGeometry';
+import { onZoomAnnounced } from '../lib/zoom';
 import { useMascotShown } from '../hooks/useMascotShown';
 import FontRow from './settings/FontRow';
 import LanguageRow from './settings/LanguageRow';
@@ -11,6 +13,7 @@ import LoadingIndicatorRow from './settings/LoadingIndicatorRow';
 import OpenFolderRow from './settings/OpenFolderRow';
 import SettingsMascot from './mascot/SettingsMascot';
 import RamGauge from './settings/RamGauge';
+import SettingsRowText from './settings/SettingsRowText';
 import SettingsSection from './settings/SettingsSection';
 import ZoomRow from './settings/ZoomRow';
 import SketchIcon from './ui/SketchIcon';
@@ -28,10 +31,7 @@ interface SettingsToggleProps {
 function SettingsToggle({ checked, text, onChange }: SettingsToggleProps) {
 	return (
 		<label className="settings-row settings-row-toggle">
-			<span className="settings-row-text">
-				<strong>{text.label}</strong>
-				<small>{text.hint}</small>
-			</span>
+			<SettingsRowText text={text} />
 			<span className="settings-switch">
 				<input
 					type="checkbox"
@@ -45,7 +45,7 @@ function SettingsToggle({ checked, text, onChange }: SettingsToggleProps) {
 	);
 }
 
-// Static icons (no `pixel-hover` ancestor here), drawn at 32 px.
+// Static icons (no `icon-hover` ancestor here), drawn at 32 px.
 const SECTION_ICON_SIZE = 32;
 
 const ICONS = {
@@ -63,6 +63,13 @@ function SettingsScreen() {
 	useEffect(() => {
 		loadConfig().then(setConfig);
 	}, []);
+
+	// Follows the keyboard shortcuts (useZoomShortcuts) and the Zoom row's applied zoom.
+	useEffect(
+		() =>
+			onZoomAnnounced((zoom) => setConfig((c) => c && { ...c, ui_zoom: zoom })),
+		[],
+	);
 
 	if (!config) {
 		return <p className="empty-state">{t.common.loading}</p>;
@@ -145,10 +152,7 @@ function SettingsScreen() {
 							}
 						/>
 
-						<ZoomRow
-							zoom={config.ui_zoom}
-							onZoomChange={(zoom) => setConfig({ ...config, ui_zoom: zoom })}
-						/>
+						<ZoomRow zoom={config.ui_zoom} />
 
 						<SettingsToggle
 							checked={config.show_mascot}
@@ -187,20 +191,14 @@ function SettingsScreen() {
 						icon={ICONS.performance}
 					>
 						<label className="settings-row settings-row-number">
-							<span className="settings-row-text">
-								<strong>{t.settings.poolSize.label}</strong>
-								<small>{t.settings.poolSize.hint}</small>
-							</span>
+							<SettingsRowText text={t.settings.poolSize} />
 							<input
 								type="number"
 								min={1}
 								max={MAX_POOL}
 								value={config.overlay_pool_size}
 								onChange={(e) => {
-									const count = Math.min(
-										Math.max(Number(e.target.value) || 1, 1),
-										MAX_POOL,
-									);
+									const count = clamp(Number(e.target.value) || 1, 1, MAX_POOL);
 									update('overlay_pool_size', count, 'set_overlay_pool_size', {
 										count,
 									});

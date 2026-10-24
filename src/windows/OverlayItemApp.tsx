@@ -2,13 +2,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { spring } from 'motion';
 import { animate } from 'motion/mini';
 import { invoke } from '../lib/ipc';
-import { loadPlacedMedia } from '../lib/placed';
-import { isVideoType, type MediaType } from '../lib/media';
+import { isImageType, isVideoType } from '../lib/media';
 import { prefersReducedMotion } from '../lib/navAnimations';
 import { useMediaUrl } from '../hooks/useMediaUrl';
 import { useTauriEvent } from '../hooks/useTauriEvent';
 import { useDeleteShortcut } from '../hooks/useDeleteShortcut';
 import { useEditHandles } from '../hooks/useEditHandles';
+import { usePlacedMedia } from '../hooks/usePlacedMedia';
 import { POP_BOUNCE, POP_SECONDS, useSwing } from '../hooks/useSwing';
 import GifCanvasPlayer from '../components/GifCanvasPlayer';
 import './OverlayItemApp.css';
@@ -28,7 +28,6 @@ interface SlotInfo {
 	arrival: 'reload' | 'pop' | 'carried';
 }
 
-const IMAGE_TYPES: MediaType[] = ['jpeg', 'png', 'webp', 'svg'];
 // "Power-on" pop when an animation appears: from tiny to full size with one or two small bounces.
 const POP_FROM_SCALE = 0.05;
 
@@ -49,8 +48,6 @@ function popIn(el: HTMLElement) {
 
 function OverlayItemApp() {
 	const [instanceId, setInstanceId] = useState<string | null>(null);
-	const [mediaType, setMediaType] = useState<MediaType | null>(null);
-	const [mediaId, setMediaId] = useState<string | null>(null);
 	const [opacity, setOpacity] = useState(1);
 	const [playbackRate, setPlaybackRate] = useState(1);
 	const [rotation, setRotation] = useState(0);
@@ -61,6 +58,8 @@ function OverlayItemApp() {
 		w: window.innerWidth,
 		h: window.innerHeight,
 	});
+	const { item, mediaType } = usePlacedMedia(instanceId);
+	const mediaId = item?.media_id ?? null;
 	const mediaUrl = useMediaUrl(mediaId);
 	const naturalRef = useRef<{ w: number; h: number } | null>(null);
 	const mediaWrapRef = useRef<HTMLDivElement>(null);
@@ -69,7 +68,7 @@ function OverlayItemApp() {
 	const { carrying, start: startSwing } = useSwing(mediaWrapRef);
 
 	// Asked, not pushed: a sleeping slot misses the events sent while it wakes, and it asks several times while waking.
-	// The entrance plays once per new instance; editor reloads arrive as `reload`: no entrance.
+	// The entrance plays once per new instance. Editor reloads arrive as `reload`: no entrance.
 	const entranceFor = useRef<string | null>(null);
 	const resolveSlot = useCallback(() => {
 		invoke<SlotInfo | null>('get_slot_info').then((info) => {
@@ -121,30 +120,24 @@ function OverlayItemApp() {
 	}, []);
 
 	useEffect(() => {
-		if (!instanceId) {
-			setMediaId(null);
-			setMediaType(null);
-			return;
-		}
-		let cancelled = false;
-		loadPlacedMedia(instanceId).then((placed) => {
-			if (cancelled || !placed) return;
-			setOpacity(placed.item.opacity);
-			setPlaybackRate(placed.item.playback_rate ?? 1);
-			setRotation(placed.item.rotation ?? 0);
-			setMediaId(placed.item.media_id);
-			setMediaType(placed.mediaType);
-		});
-		return () => {
-			cancelled = true;
-		};
-	}, [instanceId]);
+		if (!item) return;
+		setOpacity(item.opacity);
+		setPlaybackRate(item.playback_rate ?? 1);
+		setRotation(item.rotation ?? 0);
+	}, [item]);
 
 	// Media that fails or reports no size never gets an entrance: show it plainly instead of staying hidden.
 	const revealMedia = () => {
 		popPending.current = false;
 		if (popRef.current) popRef.current.style.opacity = '';
 	};
+
+	const fitTo = (width: number, height: number) =>
+		invoke('fit_overlay_to_media', {
+			instanceId,
+			naturalWidth: width,
+			naturalHeight: height,
+		});
 
 	const reportNaturalSize = (width: number, height: number) => {
 		if (!width || !height) {
@@ -161,11 +154,7 @@ function OverlayItemApp() {
 			}
 		}
 		if (!instanceId) return;
-		invoke('fit_overlay_to_media', {
-			instanceId,
-			naturalWidth: width,
-			naturalHeight: height,
-		});
+		fitTo(width, height);
 	};
 
 	useTauriEvent<ItemValueChanged<number>>(
@@ -182,7 +171,7 @@ function OverlayItemApp() {
 		},
 		'self',
 	);
-	// the stored item is already reset by `reset_placed_media`; the refit restores the window size
+	// the stored item is already reset by `reset_placed_media`. The refit restores the window size
 	useTauriEvent<string>(
 		'item-reset',
 		(id) => {
@@ -191,13 +180,7 @@ function OverlayItemApp() {
 			setPlaybackRate(1);
 			setRotation(0);
 			const natural = naturalRef.current;
-			if (natural) {
-				invoke('fit_overlay_to_media', {
-					instanceId,
-					naturalWidth: natural.w,
-					naturalHeight: natural.h,
-				});
-			}
+			if (natural) fitTo(natural.w, natural.h);
 		},
 		'self',
 	);
@@ -287,7 +270,7 @@ function OverlayItemApp() {
 								onNaturalSize={reportNaturalSize}
 							/>
 						)}
-						{mediaUrl && mediaType && IMAGE_TYPES.includes(mediaType) && (
+						{mediaUrl && isImageType(mediaType) && (
 							<img
 								src={mediaUrl}
 								alt=""
@@ -304,16 +287,16 @@ function OverlayItemApp() {
 					</div>
 				</div>
 				{editing && (
-					<div
-						className="overlay-corner overlay-corner--tl"
-						onPointerDown={(e) => onCornerStart(e, -1)}
-					/>
-				)}
-				{editing && (
-					<div
-						className="overlay-corner overlay-corner--br"
-						onPointerDown={(e) => onCornerStart(e, 1)}
-					/>
+					<>
+						<div
+							className="overlay-corner overlay-corner--tl"
+							onPointerDown={(e) => onCornerStart(e, -1)}
+						/>
+						<div
+							className="overlay-corner overlay-corner--br"
+							onPointerDown={(e) => onCornerStart(e, 1)}
+						/>
+					</>
 				)}
 			</div>
 			{editing && (

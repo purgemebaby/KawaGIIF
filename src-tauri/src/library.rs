@@ -1,4 +1,4 @@
-/**Media library. Imports files into the app's own `media` folder, keeps the index of what is there (`library_index.json`) and manages each item's tags.*/
+/** Media library. Imports files into the app's own `media` folder, keeps the index of what is there (`library_index.json`) and manages each item's tags. */
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::io::Read;
@@ -23,7 +23,7 @@ fn notify_library_changed(app: &AppHandle) {
 
 const MAX_NAME_CHARS: usize = 120;
 
-/** Trims and collapses whitespace; `None` when nothing is left.*/
+/** Trims and collapses whitespace. `None` when nothing is left. */
 fn collapse_spaces(raw: &str) -> Option<String> {
     let cleaned = raw
         .split_whitespace()
@@ -33,8 +33,8 @@ fn collapse_spaces(raw: &str) -> Option<String> {
 
 /** Cleans a list of tags and reuses the spelling that already exists.*/
 fn normalize_tags(raw: Vec<String>, known: &HashMap<String, String>) -> Vec<String> {
-    let mut seen: HashSet<String> = HashSet::with_capacity(raw.len());      //processed
-    let mut out: Vec<String> = Vec::with_capacity(raw.len());               //output
+    let mut seen: HashSet<String> = HashSet::with_capacity(raw.len());
+    let mut out: Vec<String> = Vec::with_capacity(raw.len());
 
     for tag in raw {
         let Some(cleaned) = collapse_spaces(&tag) else { continue; };
@@ -49,7 +49,7 @@ fn normalize_tags(raw: Vec<String>, known: &HashMap<String, String>) -> Vec<Stri
 
 
 
-/**Define extensions accepted by the app*/
+/** The extensions the app accepts. */
 #[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Debug)]
 #[serde(rename_all = "lowercase")]
 pub enum MediaType {
@@ -76,7 +76,7 @@ impl MediaType {
 
 
 
-/**Struct to define a media file with UUID, new filename and original one, metadata...*/
+/** One media file and its metadata. */
 #[derive(Serialize, Deserialize, Clone)]
 pub struct MediaItem {
     pub id: Uuid,
@@ -92,12 +92,12 @@ pub struct MediaItem {
     #[serde(default)]
     pub source_path: Option<String>,
 
-    // set by list_media when the file is gone from the media folder; never stored as true
+    // set by list_media when the file is gone from the media folder. Never stored as true
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub missing: bool,
 }
 impl MediaItem {
-    //Copies `source` into the media folder and builds its `MediaItem`.
+    /// Copies `source` into the media folder and builds its `MediaItem`.
     fn from_source(source: &Path) -> AppResult<Option<Self>> {
         // if media type isn't supported, it will return nothing
         let Some(media_type) = media_type_of(source) else { return Ok(None); };
@@ -175,7 +175,7 @@ fn claim_unique_name(name: &str, taken: &mut HashSet<String>) -> String {
     candidate
 }
 
-/** Strips a trailing known extension from a legacy display name (case-insensitive); `None` otherwise.*/
+/** Strips a trailing known extension from a legacy display name (case-insensitive). `None` otherwise. */
 fn strip_known_extension(name: &str) -> Option<&str> {
     const EXTS: [&str; 7] = ["gif", "mp4", "jpg", "jpeg", "png", "webp", "svg"];
     let lower = name.to_lowercase();
@@ -186,7 +186,7 @@ fn strip_known_extension(name: &str) -> Option<&str> {
 
 
 
-/**Struct of the local data catalogue in JSON format that stores `MediaItem`*/
+/** The on-disk catalogue of `MediaItem`s, saved as `library_index.json`. */
 #[derive(Serialize, Deserialize, Default)]
 pub struct LibraryIndex {
     #[serde(default)]
@@ -197,7 +197,7 @@ impl LibraryIndex {
     fn media_dir() -> PathBuf { config::data_dir().join("media") }
     /// Returns `PathBuf` to `%LOCALAPPDATA%\KawaGIIF\library_index.json`
     fn index_path() -> PathBuf { config::data_dir().join("library_index.json") }
-    // Every distinct tag in the library, keyed by its lowercase form and mapped to its canonical spelling.
+    /// Every distinct tag in the library, keyed by its lowercase form and mapped to its canonical spelling.
     fn known_tags(&self) -> HashMap<String, String> {
         let mut known = HashMap::new();
         for tag in self.items.iter().flat_map(|item| &item.tags) {
@@ -206,20 +206,20 @@ impl LibraryIndex {
         known
     }
 
-    // Item id of every known source path.
+    /// Item id of every known source path.
     fn ids_by_source(&self) -> HashMap<String, Uuid> {
         self.items.iter().filter_map(|item| Some((item.source_path.clone()?, item.id))).collect()
     }
-    // Every display name in use, lowercase.
+    /// Every display name in use, lowercase.
     fn taken_names(&self) -> HashSet<String> {
         self.items.iter().map(|item| item.original_file_name.to_lowercase()).collect()
     }
 
-    //Returns a reference to a media file indexed using its UUID.
+    /// Media item by id.
     pub fn find(&self, id: &Uuid) -> Option<&MediaItem> {
         self.items.iter().find(|item| item.id == *id)
     }
-    //Returns a mutable reference to a media file indexed using its UUID.
+    /// Media item by id, mutable.
     fn find_mut(&mut self, id: &Uuid) -> AppResult<&mut MediaItem> {
         self.items.iter_mut().find(|item| item.id == *id).ok_or(AppError::MediaNotFound(*id))
     }
@@ -229,11 +229,11 @@ impl LibraryIndex {
     /** Whether media `id` exists in the index and its file is still in the media folder. */
     pub fn has_file(&self, id: &Uuid) -> bool { self.find(id).is_some_and(Self::file_exists) }
 
-    //Serialize entire index as a JSON and write it
+    /// Writes the index to disk.
     fn save(&self) -> AppResult<()> {
         config::write_atomic(&Self::index_path(), &serde_json::to_vec_pretty(self)?)
     }
-    //Loads the index, normalizes its tags and strips legacy extensions from display names.
+    /// Loads the index, normalizing tags and stripping legacy extensions.
     fn load() -> Self {
         let mut index: Self = std::fs::read_to_string(Self::index_path())
             .ok()
@@ -260,7 +260,7 @@ impl LibraryIndex {
     }
 }
 
-/**Struct to access to `LibraryIndex` with a `Mutex` to block the thread until the lock is freed*/
+/** `LibraryIndex` behind a mutex, shared across commands. */
 pub struct LibraryState(Mutex<LibraryIndex>);
 impl Default for LibraryState {
     fn default() -> Self { Self(Mutex::new(LibraryIndex::load())) }
@@ -288,7 +288,7 @@ pub struct ImportResult {
 
 
 
-/** Applies `edit` to the tags of every item it selects, saves and notifies once; returns how many items changed. */
+/** Applies `edit` to the tags of every item it selects, saves and notifies once. Returns how many items changed. */
 fn edit_tags(app: &AppHandle, lib: &LibraryState,
     mut edit: impl FnMut(&mut MediaItem, &HashMap<String, String>) -> bool,
 ) -> AppResult<usize> {
@@ -308,8 +308,8 @@ fn edit_tags(app: &AppHandle, lib: &LibraryState,
 
 
 
-//Tag Commands
-///Update media tags
+// Tag Commands
+/// Replaces one item's tags, normalized against the known spellings.
 #[tauri::command]
 pub fn update_media_tags(app: AppHandle, lib: State<LibraryState>, id: Uuid, tags: Vec<String>) -> AppResult<()> {
     let mut index = lib.lock();
@@ -322,7 +322,7 @@ pub fn update_media_tags(app: AppHandle, lib: State<LibraryState>, id: Uuid, tag
     Ok(())
 }
 
-/// Adds and removes the same tags on many items in one save/notify; returns how many changed.
+/// Adds and removes the same tags on many items in one save/notify. Returns how many changed.
 #[tauri::command]
 pub fn update_tags_many(app: AppHandle, lib: State<LibraryState>,
     ids: Vec<Uuid>, add: Vec<String>, remove: Vec<String>,
@@ -380,7 +380,7 @@ pub fn rename_tag(app: AppHandle, library: State<LibraryState>, from: String, to
     })
 }
 
-///Deletes tag from a `MediaItem` of the `LibraryIndex`
+/// Removes a tag from every item that has it.
 #[tauri::command]
 pub fn delete_tag(app: AppHandle, lib: State<LibraryState>, name: String) -> AppResult<usize> {
     let key = name.to_lowercase();
@@ -394,9 +394,9 @@ pub fn delete_tag(app: AppHandle, lib: State<LibraryState>, name: String) -> App
 
 
 
-//Media Commands
-///Deletes media items (only our copy in `media/`, never the user's original), without leaving placed animations
-///pointing at them. Saves the index and the template once for the whole batch; returns how many were deleted.
+// Media Commands
+/// Deletes media items (only our copy in `media/`, never the user's original) without leaving placed animations
+/// pointing at them. Saves the index and the template once for the whole batch. Returns how many were deleted.
 #[tauri::command]
 pub fn delete_media(app: AppHandle, lib: State<LibraryState>,
     editor: State<EditorState>, ids: Vec<Uuid>, force: bool,
@@ -425,7 +425,7 @@ pub fn delete_media(app: AppHandle, lib: State<LibraryState>,
     Ok(doomed.len())
 }
 
-///List all media saved at the moment in the `LibraryIndex`, flagging each whose file was deleted from the media folder.
+/// Lists all media, flagging each whose file was deleted from the media folder.
 #[tauri::command]
 pub fn list_media(library: State<LibraryState>) -> Vec<MediaItem> {
     let mut items = library.lock().items.clone();
@@ -433,7 +433,7 @@ pub fn list_media(library: State<LibraryState>) -> Vec<MediaItem> {
     items
 }
 
-///Absolute path of a media file, which the frontend turns into an `asset://` URL with `convertFileSrc`.
+/// Absolute path of a media file, which the frontend turns into an `asset://` URL with `convertFileSrc`.
 #[tauri::command]
 pub fn get_media_path(library: State<LibraryState>, id: Uuid) -> AppResult<String> {
     let index = library.lock();
@@ -451,8 +451,8 @@ pub fn find_reimports(lib: State<LibraryState>, paths: Vec<PathBuf>) -> Vec<Stri
         .collect()
 }
 
-///Import media files to the `LibraryIndex`. A file imported before is replaced when `replace_existing`, else skipped.
-///Returns the new and the replaced items, plus the file names whose content did not match their extension.
+/// Imports media files. A file imported before is replaced when `replace_existing`, else skipped.
+/// Returns the new and the replaced items, plus the file names whose content did not match their extension.
 #[tauri::command]
 pub fn import_media(app: AppHandle, lib: State<LibraryState>, paths: Vec<PathBuf>, replace_existing: bool) -> AppResult<ImportResult> {
     std::fs::create_dir_all(LibraryIndex::media_dir())?;
@@ -469,7 +469,7 @@ pub fn import_media(app: AppHandle, lib: State<LibraryState>, paths: Vec<PathBuf
         let key = source_key(source);
         if !seen.insert(key.clone()) { continue; }
 
-        // Reject files whose content does not match their extension; unsupported extensions skip silently.
+        // Reject files whose content does not match their extension. Unsupported extensions skip silently.
         if let Some(ext_type) = media_type_of(source) {
             if sniff_type(source) != Some(ext_type) {
                 rejected.push(source.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| source.to_string_lossy().into_owned()));
@@ -526,7 +526,7 @@ pub fn rename_media(app: AppHandle, lib: State<LibraryState>, id: Uuid, name: St
     Ok(())
 }
 
-///Obtains media file's size
+/// Size of a media file in bytes.
 #[tauri::command]
 pub fn get_file_size(path: PathBuf) -> AppResult<u64> {Ok(std::fs::metadata(path)?.len())}
 

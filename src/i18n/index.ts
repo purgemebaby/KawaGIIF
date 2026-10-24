@@ -12,7 +12,7 @@ export const LANGUAGES = [
 /** Every visible string, in the active language. */
 export let t: Strings = en;
 
-/** Switches `t`; call it before the screens are imported, since some modules read `t` when they load. */
+/** Switches `t`. Call it before the screens are imported, since some modules read `t` when they load. */
 export function applyLanguage(language: string) {
 	t = DICTIONARIES[language] ?? en;
 	document.documentElement.lang = language in DICTIONARIES ? language : 'en';

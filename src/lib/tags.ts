@@ -3,7 +3,7 @@ import type { CSSProperties } from 'react';
 export const MAX_TAG_LENGTH = 40;
 const TAG_TINTS = 5;
 
-/** Same rule as clean_tag in library.rs: single spaces, no edges; '' when nothing is left. */
+/** Same rule as clean_tag in library.rs: single spaces, no edges. '' when nothing is left. */
 export function cleanTag(raw: string): string {
 	return raw.trim().replace(/\s+/g, ' ');
 }
@@ -18,7 +18,7 @@ function tagTint(name: string): number {
 	return ((hash >>> 0) % TAG_TINTS) + 1;
 }
 
-/** Inline style every tag chip/pill/row shares; the cast is for the custom property key. */
+/** Inline style every tag chip/pill/row shares. The cast is for the custom property key. */
 export function tagStyle(name: string): CSSProperties {
 	return { '--tag-tint': `var(--kg-tag-${tagTint(name)})` } as CSSProperties;
 }

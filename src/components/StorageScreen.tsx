@@ -9,6 +9,7 @@ import {
 } from '../lib/media';
 import { useLibrary, type PendingImport } from '../context/LibraryProvider';
 import { useDeleteShortcut } from '../hooks/useDeleteShortcut';
+import { useEscape } from '../hooks/useDismiss';
 import {
 	useMediaSelection,
 	type SelectModifiers,
@@ -16,11 +17,8 @@ import {
 import { useImportCount } from '../hooks/useImportCount';
 import { useMascotShown } from '../hooks/useMascotShown';
 import { t } from '../i18n';
-import { filterMedia, toggleTagFilter } from '../lib/mediaFilter';
-import MediaFilterBar, {
-	DEFAULT_FILTERS,
-	type MediaFilters,
-} from './MediaFilterBar';
+import { useMediaFilters } from '../hooks/useMediaFilters';
+import MediaFilterBar from './MediaFilterBar';
 import EmptyLibraryMascot from './mascot/EmptyLibraryMascot';
 import LibraryMascot from './mascot/LibraryMascot';
 import MediaGrid from './MediaGrid';
@@ -51,8 +49,15 @@ function StorageScreen() {
 	} = useLibrary();
 	const showMascot = useMascotShown();
 	const imports = useImportCount(items, loading);
-	const [filters, setFilters] = useState<MediaFilters>(DEFAULT_FILTERS);
-	const [managingTags, setManagingTags] = useState(false);
+	const {
+		filters,
+		setFilters,
+		filtered: filteredItems,
+		managingTags,
+		openTags,
+		closeTags,
+		toggleTag,
+	} = useMediaFilters(items);
 	const [deleting, setDeleting] = useState<DeleteRequest | null>(null);
 	const [confirmBeforeDelete, setConfirmBeforeDelete] = useState(true);
 	const [pendingImport, setPendingImport] = useState<PendingImport | null>(
@@ -73,10 +78,6 @@ function StorageScreen() {
 		);
 	}, []);
 
-	const filteredItems = useMemo(
-		() => filterMedia(items, filters),
-		[items, filters],
-	);
 	const filterKey = useMemo(() => JSON.stringify(filters), [filters]);
 
 	// Files on the desktop always ask first, even with confirmation turned off in Settings.
@@ -111,14 +112,7 @@ function StorageScreen() {
 		clear();
 	}, [clear]);
 
-	useEffect(() => {
-		if (!selecting || deleting) return;
-		const onKeyDown = (e: KeyboardEvent) => {
-			if (e.key === 'Escape') stopSelecting();
-		};
-		window.addEventListener('keydown', onKeyDown);
-		return () => window.removeEventListener('keydown', onKeyDown);
-	}, [selecting, deleting, stopSelecting]);
+	useEscape(selecting && !deleting, stopSelecting);
 
 	// In select mode a plain click adds or removes, like Ctrl+click outside it.
 	const onSelect = (id: string, modifiers: SelectModifiers) =>
@@ -128,7 +122,7 @@ function StorageScreen() {
 			filteredItems.map((item) => item.id),
 		);
 
-	// Skipping drops the files already in the library; large files still ask next.
+	// Skipping drops the files already in the library. Large files still ask next.
 	const answerReplace = async (request: PendingImport, replace: boolean) => {
 		const paths = replace
 			? request.paths
@@ -187,7 +181,7 @@ function StorageScreen() {
 							</div>
 							<button
 								type="button"
-								className="kg-btn kg-btn--danger pixel-hover"
+								className="kg-btn kg-btn--danger icon-hover"
 								disabled={selectedIds.size === 0}
 								onClick={deleteSelected}
 							>
@@ -242,7 +236,7 @@ function StorageScreen() {
 				<MediaFilterBar
 					filters={filters}
 					onChange={setFilters}
-					onOpenTags={() => setManagingTags(true)}
+					onOpenTags={openTags}
 				/>
 
 				{loading ? (
@@ -286,10 +280,8 @@ function StorageScreen() {
 			{managingTags && (
 				<TagManager
 					activeFilters={filters.tags}
-					onToggleFilter={(tag) =>
-						setFilters((prev) => toggleTagFilter(prev, tag))
-					}
-					onClose={() => setManagingTags(false)}
+					onToggleFilter={toggleTag}
+					onClose={closeTags}
 				/>
 			)}
 

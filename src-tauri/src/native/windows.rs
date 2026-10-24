@@ -89,7 +89,7 @@ use windows::Win32::UI::WindowsAndMessaging::WS_EX_TRANSPARENT;
 
 
 const GUARD_SUBCLASS_ID: usize = 0x4B47_4E43;
-const SHELL_CLASSES: [&str; 3] = ["Progman", "WorkerW", "Shell_TrayWnd"]; //desktop and taskbar windows span the monitor too
+const SHELL_CLASSES: [&str; 3] = ["Progman", "WorkerW", "Shell_TrayWnd"]; // the desktop and taskbar also span the monitor
 static ON_FOREGROUND: OnceLock<Box<dyn Fn() + Send + Sync>> = OnceLock::new();
 static FOREGROUND_HOOK: AtomicUsize = AtomicUsize::new(0);
 static ON_ANY_FOREGROUND: OnceLock<Box<dyn Fn() + Send + Sync>> = OnceLock::new();
@@ -125,7 +125,7 @@ fn set_dwm_attribute<T>(hwnd: HWND, attribute: DWMWINDOWATTRIBUTE, value: &T,) -
     }
 }
 
-/** Subclass handler of `guard_non_client`. An overlay has no non-client area, so none of it is ever painted; a drag stays on the screens. */
+/** Subclass handler of `guard_non_client`. Paints no non-client area and keeps a drag on the screens. */
 unsafe extern "system" fn non_client_guard(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM, _id: usize, overhang: usize) -> LRESULT {
     match msg {
         WM_MOVING if unsafe { constrain_moving_rect(hwnd, lparam, overhang as i32) } => LRESULT(1),
@@ -207,7 +207,7 @@ pub fn force_clearbg(hwnd: HWND) {
 
 /** Define the work area of the monitor the window is on, as `(x, y, width, height)` in physical pixels. */
 pub fn force_work_area(hwnd: HWND) -> Option<(i32, i32, i32, i32)> {
-    let mut info: MONITORINFO = MONITORINFO{cbSize: size_of::<MONITORINFO>() as u32, ..Default::default()}; //geom info
+    let mut info: MONITORINFO = MONITORINFO{cbSize: size_of::<MONITORINFO>() as u32, ..Default::default()};
     let ok: bool = unsafe {
         let monitor: windows::Win32::Graphics::Gdi::HMONITOR = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
         GetMonitorInfoW(monitor, std::ptr::from_mut(&mut info)).as_bool()
@@ -240,7 +240,7 @@ pub fn top_everything(hwnd: HWND) {
 /**
  * Stops Windows from painting a title bar on an overlay. tao puts `WS_CAPTION` back whenever it changes a window flag, and
  * activating a window with it repaints the non-client area (a white strip on Windows 11).
- * Also clamps the native drag (`WM_MOVING`) to the screens; the window may overhang them by `overhang` logical px.
+ * Also clamps the native drag (`WM_MOVING`) to the screens, with `overhang` logical px allowed past the edge.
  */
 pub fn guard_non_client(hwnd: HWND, overhang: u32) {
     unsafe { let _ = SetWindowSubclass(hwnd, Some(non_client_guard), GUARD_SUBCLASS_ID, overhang as usize); }
@@ -276,7 +276,7 @@ pub fn watch_any_foreground(callback: impl Fn() + Send + Sync + 'static) {
     ANY_FOREGROUND_HOOK.store(hook_foreground(on_any_foreground_changed, WINEVENT_OUTOFCONTEXT), Ordering::Relaxed);
 }
 
-/** Removes the hooks of `watch_foreground` and `watch_any_foreground`; called on exit. */
+/** Removes the hooks of `watch_foreground` and `watch_any_foreground` on exit. */
 pub fn unwatch_foreground() {
     unhook(&FOREGROUND_HOOK);
     unhook(&ANY_FOREGROUND_HOOK);
@@ -298,7 +298,7 @@ pub enum Fullscreen { None, Borderless, Exclusive }
 /** Whether `window` is the desktop or the taskbar, which cover a monitor without being a game. */
 fn is_shell_window(window: HWND) -> bool {
     let mut class = [0u16; 32];
-    // SAFETY: `class` is a valid writable buffer; the call returns the characters copied (0 on failure).
+    // SAFETY: `class` is a valid writable buffer, and the call returns the characters copied (0 on failure).
     let len = unsafe { GetClassNameW(window, &mut class) };
     SHELL_CLASSES.contains(&String::from_utf16_lossy(&class[..len.max(0) as usize]).as_str())
 }
@@ -307,7 +307,7 @@ fn is_shell_window(window: HWND) -> bool {
 fn covers_monitor(window: HWND) -> bool {
     let mut rect = RECT::default();
     let mut info = MONITORINFO { cbSize: size_of::<MONITORINFO>() as u32, ..Default::default() };
-    // SAFETY: `window` is a live handle from `GetForegroundWindow`; `rect` and `info` are valid for writes.
+    // SAFETY: `window` is a live handle from `GetForegroundWindow`, and `rect` and `info` are valid for writes.
     let found = unsafe {
         GetWindowRect(window, &mut rect).is_ok()
             && GetMonitorInfoW(MonitorFromWindow(window, MONITOR_DEFAULTTONEAREST), &mut info).as_bool()
@@ -321,7 +321,7 @@ fn covers_monitor(window: HWND) -> bool {
 pub fn foreground_fullscreen() -> Fullscreen {
     // SAFETY: takes no arguments and only reads the shell's state.
     if unsafe { SHQueryUserNotificationState() }.is_ok_and(|state| state == QUNS_RUNNING_D3D_FULL_SCREEN) { return Fullscreen::Exclusive; }
-    // SAFETY: takes no arguments; returns null when no window is foreground.
+    // SAFETY: takes no arguments and returns null when no window is foreground.
     let window: HWND = unsafe { GetForegroundWindow() };
     if window.0.is_null() || foreground_is_ours() || is_shell_window(window) || !covers_monitor(window) { return Fullscreen::None; }
     Fullscreen::Borderless
@@ -387,12 +387,12 @@ pub fn disable_dwm_focus_border(hwnd: HWND) {
 
 // WebView2
 /**
- * Puts a hidden overlay's web page to sleep, or wakes it up. Every overlay window is its own WebView2 renderer process. Going dormant force to ask to use as little memory as it can, and suspends it. Waking runs the same steps backwards.
+ * Puts a hidden overlay's web page to sleep, or wakes it up. Sleeping lowers its memory target and suspends it, waking reverses the steps.
  */
 pub fn set_webview_dormant(controller: &ICoreWebView2Controller, dormant: bool) {
     let result: Result<(), windows::core::Error> = (|| 
         unsafe {
-            // check if the installed WebView2 version is deprecated for these interfaces, they are omitted if not
+            // older WebView2 runtimes lack these interfaces, so they stay optional
             let webview = controller.CoreWebView2()?;
             let memory = webview.cast::<ICoreWebView2_19>().ok();
             let suspend = webview.cast::<ICoreWebView2_3>().ok();
@@ -400,12 +400,12 @@ pub fn set_webview_dormant(controller: &ICoreWebView2Controller, dormant: bool) 
             if dormant {
                 controller.SetIsVisible(false)?;
 
-                // Chromiun GC 
+                // ask Chromium to free memory
                 if let Some(memory) = &memory {
                     memory.SetMemoryUsageTargetLevel(COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_LOW)?;
                 }
 
-                // asynchronous suspend callback
+                // the suspend completes asynchronously
                 if let Some(suspend) = &suspend {
                     suspend.TrySuspend(&(TrySuspendCompletedHandler::create(Box::new(|_, _| Ok(())))))?;
                 }

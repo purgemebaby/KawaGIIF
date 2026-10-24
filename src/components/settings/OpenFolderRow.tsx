@@ -1,15 +1,13 @@
 import { invoke } from '../../lib/ipc';
 import { t } from '../../i18n';
+import SettingsRowText from './SettingsRowText';
 
 function OpenFolderRow() {
 	const text = t.settings.openFolder;
 
 	return (
 		<div className="settings-row">
-			<span className="settings-row-text">
-				<strong>{text.label}</strong>
-				<small>{text.hint}</small>
-			</span>
+			<SettingsRowText text={text} />
 
 			<button
 				type="button"

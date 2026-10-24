@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useLibrary } from '../../context/LibraryProvider';
 import { useDismiss } from '../../hooks/useDismiss';
 import { t } from '../../i18n';
@@ -14,12 +14,7 @@ interface BulkTagPopoverProps {
 function BulkTagPopover({ items, onApply, onClose }: BulkTagPopoverProps) {
 	const { tags } = useLibrary();
 	const [query, setQuery] = useState('');
-	const inputRef = useRef<HTMLInputElement>(null);
 	const rootRef = useRef<HTMLDivElement>(null);
-
-	useEffect(() => {
-		inputRef.current?.focus();
-	}, []);
 
 	useDismiss(rootRef, true, onClose);
 
@@ -57,7 +52,7 @@ function BulkTagPopover({ items, onApply, onClose }: BulkTagPopoverProps) {
 			<p className="bulk-tag-hint">{t.tags.bulk.hint}</p>
 
 			<input
-				ref={inputRef}
+				autoFocus
 				className="tag-popover-input"
 				value={query}
 				placeholder={t.tags.bulk.placeholder}

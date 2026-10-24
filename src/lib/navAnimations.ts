@@ -22,5 +22,5 @@ export function announceNavAnimations(enabled: boolean) {
 	document.documentElement.dataset.navAnimations = enabled ? 'on' : 'off';
 }
 
-/** Calls `onChange` whenever the setting changes; returns the unsubscribe function. */
+/** Calls `onChange` whenever the setting changes. Returns the unsubscribe function. */
 export const onNavAnimationsChanged = navAnimationsEvent.listen;

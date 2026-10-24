@@ -5,9 +5,6 @@ use std::collections::HashSet;
 use std::sync::{Mutex, MutexGuard, PoisonError};
 use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System};
 
-// System contains info about processes
-
-
 const BYTES_PER_MB: u64 = 1024 * 1024;
 
 #[derive(Serialize)]
@@ -31,15 +28,15 @@ impl SysState {
 }
 
 
-/// Update RAM usage metrics from OS processes
+/** Refreshes per-process memory usage. */
 fn refresh_process_memory(sys: &mut System) {
     sys.refresh_processes_specifics(
         ProcessesToUpdate::All,
-        true, //
+        true,
         ProcessRefreshKind::nothing().with_memory());
 }
 
-/** Return a `HashSet<Pid>`of processes that includes this process and its descendants */
+/** The process tree of this app: this process and its descendants. */
 fn process_family(sys: &System) -> HashSet<Pid> {
     let mut family: HashSet<Pid> = HashSet::from([Pid::from_u32(std::process::id())]);
     loop {
@@ -58,7 +55,7 @@ fn is_child_of(sys: &System, process: &sysinfo::Process, parent: Pid) -> bool {
     sys.process(parent).is_some_and(|p| process.start_time() >= p.start_time())
 }
 
-/** An estimated way to calculate RAM usage of the app (including spawned windows*/
+/** Memory used by the app and the windows it spawned. */
 fn app_ram_mb(sys: &System) -> u64 {
     process_family(sys).iter().filter_map(|pid| sys.process(*pid)).map(sysinfo::Process::memory).sum::<u64>() / BYTES_PER_MB
 }
@@ -84,7 +81,7 @@ pub fn get_system_stats(state: State<SysState>) -> SystemStats {
 
 
 // Debugging
-/** Prints the Windows and WebView2 versions on every dev start*/
+/** Prints the Windows and WebView2 versions on every dev start. */
 #[cfg(debug_assertions)]
 pub fn log_environment() {
     let unknown = || "?".to_owned();

@@ -30,7 +30,7 @@
 	grid-template-columns: var(--editor-rail) minmax(0, 1fr) var(--editor-rail);
 }
 
-/* Overflow stays visible so the edge tab can stick out; the bodies clip themselves. */
+/* Overflow stays visible so the edge tab can stick out. */
 .editor-panel {
 	position: relative;
 	min-width: 0;
@@ -62,7 +62,8 @@
 	align-items: center;
 	justify-content: center;
 	text-align: center;
-	padding: var(--kg-space-1) var(--kg-space-2) 0;
+	/* room between the title and the panel's top edge */
+	padding: var(--kg-space-3) var(--kg-space-2) var(--kg-space-1);
 	transition: flex-grow var(--kg-dur-med) var(--kg-ease-out);
 }
 
@@ -89,7 +90,7 @@
 		text-shadow var(--kg-dur-fast) var(--kg-ease-out);
 }
 
-/* An open panel keeps its title lit; a collapsed one lights up on hover. */
+/* The open title stays lit. A hovered one lights up. */
 .editor-panel[data-collapsed='false'] > .editor-panel-header h2,
 .editor-panel:hover > .editor-panel-header h2 {
 	color: var(--kg-fg);
@@ -203,7 +204,7 @@
 	}
 }
 
-/* The wrapper's track slides from 1fr to 0fr; the body stays the panel's scroll area. */
+/* The body stays the panel's scroll area. */
 .editor-panel-collapse {
 	flex: 1;
 	min-height: 0;
@@ -225,6 +226,7 @@
 
 .editor-panel-collapse > .editor-panel-body {
 	min-height: 0;
+	overflow-x: hidden;
 	overflow-y: auto;
 	/* top room so a hovered button (lift + glow) is not clipped by this scroll area */
 	padding: var(--kg-space-2) var(--kg-space-3) var(--kg-space-3);
@@ -235,7 +237,7 @@
 	padding: 0 0 var(--kg-space-2);
 }
 
-/* A remembered height fixes the body; the track above still follows it. */
+/* The remembered height also drives the collapse track above. */
 .editor-panel--storage.is-sized .editor-panel-body {
 	/* a height saved on a bigger window still stops at half the window */
 	height: min(var(--storage-body-h), 50vh);
@@ -259,7 +261,7 @@
 	overflow-y: auto;
 }
 
-/* The drag strip hugging the storage panel's bottom edge; the tab's z-index keeps it clickable. */
+/* The tab's z-index keeps the drag strip clickable. */
 .editor-storage-resize {
 	position: absolute;
 	left: 0;
@@ -335,13 +337,16 @@
 	background: var(--kg-bg-input);
 }
 
+/* Long labels stack instead of scrolling sideways. */
 .editor-actions {
 	display: flex;
+	flex-wrap: wrap;
 	gap: var(--kg-space-2);
 }
 
 .editor-actions .kg-btn {
-	flex: 1;
+	flex: 1 1 6em;
+	min-width: 0;
 }
 
 .editor-panel .placed-items {
@@ -357,7 +362,7 @@
 	grid-area: hint;
 }
 
-/* A paw presses or pulls the tab it just clicked, once. It sits on the tab's outer side; --hand-x/--hand-y point away from the panel. */
+/* A paw presses or pulls the tab it just clicked, once. */
 .editor-panel-hand {
 	--hand-w: 40px;
 	--hand-h: calc(var(--hand-w) * 52 / 76);
@@ -381,7 +386,7 @@
 	animation-name: kg-hand-pull;
 }
 
-/* the image points its fingers down; each panel turns them towards its tab */
+/* The image points its fingers down. */
 .editor-panel--storage .editor-panel-hand {
 	--hand-x: 0;
 	--hand-y: 1;

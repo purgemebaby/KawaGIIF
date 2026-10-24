@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { mascotShown, onShowMascotChanged } from '../lib/mascot';
 
-/** Whether the mascot is shown; re-renders when the setting changes. */
+/** Whether the mascot is shown. Re-renders when the setting changes. */
 export function useMascotShown(): boolean {
 	const [shown, setShown] = useState(mascotShown);
 

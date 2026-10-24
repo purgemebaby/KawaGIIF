@@ -45,7 +45,7 @@ function HomeScreen({
 				</button>
 				<button
 					type="button"
-					className="kg-btn kg-btn--danger pixel-hover"
+					className="kg-btn kg-btn--danger icon-hover"
 					onClick={() => invoke('kill_all_overlays')}
 					title={t.home.panic.description}
 				>

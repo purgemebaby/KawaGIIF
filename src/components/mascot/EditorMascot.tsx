@@ -1,11 +1,12 @@
 import editorChibi from '../../assets/mascot/editor.png';
+import editorPencil from '../../assets/mascot/editor-pencil.png';
 import { useMascotShown } from '../../hooks/useMascotShown';
 import { t } from '../../i18n';
 import type { Point } from '../../lib/sketch';
 import SketchFrame from '../ui/SketchFrame';
 import './Mascot.css';
 
-// The bubble outline: the box fills the 100x56 viewBox, so it always fits the text; the tail dips below it, down-left at the chibi.
+// The bubble outline. The tail dips below-left at the chibi.
 const BUBBLE: readonly Point[] = [
 	[2, 10],
 	[4, 4],
@@ -44,13 +45,16 @@ function EditorMascot() {
 			</p>
 			{showMascot && (
 				<div className="editor-mascot-peek" aria-hidden="true">
-					<img
-						className="editor-mascot-chibi"
-						src={editorChibi}
-						alt=""
-						draggable={false}
-						decoding="async"
-					/>
+					<div className="editor-mascot-chibi">
+						<img src={editorChibi} alt="" draggable={false} decoding="async" />
+						<img
+							className="editor-mascot-pencil"
+							src={editorPencil}
+							alt=""
+							draggable={false}
+							decoding="async"
+						/>
+					</div>
 				</div>
 			)}
 		</div>

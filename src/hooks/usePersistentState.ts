@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 
-/** Converts a value to and from its stored string; undefined from parse means fallback. */
+/** Converts a value to and from its stored string. Undefined from parse means fallback. */
 interface Codec<T> {
 	parse: (raw: string) => T | undefined;
 	format: (value: T) => string;
@@ -38,7 +38,7 @@ function writeValue<T>(key: string, value: T, codec: Codec<T>) {
 	}
 }
 
-/** A value kept in localStorage for this viewer; works without storage. */
+/** A value kept in localStorage for this viewer. Works without storage. */
 export function usePersistentState<T>(
 	key: string,
 	fallback: T,

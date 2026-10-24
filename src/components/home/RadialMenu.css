@@ -58,7 +58,7 @@
 	filter: url(#radial-glow-blur);
 }
 
-/*Text from sectors; the sketch icon above it is a nested svg*/
+/* Sector labels. The sketch icon above each one is a nested svg. */
 .radial-label {
 	fill: var(--kg-fg);
 	text-anchor: middle;

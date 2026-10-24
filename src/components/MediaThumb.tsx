@@ -7,7 +7,7 @@ const PREVIEW_INTERVAL_MS = 700;
 
 interface MediaThumbProps {
 	item: MediaItem;
-	/** Goes on the media element itself; the caller owns any wrapper div. */
+	/** Goes on the media element itself. The caller owns any wrapper div. */
 	className?: string;
 	/** Videos scrub through frames while hovered. */
 	preview?: boolean;

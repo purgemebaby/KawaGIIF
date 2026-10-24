@@ -34,7 +34,7 @@ fn loading_indicator_path() -> Option<PathBuf> {
 #[tauri::command]
 pub fn hide_control_window(app: AppHandle) { window_manager::hide_control(&app); }
 
-/// Moves and resizes the calling overlay in one go (physical px); a corner drag keeps the opposite corner fixed, so the centre moves.
+/// Moves and resizes the calling overlay in one go (physical px). A corner drag keeps the opposite corner fixed, so the centre moves.
 #[tauri::command]
 pub fn set_overlay_rect(window: WebviewWindow, x: i32, y: i32, width: u32, height: u32) -> AppResult<()> {
     window_manager::place(&window, x, y, width, height)?;
@@ -83,7 +83,7 @@ pub fn set_show_mascot(enabled: bool) -> AppResult<()> {
     config::update(|c| c.show_mascot = enabled)
 }
 
-/// Saves the UI language and relabels the tray; the control window reloads itself to apply it.
+/// Saves the UI language and relabels the tray. The control window reloads itself to apply it.
 #[tauri::command]
 pub fn set_language(app: AppHandle, language: String) -> AppResult<()> {
     if !config::LANGUAGES.contains(&language.as_str()) { return Err(AppError::UnsupportedLanguage(language)); }
@@ -97,7 +97,7 @@ pub fn set_overlay_pool_size(count: u32) -> AppResult<()> {
     config::update(|c| c.overlay_pool_size = count.clamp(1, window_manager::MAX_POOL))
 }
 
-/// Opens the data folder (config, library, media) in Explorer; creates it first if it is missing.
+/// Opens the data folder (config, library, media) in Explorer. Creates it first if it is missing.
 #[tauri::command]
 pub fn open_data_folder() -> AppResult<()> {
     std::fs::create_dir_all(config::data_dir())?;
@@ -165,7 +165,7 @@ pub fn set_font_scale(scale: f32) -> AppResult<()> {
     config::update(|c| c.font_scale = if scale.is_finite() { scale.clamp(FONT_SCALE_MIN, FONT_SCALE_MAX) } else { 1.0 })
 }
 
-/// Saves and applies the control window's WebView2 zoom; returns the clamped value so the UI shows what was applied.
+/// Saves and applies the control window's WebView2 zoom. Returns the clamped value so the UI shows what was applied.
 #[tauri::command]
 pub fn set_ui_zoom(window: WebviewWindow, zoom: f32) -> AppResult<f32> {
     let zoom: f32 = if zoom.is_finite() { zoom.clamp(UI_ZOOM_MIN, UI_ZOOM_MAX) } else { 1.0 };

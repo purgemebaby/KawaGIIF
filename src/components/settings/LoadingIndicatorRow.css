@@ -12,6 +12,8 @@
 
 .settings-indicator-actions {
 	display: flex;
+	/* the long Spanish labels go to a second line instead of leaving the card */
+	flex-wrap: wrap;
 	gap: var(--kg-space-2);
 	margin-top: var(--kg-space-2);
 }

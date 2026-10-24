@@ -3,6 +3,7 @@ import { open } from '@tauri-apps/plugin-dialog';
 import { invoke } from '../../lib/ipc';
 import { useLoadingIndicator } from '../../hooks/useLoadingIndicator';
 import { t } from '../../i18n';
+import SettingsRowText from './SettingsRowText';
 import loadingIcon from '../../assets/mascot/loading-icon.png';
 import './LoadingIndicatorRow.css';
 
@@ -18,13 +19,10 @@ function LoadingIndicatorRow() {
 	const text = t.settings.loadingIndicator;
 	const showImage = url !== null && url !== failedUrl;
 
-	const choose = async () => {
-		const path = await open({
-			filters: [{ name: text.filter, extensions: INDICATOR_EXTENSIONS }],
-		});
-		if (typeof path !== 'string') return;
+	// Runs an indicator mutation: clear the error and refresh the preview, or show the failure.
+	const run = async (action: () => Promise<unknown>) => {
 		try {
-			await invoke('set_loading_indicator', { path });
+			await action();
 			setError(null);
 			await refresh();
 		} catch (e) {
@@ -32,15 +30,15 @@ function LoadingIndicatorRow() {
 		}
 	};
 
-	const reset = async () => {
-		try {
-			await invoke('reset_loading_indicator');
-			setError(null);
-			await refresh();
-		} catch (e) {
-			setError(String(e));
-		}
+	const choose = async () => {
+		const path = await open({
+			filters: [{ name: text.filter, extensions: INDICATOR_EXTENSIONS }],
+		});
+		if (typeof path !== 'string') return;
+		await run(() => invoke('set_loading_indicator', { path }));
 	};
+
+	const reset = () => run(() => invoke('reset_loading_indicator'));
 
 	return (
 		<div className="settings-row settings-row-indicator">
@@ -64,9 +62,7 @@ function LoadingIndicatorRow() {
 					draggable={false}
 				/>
 			)}
-			<span className="settings-row-text">
-				<strong>{text.label}</strong>
-				<small>{text.hint}</small>
+			<SettingsRowText text={text}>
 				{error && <small className="settings-error">{error}</small>}
 				{showImage && oversized && <small>{text.warning}</small>}
 				<span className="settings-indicator-actions">
@@ -82,7 +78,7 @@ function LoadingIndicatorRow() {
 						</button>
 					)}
 				</span>
-			</span>
+			</SettingsRowText>
 		</div>
 	);
 }

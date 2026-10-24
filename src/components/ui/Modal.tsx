@@ -1,6 +1,7 @@
-import { useEffect, type ReactNode } from 'react';
+import { type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { t } from '../../i18n';
+import { useEscape } from '../../hooks/useDismiss';
 import SketchIcon from './SketchIcon';
 
 // Screens are CSS-contained (trapping `position: fixed`), so modals render into this node, inside the control shell.
@@ -27,13 +28,7 @@ function Modal({
 	onCancel,
 	extraActions,
 }: ModalProps) {
-	useEffect(() => {
-		const onKeyDown = (e: KeyboardEvent) => {
-			if (e.key === 'Escape') onCancel();
-		};
-		window.addEventListener('keydown', onKeyDown);
-		return () => window.removeEventListener('keydown', onKeyDown);
-	}, [onCancel]);
+	useEscape(true, onCancel);
 
 	return createPortal(
 		<div className="modal-backdrop" onClick={onCancel}>
@@ -60,7 +55,7 @@ function Modal({
 							type="button"
 							className={
 								destructive
-									? 'kg-btn kg-btn--danger pixel-hover'
+									? 'kg-btn kg-btn--danger icon-hover'
 									: 'kg-btn kg-btn--primary'
 							}
 							onClick={onConfirm}

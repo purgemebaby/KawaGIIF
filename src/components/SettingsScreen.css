@@ -28,7 +28,7 @@
 	min-width: 0;
 }
 
-/* The mascot (Mascot.css) peeks over the first card; the sticky offset keeps its visible part on screen. */
+/* The sticky offset keeps the mascot on screen. */
 .settings-aside {
 	--settings-mascot-w: 130px;
 	/* how far its paws sink into the card's top edge */
@@ -41,7 +41,7 @@
 	);
 }
 
-/* The window never gets narrower than 720 px, so this only covers zoomed-in UIs; the aside then follows the sections. */
+/* The window never gets narrower than 720 px, so this only covers zoomed-in UIs. */
 @media (max-width: 680px) {
 	.settings-screen {
 		padding-inline: var(--kg-space-4);
@@ -148,8 +148,14 @@
 	line-height: 1.5;
 }
 
+/* a switch is small: it always stays beside its label, the label wraps instead */
 .settings-row-toggle {
+	flex-wrap: nowrap;
 	cursor: pointer;
+}
+
+.settings-row-toggle .settings-row-text {
+	flex-basis: 0;
 }
 
 /* Switch: a real checkbox underneath, drawn as a pill track with a knob */
@@ -174,23 +180,26 @@
 .settings-switch-track {
 	position: absolute;
 	inset: 0;
-	border: 1px solid transparent;
+	border: 1.5px solid var(--kg-border-strong); /* first pass: the real border */
 	border-radius: var(--kg-radius-pill);
 	background: var(--kg-bg-input);
 	box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.45);
 	pointer-events: none;
-	transition: background var(--kg-dur-fast) var(--kg-ease-out);
+	transition:
+		background var(--kg-dur-fast) var(--kg-ease-out),
+		border-color var(--kg-dur-fast) var(--kg-ease-out);
 }
 
-/* the track's hand-drawn border (accent when checked) */
+/* second pass: fainter, a hair turned, like going over the line again (accent when checked) */
 .settings-switch-track::before {
 	content: '';
 	position: absolute;
-	inset: 0;
-	border: 2px solid var(--kg-border-strong);
+	inset: -1.5px;
+	border: 1px solid var(--kg-border-strong);
 	border-radius: inherit;
+	opacity: 0.45;
+	transform: translate(1px, 1.2px) rotate(-0.7deg);
 	pointer-events: none;
-	filter: url(#kg-rough);
 	transition: border-color var(--kg-dur-fast) var(--kg-ease-out);
 }
 
@@ -211,6 +220,7 @@
 
 .settings-switch input:checked + .settings-switch-track {
 	background: var(--kg-accent);
+	border-color: var(--kg-accent);
 }
 
 .settings-switch input:checked + .settings-switch-track::before {

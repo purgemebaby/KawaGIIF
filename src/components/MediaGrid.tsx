@@ -95,7 +95,7 @@ function MediaName({
 	);
 }
 
-/** A filter change settles every card; otherwise the newest import is pasted on and the rest fade in. */
+/** A filter change settles every card. Otherwise the newest import is pasted on and the rest fade in. */
 function motionFor(
 	items: MediaItem[],
 	fresh: MediaItem[],

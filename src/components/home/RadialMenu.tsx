@@ -72,7 +72,7 @@ function RadialMenu({ onSelect }: RadialMenuProps) {
 				return (
 					<g
 						key={sector.id}
-						className="radial-sector pixel-hover"
+						className="radial-sector icon-hover"
 						role="button"
 						tabIndex={0}
 						aria-label={tile.label}

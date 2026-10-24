@@ -49,7 +49,7 @@ export function useFlipGrid(
 		}
 	}, [containerRef, ids]);
 
-	// A reflow from a resize is not a move to animate; keep the stored places current.
+	// A reflow from a resize is not a move to animate. Keep the stored places current.
 	useEffect(() => {
 		const container = containerRef.current;
 		if (!container) return;

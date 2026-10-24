@@ -49,6 +49,12 @@
 	overflow-y: auto;
 }
 
+/* An opaque scroller keeps ClearType text while it scrolls (a transparent one drops to grayscale, so text flickers).
+   Home and the Editor stay see-through: the ring shows under the Editor while the panels fold. */
+.screen-slot:has(> .settings-screen, > .storage-screen) {
+	background: var(--kg-bg-app);
+}
+
 .home-screen {
 	padding: var(--kg-space-5) var(--kg-space-6) var(--kg-space-6);
 	display: flex;
@@ -85,7 +91,7 @@
 
 /* Home's two buttons stay outlined: the hatch never reveals, and the border just darkens on hover. */
 .home-actions .kg-btn:hover::before {
-	clip-path: inset(0 100% 0 0);
+	opacity: 0;
 }
 
 .home-actions .kg-btn:hover {

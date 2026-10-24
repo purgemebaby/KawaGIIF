@@ -18,14 +18,14 @@ fn default_font_scale() -> f32 { 1.0 }
 
 fn default_ui_zoom() -> f32 { 1.0 }
 
-/** UI languages the app accepts; the first one is the default. */
+/** UI languages the app accepts. The first one is the default. */
 pub const LANGUAGES: [&str; 2] = ["en", "es"];
 
 fn default_language() -> String { LANGUAGES[0].to_owned() }
 
 fn config_path() -> PathBuf { data_dir().join("config.toml") }
 
-/** `%LOCALAPPDATA%\KawaGiif*/
+/** The app data folder, `%LOCALAPPDATA%\KawaGiif`. */
 pub fn data_dir() -> &'static Path {
     static DIR: OnceLock<PathBuf> = OnceLock::new();
     DIR.get_or_init(|| dirs::data_local_dir().expect("could not resolve %LOCALAPPDATA%").join("KawaGiif"))
@@ -59,7 +59,7 @@ pub fn update(change: impl FnOnce(&mut AppConfig)) -> AppResult<()> {
 
 
 
-/**Settings stored in `config.toml`; missing fields fall back to their defaults.*/
+/** Settings stored in `config.toml`. Missing fields fall back to their defaults. */
 #[derive(Serialize, Deserialize, Clone)]
 pub struct AppConfig {
     #[serde(default)]
@@ -70,10 +70,10 @@ pub struct AppConfig {
     pub confirm_media_delete: bool,
     #[serde(default = "default_overlay_pool_size")]
     pub overlay_pool_size: u32,
-    /// File name (inside the data folder) of the custom loading-screen image; `None` means the default mascot head.
+    /// File name (inside the data folder) of the custom loading-screen image. `None` means the default mascot head.
     #[serde(default)]
     pub loading_indicator: Option<String>,
-    /// Font family of the UI text; `None` means the system default.
+    /// Font family of the UI text. `None` means the system default.
     #[serde(default)]
     pub ui_font: Option<String>,
     /// Multiplier of every UI font size (1.0 = default).
@@ -82,7 +82,7 @@ pub struct AppConfig {
     /// WebView2 zoom of the control window (1.0 = 100 %).
     #[serde(default = "default_ui_zoom")]
     pub ui_zoom: f32,
-    /// Whether the ring menu, section sliding and editor opening animate; off switches screens instantly.
+    /// Whether the ring menu, section sliding and editor opening animate. Off switches screens instantly.
     #[serde(default = "default_true")]
     pub nav_animations: bool,
     /// Whether the chibi mascot appears in Home, Settings, the Editor and the empty Library.

@@ -20,6 +20,10 @@ export const STATIC_TYPES: MediaType[] = ['jpeg', 'png', 'svg'];
 
 export const isVideoType = (type: MediaType | null): boolean => type === 'mp4';
 
+export function isImageType(type: MediaType | null): boolean {
+	return type === 'jpeg' || type === 'png' || type === 'webp' || type === 'svg';
+}
+
 export function formatBytes(bytes: number): string {
 	const mb = bytes / (1024 * 1024);
 	return mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${Math.round(mb)} MB`;

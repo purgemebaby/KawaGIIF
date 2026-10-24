@@ -25,7 +25,7 @@
 	}
 }
 
-/* Settings: the chibi leans over the RAM gauge's top edge, low enough to look like it climbs out from behind; the wrench hangs in front of the card. */
+/* The chibi climbs out from behind the RAM gauge's top edge. */
 .settings-mascot {
 	position: absolute;
 	right: var(--kg-space-4);
@@ -38,14 +38,15 @@
 }
 
 /* The layers share the 420x348 canvas, so they stack exactly. */
-.settings-mascot img {
+.settings-mascot img,
+.editor-mascot-chibi img {
 	position: absolute;
 	inset: 0;
 	width: 100%;
 	height: 100%;
 }
 
-/* The pivot is the gripping hand; the overshoot of the pop easing reads as a tap. */
+/* The pop easing's overshoot reads as a tap. */
 .settings-mascot-wrench {
 	transform-origin: 87.4% 81.6%;
 	rotate: var(--wrench-angle, 0deg);
@@ -59,7 +60,7 @@
 	}
 }
 
-/* Library with media: the chibi rises from the window's bottom-right corner; fixed sticks to the screen layer, so it never scrolls. */
+/* Fixed sticks it to the screen layer so it never scrolls. */
 .library-mascot {
 	--library-mascot-h: clamp(150px, 32vh, 250px);
 
@@ -117,9 +118,11 @@
 	min-height: 0;
 	padding: var(--kg-space-2) var(--kg-space-3) 0;
 	overflow: hidden;
+	/* the chibi sizes itself from this area's width and height (cq units) */
+	container-type: size;
 }
 
-/* margin-top: auto pins bubble and chibi to the bottom; a short area squeezes the chibi first, never the text. */
+/* A short area squeezes the chibi first, never the text. */
 .editor-mascot-bubble {
 	--sketch-ink: var(--kg-title-outline);
 	--sketch-paper: var(--kg-title-keyline);
@@ -142,7 +145,7 @@
 	animation: kg-mascot-float 4.5s ease-in-out infinite;
 }
 
-/* The hand-drawn outline stretched over the bubble; its tail is drawn past the bottom edge. */
+/* Its tail is drawn past the bottom edge. */
 .editor-mascot-bubble-frame {
 	position: absolute;
 	inset: 0;
@@ -151,12 +154,14 @@
 	height: 100%;
 }
 
-/* The whole canvas, so the hard hat and pencil stay fully in view. */
+/* The whole chibi stays in view: the height left under the bubble (about six text lines with its margins) caps the width. */
 .editor-mascot-peek {
 	position: relative;
-	flex: 0 1 auto;
-	width: clamp(150px, 70%, 240px);
-	min-height: 0;
+	flex: none;
+	width: min(
+		clamp(150px, 70cqw, 240px),
+		calc((100cqh - var(--kg-text-md) * 6 - 40px) * 480 / 392)
+	);
 	aspect-ratio: 480 / 392;
 	overflow: hidden;
 }
@@ -166,11 +171,15 @@
 	position: absolute;
 	top: var(--kg-space-1);
 	left: 0;
-	display: block;
 	width: 100%;
-	height: auto;
 	aspect-ratio: 480 / 392;
 	animation: kg-mascot-float 4.5s ease-in-out infinite;
+}
+
+/* The pencil is its own layer, pivoting on the gripping hand. */
+.editor-mascot-pencil {
+	transform-origin: 82.9% 88%;
+	animation: kg-mascot-scribble 1.6s ease-in-out infinite;
 }
 
 /* Storage, empty library: the lying-down chibi greets it with a very soft wave. */

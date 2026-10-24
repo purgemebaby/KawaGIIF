@@ -3,7 +3,7 @@ import { directionOf } from './radial';
 
 type Offset = { x: number; y: number };
 
-/** Home sits at the origin; every other screen one viewport away, towards its ring sector. */
+/** Home sits at the origin. Every other screen one viewport away, towards its ring sector. */
 function worldPosition(screen: Screen, width: number, height: number): Offset {
 	if (screen === 'home') return { x: 0, y: 0 };
 	const { x, y } = directionOf(screen);
@@ -25,7 +25,7 @@ export function worldOffset(
 
 type TransitionKind = 'pan' | 'burst' | 'unburst' | 'instant';
 
-/** How a screen change is shown; one place to give a pair its own animation. */
+/** How a screen change is shown. One place to give a pair its own animation. */
 export function transitionKind(from: Screen, to: Screen): TransitionKind {
 	if (from === to) return 'instant';
 	if (from === 'home' && to === 'editor') return 'burst';

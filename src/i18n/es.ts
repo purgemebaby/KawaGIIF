@@ -1,6 +1,6 @@
 import type { Strings } from './en';
 
-/** Spanish (Spain) strings; same keys as `en`. */
+/** Spanish (Spain) strings, with the same keys as `en`. */
 export const es: Strings = {
 	app: {
 		name: 'KawaGIIF',

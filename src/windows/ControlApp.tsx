@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { invoke } from '../lib/ipc';
 import { loadConfig } from '../lib/config';
 import { announceShowMascot } from '../lib/mascot';
+import { announceNavAnimations } from '../lib/navAnimations';
 import { useTauriEvent } from '../hooks/useTauriEvent';
 import { useScreenTransitions } from '../hooks/useScreenTransitions';
 import { useZoomShortcuts } from '../hooks/useZoomShortcuts';
@@ -16,7 +17,6 @@ import SettingsScreen from '../components/SettingsScreen';
 import LoadingScreen from '../components/LoadingScreen';
 import ZoomToast from '../components/ZoomToast';
 import Modal, { MODAL_ROOT_ID } from '../components/ui/Modal';
-import RoughDefs from '../components/ui/RoughDefs';
 import './ControlApp.css';
 
 type PendingExit = { kind: 'navigate'; screen: Screen } | { kind: 'hide' };
@@ -62,7 +62,10 @@ function ControlApp() {
 	const configPromise = useMemo(loadConfig, []);
 
 	useEffect(() => {
-		configPromise.then((c) => announceShowMascot(c.show_mascot ?? true));
+		configPromise.then((c) => {
+			announceShowMascot(c.show_mascot ?? true);
+			announceNavAnimations(c.nav_animations ?? true);
+		});
 	}, [configPromise]);
 
 	// what the UI needs before it's usable. The loading bar advances as each one finishes
@@ -77,7 +80,7 @@ function ControlApp() {
 	);
 
 	const { layers, stageClass, stageRef, contentRef, navigate, destination } =
-		useScreenTransitions(DEV_SCREEN ?? 'home', configPromise);
+		useScreenTransitions(DEV_SCREEN ?? 'home');
 	const zoomToast = useZoomShortcuts(configPromise);
 
 	const runExit = useCallback(
@@ -124,7 +127,6 @@ function ControlApp() {
 	return (
 		<LibraryProvider>
 			<div className="control-shell">
-				<RoughDefs />
 				{booting && (
 					<LoadingScreen
 						steps={bootSteps}

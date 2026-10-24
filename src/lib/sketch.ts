@@ -4,7 +4,7 @@
 export type Point = readonly [number, number];
 
 /** Seeded PRNG (mulberry32): the same seed always gives the same wobble. */
-export function seededRandom(seed: number): () => number {
+function seededRandom(seed: number): () => number {
 	let a = seed >>> 0;
 	return () => {
 		a = (a + 0x6d2b79f5) | 0;

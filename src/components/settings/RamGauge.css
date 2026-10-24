@@ -15,40 +15,30 @@
 	height: 115px;
 }
 
-.ram-gauge-track,
-.ram-gauge-fill,
-.ram-gauge-fill-base {
-	fill: none;
-	stroke-linecap: round;
-	filter: url(#kg-rough-wide);
-}
-
+/* the soft arc the ticks sit on */
 .ram-gauge-track {
+	fill: none;
 	stroke: var(--kg-bg-input);
-	stroke-width: 4;
+	stroke-width: 11;
+	stroke-linecap: round;
 }
 
-/* a soft solid underlay so the hatched arc reads as one thick bar */
-.ram-gauge-fill-base {
-	stroke: var(--kg-accent);
-	stroke-opacity: 0.25;
-	stroke-width: 8;
+.ram-gauge-tick {
+	stroke: var(--kg-border-strong);
+	stroke-width: 3.5;
+	stroke-linecap: round;
 	transition: stroke var(--kg-dur-med) var(--kg-ease-out);
 }
 
-.ram-gauge-fill {
-	stroke: url(#kg-hatch);
-	color: var(--kg-accent);
-	stroke-width: 8;
-	transition: color var(--kg-dur-med) var(--kg-ease-out);
+.ram-gauge-tick.is-lit {
+	stroke: var(--kg-accent);
+	/* soft glow on the lit ticks only */
+	filter: drop-shadow(0 0 3px rgb(var(--kg-accent-rgb) / 0.7));
 }
 
-.ram-gauge-fill.is-high {
-	color: var(--kg-danger);
-}
-
-.ram-gauge-fill-base.is-high {
+.ram-gauge-ticks.is-high .ram-gauge-tick.is-lit {
 	stroke: var(--kg-danger);
+	filter: drop-shadow(0 0 3px rgb(var(--kg-danger-rgb) / 0.7));
 }
 
 .ram-gauge-needle {

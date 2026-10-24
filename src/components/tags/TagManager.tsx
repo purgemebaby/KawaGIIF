@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useLibrary } from '../../context/LibraryProvider';
 import { t } from '../../i18n';
 import { tagStyle } from '../../lib/tags';
@@ -24,6 +24,8 @@ function TagManager({
 		name: string;
 		count: number;
 	} | null>(null);
+	// Enter or Escape unmounts the input, which can blur it once more.
+	const settled = useRef(false);
 
 	const visible = useMemo(() => {
 		const q = query.trim().toLowerCase();
@@ -35,17 +37,20 @@ function TagManager({
 		activeFilters.some((f) => f.toLowerCase() === name.toLowerCase());
 
 	const startRename = (name: string) => {
+		settled.current = false;
 		setRenaming(name);
 		setDraft(name);
 	};
 
-	const commitRename = async () => {
-		if (!renaming) return;
-		const next = draft.trim();
-		if (next && next !== renaming) {
-			await renameTag(renaming, next);
-		}
+	// Enter/blur save, Escape cancels. The input unmounts and blurs once after Escape.
+	const finishRename = async (save: boolean) => {
+		if (settled.current) return;
+		settled.current = true;
+		const from = renaming;
 		setRenaming(null);
+		if (!save || !from) return;
+		const next = draft.trim();
+		if (next && next !== from) await renameTag(from, next);
 	};
 
 	return (
@@ -74,10 +79,15 @@ function TagManager({
 												value={draft}
 												autoFocus
 												onChange={(e) => setDraft(e.target.value)}
-												onBlur={commitRename}
+												onBlur={() => finishRename(true)}
 												onKeyDown={(e) => {
-													if (e.key === 'Enter') commitRename();
-													if (e.key === 'Escape') setRenaming(null);
+													if (e.key === 'Enter') finishRename(true);
+													if (e.key !== 'Escape') return;
+													// Escape must not also close the TagManager modal.
+													e.preventDefault();
+													e.stopPropagation();
+													e.nativeEvent.stopImmediatePropagation();
+													finishRename(false);
 												}}
 											/>
 										) : (
@@ -114,7 +124,7 @@ function TagManager({
 												</button>
 												<button
 													type="button"
-													className="kg-btn kg-btn--danger kg-btn--sm pixel-hover"
+													className="kg-btn kg-btn--danger kg-btn--sm icon-hover"
 													onClick={() =>
 														setDeleting({ name: tag.name, count: tag.count })
 													}

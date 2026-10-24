@@ -7,7 +7,7 @@ interface SketchFrameProps {
 	seed: string;
 	/** The closed outline, e.g. a speech bubble or a smoke cloud. */
 	points: readonly Point[];
-	/** How far the pen wanders, in viewBox units; a wider viewBox needs more to look hand-drawn. */
+	/** How far the pen wanders, in viewBox units. A wider viewBox needs more to look hand-drawn. */
 	roughness?: number;
 	className?: string;
 }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useLibrary } from '../../context/LibraryProvider';
 import { useDismiss } from '../../hooks/useDismiss';
 import { t } from '../../i18n';
@@ -13,12 +13,7 @@ interface TagPopoverProps {
 function TagPopover({ tags, onChange, onClose }: TagPopoverProps) {
 	const { tags: allTags } = useLibrary();
 	const [draft, setDraft] = useState('');
-	const inputRef = useRef<HTMLInputElement>(null);
 	const rootRef = useRef<HTMLDivElement>(null);
-
-	useEffect(() => {
-		inputRef.current?.focus();
-	}, []);
 
 	useDismiss(rootRef, true, onClose);
 
@@ -79,7 +74,7 @@ function TagPopover({ tags, onChange, onClose }: TagPopoverProps) {
 			</div>
 
 			<input
-				ref={inputRef}
+				autoFocus
 				className="tag-popover-input"
 				value={draft}
 				placeholder={t.tags.add}

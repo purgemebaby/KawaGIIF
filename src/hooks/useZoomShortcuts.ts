@@ -1,27 +1,23 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { invoke } from '../lib/ipc';
 import type { AppConfig } from '../lib/config';
-import { announceZoom, nextZoom, onZoomAnnounced } from '../lib/zoom';
+import { applyZoomStep, onZoomAnnounced } from '../lib/zoom';
 
 /** Obsidian-style UI zoom: Ctrl +/-/0 and Ctrl+wheel. Returns the zoom to flash in the badge, or null. */
 export function useZoomShortcuts(configPromise: Promise<AppConfig>) {
-	// the backend applies the zoom to the webview; we track the value here
+	// the backend applies the zoom to the webview. We track the value here
 	const uiZoomRef = useRef(1);
 	const [zoomToast, setZoomToast] = useState<number | null>(null);
 	const zoomTimerRef = useRef<number | undefined>(undefined);
 
 	// Applies a zoom step (1 in / -1 out / 0 reset) and flashes the percentage badge for ~1s.
 	const applyZoom = useCallback(async (direction: 1 | -1 | 0) => {
-		const applied = await invoke<number>('set_ui_zoom', {
-			zoom: nextZoom(uiZoomRef.current, direction),
-		});
-		announceZoom(applied);
+		const applied = await applyZoomStep(uiZoomRef.current, direction);
 		setZoomToast(applied);
 		window.clearTimeout(zoomTimerRef.current);
 		zoomTimerRef.current = window.setTimeout(() => setZoomToast(null), 1000);
 	}, []);
 
-	// The backend re-applies the saved zoom at startup; sync the tracked zoom once on mount.
+	// The backend re-applies the saved zoom at startup. Sync the tracked zoom once on mount.
 	useEffect(() => {
 		const track = (zoom: number) => {
 			uiZoomRef.current = zoom;
@@ -49,7 +45,7 @@ export function useZoomShortcuts(configPromise: Promise<AppConfig>) {
 		return () => window.removeEventListener('keydown', onKeyDown);
 	}, [applyZoom]);
 
-	// Ctrl + mouse wheel zooms; throttled to one step per 80ms so a single spin doesn't jump several levels.
+	// Ctrl + mouse wheel zooms. Throttled to one step per 80ms so a single spin doesn't jump several levels.
 	useEffect(() => {
 		let lastApplied = 0;
 		const onWheel = (e: WheelEvent) => {

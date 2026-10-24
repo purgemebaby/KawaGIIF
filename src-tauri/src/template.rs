@@ -21,14 +21,16 @@ use crate::native::windows as native;
 */
 
 const SPAWN_BOX: u32 = 220;
-const PICKUP_GRIP: u32 = 16; //a dragged spawn hangs this far below the cursor, held by its top edge
+const PICKUP_GRIP: u32 = 16; // a dragged spawn hangs this far below the cursor, held by its top edge
 const MAX_SPAWN_SIDE: f64 = 480.0;
 const MIN_SIDE: u32 = 40;
 const SAVE_DEBOUNCE: Duration = Duration::from_millis(400);
 const BOOT_FALLBACK: Duration = Duration::from_secs(15);
-const SUSPEND_DELAY: Duration = Duration::from_millis(150); //a click between our own windows passes through "no foreground window"
-static ACTIVITY_GENERATION: AtomicU64 = AtomicU64::new(0); //bumped on every window/foreground change; a pending suspension runs only while it is the latest
-static BOOT_SHOWN: AtomicBool = AtomicBool::new(false); //the boot placement already ran (or the editor took over)
+const SUSPEND_DELAY: Duration = Duration::from_millis(150); // a click between our own windows passes through "no foreground window"
+static ACTIVITY_GENERATION: AtomicU64 = AtomicU64::new(0); // a pending suspension runs only while it is the latest
+static BOOT_SHOWN: AtomicBool = AtomicBool::new(false); // the boot placement already ran (or the editor took over)
+// the media size reported while its overlay was still carried: the window stays small until the drop
+static PENDING_FIT: Mutex<Option<(Uuid, u32, u32)>> = Mutex::new(None);
 
 fn template_path() -> PathBuf { config::data_dir().join("template.json") }
 
@@ -93,7 +95,7 @@ pub struct PlacedMedia {
     pub opacity: f32,
     pub playback_rate: Option<f32>,
     #[serde(default)]
-    pub rotation: f32, //degrees, clockwise, about the media centre
+    pub rotation: f32, // degrees, clockwise, about the media centre
     #[serde(default)]
     pub auto_sized: bool,
 }
@@ -113,7 +115,7 @@ pub struct PlacedItemSummary {
     pub selected: bool,
 }
 
-/**Lets a window ask for the editor state: an event sent before it starts listening is lost. `edit_mode` is whether editing is live right now (not suspended).*/
+/** Lets a window ask for the editor state: an event sent before it starts listening is lost. `edit_mode` is whether editing is live right now (not suspended). */
 #[derive(Serialize)]
 pub struct EditorStatus {
     pub edit_mode: bool,
@@ -133,7 +135,7 @@ pub enum Arrival {
     Carried,
 }
 
-/**What an overlay asks for once it's awake: a sleeping slot misses the events sent while it wakes up.*/
+/** What an overlay asks for once it's awake: a sleeping slot misses the events sent while it wakes up. */
 #[derive(Serialize)]
 pub struct SlotInfo {
     pub instance_id: Uuid,
@@ -146,7 +148,7 @@ pub struct SpawnedOverlay {
     pub window_label: &'static str,
 }
 
-/**Payload of the per-item events; carries `instance_id` so an overlay can drop anything that isn't its own.*/
+/** Payload of the per-item events, with `instance_id` so an overlay drops anything that is not its own. */
 #[derive(Serialize, Clone)]
 struct ItemValueChanged<T: Clone> {
     instance_id: Uuid,
@@ -154,7 +156,7 @@ struct ItemValueChanged<T: Clone> {
 }
 
 /**
- * Everything the editor tracks: `working` (being edited) vs `saved` (on disk) tells if there are unsaved changes;
+ * Everything the editor tracks: `working` (being edited) vs `saved` (on disk) tells if there are unsaved changes.
  * `slots[n]` is the animation shown by overlay `n` (not persisted). Never hold this lock while calling
  * `window_manager`: window calls fire `Moved`/`Resized` synchronously and `update_slot_geometry` re-locks (deadlock).
  */
@@ -162,14 +164,14 @@ pub struct Editor {
     working: Template,
     saved: Template,
     selected: Option<Uuid>,
-    edit_mode: bool, //the editor screen is open (the intent)
-    edit_active: bool, //what `refresh_edit_activity` last applied: edit_mode, control window open and app in the foreground
+    edit_mode: bool, // the editor screen is open (the intent)
+    edit_active: bool, // what `refresh_edit_activity` last applied: edit_mode, control window open and app in the foreground
     slots: Vec<Option<Uuid>>,
-    arrivals: Vec<Arrival>, //per slot, read by `get_slot_info`
-    save_generation: u64, //last move waiting for `schedule_save`
+    arrivals: Vec<Arrival>, // per slot, read by `get_slot_info`
+    save_generation: u64, // last move waiting for `schedule_save`
 }
 impl Editor {
-    pub fn is_dirty(&self) -> bool { self.working != self.saved }
+    fn is_dirty(&self) -> bool { self.working != self.saved }
 
     /// Unsaved changes while the editor is open, the case where closing must ask first.
     pub fn has_unsaved_edits(&self) -> bool { self.edit_mode && self.is_dirty() }
@@ -308,7 +310,7 @@ pub fn overlay_idle(app: AppHandle, window: WebviewWindow) {
     }
 }
 
-/// Hides every placed animation without touching the template; they return on the next editor open or app start.
+/// Hides every placed animation without touching the template. They return on the next editor open or app start.
 #[tauri::command]
 pub fn kill_all_overlays(app: AppHandle, state: State<EditorState>) {
     release_all_slots(&app, &state);
@@ -326,7 +328,7 @@ pub fn count_references_to_media(state: &EditorState, media_ids: &HashSet<Uuid>)
 }
 
 /**
- * Removes every placed animation using one of `media_ids` from both templates and rewrites `template.json` once;
+ * Removes every placed animation using one of `media_ids` from both templates and rewrites `template.json` once.
  * otherwise the deleted media would come back as blank overlays on the next start.
  */
 pub fn purge_media_references(app: &AppHandle, state: &EditorState, media_ids: &HashSet<Uuid>) -> AppResult<()> {
@@ -406,10 +408,7 @@ pub fn show_saved_overlays(app: &AppHandle) {
     window_manager::log_overlay_state(app, "startup, template restored");
 }
 
-/**
- * Called by `window_manager` on drag/resize of an overlay. In edit mode it changes the working copy; outside it
- * (after Ctrl+Alt+Esc) it changes the saved copy too and writes `template.json` once the drag settles.
- */
+/** Called by `window_manager` on drag/resize of an overlay. In edit mode it changes the working copy. Outside it (after Ctrl+Alt+Esc) it changes the saved copy too and writes `template.json` once the drag settles. */
 pub fn update_slot_geometry(app: &AppHandle, slot: usize, pos: Option<(i32, i32)>, size: Option<(u32, u32)>) {
     let state = app.state::<EditorState>();
     let (instance_id, pending_save) = {
@@ -432,7 +431,7 @@ pub fn update_slot_geometry(app: &AppHandle, slot: usize, pos: Option<(i32, i32)
 
 
 // Template Commands
-/// Reloads the template from disk and places it again (windows may be showing nothing after "kill all");
+/// Reloads the template from disk and places it again (windows may be showing nothing after "kill all").
 /// they come up click-through unless editing is live, and `set_edit_mode(true)` makes them interactive. When the overlays
 /// already show exactly that template (the usual case when opening the editor) nothing is re-placed: re-placing made
 /// every overlay fetch and decode its GIF again, freezing all windows for ~400 ms.
@@ -488,7 +487,7 @@ pub fn discard_template_changes(app: AppHandle, state: State<EditorState>) -> Ap
 
 
 // Editor Commands
-/// Placed animations already joined with the library (one call instead of one lookup per row); the locks are never nested.
+/// Placed animations already joined with the library (one call instead of one lookup per row). The locks are never nested.
 #[tauri::command]
 pub fn list_placed_items(state: State<EditorState>, library: State<LibraryState>) -> Vec<PlacedItemSummary> {
     let (placed, selected): (Vec<(Uuid, Uuid)>, Option<Uuid>) = {
@@ -513,7 +512,7 @@ pub fn list_placed_items(state: State<EditorState>, library: State<LibraryState>
 }
 
 /// Opens or closes the editor (the intent). Closing clears the selection (pool windows are never recreated, so the outline
-/// would stay); a suspended editor (app in the background) keeps it. The windows follow through `refresh_edit_activity`.
+/// would stay). A suspended editor (app in the background) keeps it. The windows follow through `refresh_edit_activity`.
 #[tauri::command]
 pub fn set_edit_mode(app: AppHandle, state: State<EditorState>, enabled: bool) {
     {
@@ -527,7 +526,7 @@ pub fn set_edit_mode(app: AppHandle, state: State<EditorState>, enabled: bool) {
     let _ = app.run_on_main_thread(move || refresh_edit_activity(&handle));
 }
 
-/** Makes the windows match `edit_mode && control open && app in front`, only when that changed; no lock is held during window calls. */
+/** Makes the windows match `edit_mode && control open && app in front`, only when that changed. No lock is held during window calls. */
 pub fn refresh_edit_activity(app: &AppHandle) {
     let in_use: bool = window_manager::control_is_open(app) && window_manager::app_is_foreground();
     let state = app.state::<EditorState>();
@@ -633,7 +632,7 @@ pub fn set_item_playback_rate(app: AppHandle, state: State<EditorState>, instanc
     });
 }
 
-/// Rotates the calling overlay's media; the overlay computes the window size that fits the rotated media and sends it
+/// Rotates the calling overlay's media. The overlay computes the window size that fits the rotated media and sends it
 /// along. `resize_keeping_centre` applies it, so the media turns about its centre, and `Resized` stores the size as usual.
 #[tauri::command]
 pub fn rotate_overlay(window: WebviewWindow, state: State<EditorState>, rotation: f32, width: u32, height: u32) -> AppResult<()> {
@@ -649,7 +648,7 @@ pub fn rotate_overlay(window: WebviewWindow, state: State<EditorState>, rotation
 }
 
 /// Resets one placed animation to its defaults: full opacity, normal speed, no rotation, and `auto_sized` reopened. The
-/// overlay answers the `item-reset` event by calling `fit_overlay_to_media` again, which restores the size; position stays.
+/// overlay answers the `item-reset` event by calling `fit_overlay_to_media` again, which restores the size. Position stays.
 #[tauri::command]
 pub fn reset_placed_media(app: AppHandle, state: State<EditorState>, instance_id: Uuid) -> Option<PlacedMedia> {
     let (item, slot) = {
@@ -683,7 +682,7 @@ fn spawn_box(app: &AppHandle, cursor: &PhysicalPosition<f64>) -> AppResult<(i32,
 }
 
 /// Places a new animation dragged in from the media bar. It starts square because the real shape is unknown until it
-/// loads; `fit_overlay_to_media` fixes it then. The overlay is carried under the cursor until the button is released
+/// loads. `fit_overlay_to_media` fixes it then. The overlay is carried under the cursor until the button is released
 /// and swings meanwhile (`Arrival::Carried`, ended by `pickup-ended`).
 #[tauri::command]
 pub fn spawn_placed_media(app: AppHandle, state: State<EditorState>, media_id: Uuid) -> AppResult<SpawnedOverlay> {
@@ -716,6 +715,11 @@ pub fn spawn_placed_media(app: AppHandle, state: State<EditorState>, media_id: U
             if editor.slots.get(slot) == Some(&Some(instance_id)) { editor.arrivals[slot] = Arrival::Pop; }
         }
         emit_to_slot(&handle, slot, "pickup-ended", instance_id);
+        // the real size arrives now: the window grows to it and slides back inside the monitor if it overflows
+        let pending = PENDING_FIT.lock().unwrap_or_else(PoisonError::into_inner).take();
+        if let Some((id, width, height)) = pending.filter(|(id, ..)| *id == instance_id) {
+            fit_overlay_to_media(handle.clone(), handle.state(), id, width, height);
+        }
     });
 
     notify_placed_items_changed(&app);
@@ -740,7 +744,7 @@ fn limit_to_monitor(pos: (i32, i32), size: (u32, u32), monitor_rect: (i32, i32, 
 
 /**
  * Slides a grown overlay back onto its monitor instead of teleporting it. `fit_overlay_to_media` can grow a dropped
- * animation past the screen edge; `clamp_to_work_area` jumps it there, so this eases it over ~10 frames and clamps at
+ * animation past the screen edge. `clamp_to_work_area` jumps it there, so this eases it over ~10 frames and clamps at
  * the end as a safety net. Jumps straight there when the nav animations are off or the window already fits.
  */
 fn slide_into_view(window: &WebviewWindow) {
@@ -783,7 +787,13 @@ pub fn fit_overlay_to_media(
 ) {
     if natural_width == 0 || natural_height == 0 { return; }
 
-    let window = state.lock().slot_of(&instance_id).and_then(|slot| window_manager::slot_window(&app, slot));
+    let slot = state.lock().slot_of(&instance_id);
+    // a full-size window while carried would hit the screen edges and block the drag: fit at the drop instead
+    if slot.is_some_and(window_manager::is_carried) {
+        *PENDING_FIT.lock().unwrap_or_else(PoisonError::into_inner) = Some((instance_id, natural_width, natural_height));
+        return;
+    }
+    let window = slot.and_then(|slot| window_manager::slot_window(&app, slot));
     let scale = window.as_ref().and_then(|w| w.scale_factor().ok()).unwrap_or(1.0);
     let margin = scaled(window_manager::HANDLE_MARGIN, scale);
 

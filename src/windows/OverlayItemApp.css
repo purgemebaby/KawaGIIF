@@ -7,7 +7,7 @@
 	height: 100vh;
 }
 
-/* sized to the media box; `flex: none` keeps the shell from shrinking it */
+/* flex: none keeps the shell from shrinking it. */
 .overlay-media-frame {
 	position: relative;
 	flex: none;

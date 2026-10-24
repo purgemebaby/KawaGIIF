@@ -16,7 +16,7 @@ export function announceShowMascot(enabled: boolean) {
 	showMascotEvent.announce(enabled);
 }
 
-/** Calls `onChange` whenever the setting changes; returns the unsubscribe function. */
+/** Calls `onChange` whenever the setting changes. Returns the unsubscribe function. */
 export const onShowMascotChanged = showMascotEvent.listen;
 
 /** Marks the Home greeting as due, so the chibi slides in when Home next appears. */

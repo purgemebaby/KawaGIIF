@@ -4,7 +4,7 @@ import KawaTitle from './brand/KawaTitle';
 import loadingIcon from '../assets/mascot/loading-icon.png';
 import './LoadingScreen.css';
 
-// floor so the neon bar is on screen long enough to be seen; the real length comes from `steps`
+// floor so the neon bar is on screen long enough to be seen. the real length comes from `steps`
 const MIN_DURATION_MS = 2200;
 // share of the bar per second the walker may move, so it never jumps ahead of the work
 const MAX_SPEED_PER_S = 0.9;

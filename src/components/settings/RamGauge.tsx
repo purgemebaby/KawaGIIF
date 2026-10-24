@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { invoke } from '../../lib/ipc';
+import { outerArcPath, pointAt } from '../../lib/radial';
 import { t } from '../../i18n';
 import './RamGauge.css';
 
@@ -18,31 +19,19 @@ const CY = 50; // center y
 const ARC_RADIUS = 45;
 const NEEDLE_RADIUS = 35;
 const HIGH_RATIO = 0.8;
+const TICKS = 24;
 
 function toGb(mb: number): string {
 	return (mb / 1024).toFixed(1);
 }
 
+// radial's pointAt returns a tuple, so the gauge reads x/y fields.
 function polar(cx: number, cy: number, radius: number, angleDeg: number) {
-	const rad = (angleDeg * Math.PI) / 180;
-	return { x: cx + radius * Math.cos(rad), y: cy + radius * Math.sin(rad) }; //Cartesian
-}
-
-function arcPath(
-	cx: number,
-	cy: number,
-	radius: number,
-	fromDeg: number,
-	toDeg: number,
-) {
-	const start = polar(cx, cy, radius, fromDeg);
-	const end = polar(cx, cy, radius, toDeg);
-	const largeArc = Math.abs(toDeg - fromDeg) > 180 ? 1 : 0;
-	return `M ${start.x} ${start.y} A ${radius} ${radius} 0 ${largeArc} 1 ${end.x} ${end.y}`;
+	const [x, y] = pointAt(cx, cy, radius, angleDeg);
+	return { x, y };
 }
 
 function RamGauge() {
-	// null, function
 	const [stats, setStats] = useState<SystemStats | null>(null);
 
 	useEffect(() => {
@@ -78,19 +67,27 @@ function RamGauge() {
 				aria-label={t.settings.ram.label}
 			>
 				<path
-					d={arcPath(CX, CY, ARC_RADIUS, START_ANGLE, START_ANGLE + SWEEP)}
+					d={outerArcPath(CX, CY, ARC_RADIUS, START_ANGLE, START_ANGLE + SWEEP)}
 					className="ram-gauge-track"
 				/>
-				<path
-					d={arcPath(CX, CY, ARC_RADIUS, START_ANGLE, needleAngle)}
-					className={
-						isHigh ? 'ram-gauge-fill-base is-high' : 'ram-gauge-fill-base'
-					}
-				/>
-				<path
-					d={arcPath(CX, CY, ARC_RADIUS, START_ANGLE, needleAngle)}
-					className={isHigh ? 'ram-gauge-fill is-high' : 'ram-gauge-fill'}
-				/>
+				<g className={isHigh ? 'ram-gauge-ticks is-high' : 'ram-gauge-ticks'}>
+					{Array.from({ length: TICKS }, (_, i) => {
+						const angle = START_ANGLE + SWEEP * ((i + 0.5) / TICKS);
+						const from = polar(CX, CY, 40, angle);
+						const to = polar(CX, CY, 49, angle);
+						const lit = (i + 0.5) / TICKS <= ratio;
+						return (
+							<line
+								key={i}
+								x1={from.x}
+								y1={from.y}
+								x2={to.x}
+								y2={to.y}
+								className={lit ? 'ram-gauge-tick is-lit' : 'ram-gauge-tick'}
+							/>
+						);
+					})}
+				</g>
 				<line
 					x1={CX}
 					y1={CY}

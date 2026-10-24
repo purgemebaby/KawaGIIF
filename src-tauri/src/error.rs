@@ -57,7 +57,6 @@ pub enum AppError {
 
 
 // Rust communicates with the GUI thorugh JSON messages. Tauri needs that the AppError impl Serialize, so we need to do it manually
-/**Serialize with `serde::Serializer` the `AppError` enum*/
 impl Serialize for AppError {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         serializer.serialize_str(&self.to_string())

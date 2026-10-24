@@ -1,18 +1,12 @@
-import { useMemo, useState } from 'react';
 import { invoke } from '../lib/ipc';
-import {
-	DEFAULT_FILTERS,
-	filterMedia,
-	toggleTagFilter,
-	type MediaFilters,
-} from '../lib/mediaFilter';
 import { useLibrary } from '../context/LibraryProvider';
+import { useMediaFilters } from '../hooks/useMediaFilters';
 import { t } from '../i18n';
 import MediaFilterBar from './MediaFilterBar';
 import MediaThumb from './MediaThumb';
 import TagManager from './tags/TagManager';
 
-// Moving farther than this with the button held picks the animation up; a plain click does nothing.
+// Moving farther than this with the button held picks the animation up. A plain click does nothing.
 const DRAG_THRESHOLD_PX = 5;
 
 interface SpawnedOverlay {
@@ -28,12 +22,15 @@ function spawn(mediaId: string) {
 // `wrap` turns the strip into the scrolling grid of a panel sized taller than one row.
 function MediaSidebar({ wrap = false }: { wrap?: boolean }) {
 	const { items } = useLibrary();
-	const [filters, setFilters] = useState<MediaFilters>(DEFAULT_FILTERS);
-	const [managingTags, setManagingTags] = useState(false);
-	const filteredItems = useMemo(
-		() => filterMedia(items, filters),
-		[items, filters],
-	);
+	const {
+		filters,
+		setFilters,
+		filtered: filteredItems,
+		managingTags,
+		openTags,
+		closeTags,
+		toggleTag,
+	} = useMediaFilters(items);
 
 	const onMouseDown = (e: React.MouseEvent, mediaId: string) => {
 		if (e.button !== 0) return;
@@ -59,7 +56,7 @@ function MediaSidebar({ wrap = false }: { wrap?: boolean }) {
 		window.addEventListener('mouseup', stop);
 	};
 
-	// The single row has no vertical overflow, so the wheel scrolls it sideways; the grid scrolls natively.
+	// The single row has no vertical overflow, so the wheel scrolls it sideways. The grid scrolls natively.
 	const onWheel = wrap
 		? undefined
 		: (e: React.WheelEvent<HTMLDivElement>) => {
@@ -72,7 +69,7 @@ function MediaSidebar({ wrap = false }: { wrap?: boolean }) {
 				compact
 				filters={filters}
 				onChange={setFilters}
-				onOpenTags={() => setManagingTags(true)}
+				onOpenTags={openTags}
 			/>
 
 			{items.length > 0 && filteredItems.length === 0 ? (
@@ -106,10 +103,8 @@ function MediaSidebar({ wrap = false }: { wrap?: boolean }) {
 			{managingTags && (
 				<TagManager
 					activeFilters={filters.tags}
-					onToggleFilter={(tag) =>
-						setFilters((prev) => toggleTagFilter(prev, tag))
-					}
-					onClose={() => setManagingTags(false)}
+					onToggleFilter={toggleTag}
+					onClose={closeTags}
 				/>
 			)}
 		</div>

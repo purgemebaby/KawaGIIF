@@ -17,8 +17,7 @@ use crate::window_manager;
 const TRAY_ID: &str = "main";
 
 
-/** Recovers main app window (identified by `CONTROL_LABEL`) and depending of its visibility,
-the function will hide the main app window or show it.*/
+/** Shows the control window when it is hidden, hides it when it is visible. */
 fn toggle_control(app: &AppHandle) {
     if let Some(window) = app.get_webview_window(window_manager::CONTROL_LABEL) {
         if window.is_visible().unwrap_or(false) {
@@ -30,7 +29,7 @@ fn toggle_control(app: &AppHandle) {
 }
 
 
-/** Tray labels (`open`, `kill_all`, `quit`) in a UI language; anything else falls back to English. */
+/** Tray labels (`open`, `kill_all`, `quit`) in a UI language. Anything else falls back to English. */
 fn labels(language: &str) -> [&'static str; 3] {
     match language {
         "es" => ["Abrir panel", "Cerrar todas las animaciones", "Salir"],
@@ -48,7 +47,7 @@ fn build_menu(app: &AppHandle, language: &str) -> tauri::Result<Menu<Wry>> {
     Menu::with_items(app, &[&open, &separator, &kill, &separator, &quit])
 }
 
-/** Rebuilds the tray menu in the given language, so a language switch relabels it live; no tray yet just succeeds. */
+/** Rebuilds the tray menu in the given language, so a language switch relabels it live. No tray yet just succeeds. */
 pub fn apply_language(app: &AppHandle, language: &str) -> tauri::Result<()> {
     if let Some(tray) = app.tray_by_id(TRAY_ID) {
         let menu = build_menu(app, language)?;
@@ -58,7 +57,7 @@ pub fn apply_language(app: &AppHandle, language: &str) -> tauri::Result<()> {
 }
 
 
-//Tray displayable menu of commands and toggle control
+/** Builds the tray icon and menu, and toggles the control window on a left click. */
 pub fn setup(app: &AppHandle) -> tauri::Result<()> {
     let menu = build_menu(app, &config::load().language)?;
 

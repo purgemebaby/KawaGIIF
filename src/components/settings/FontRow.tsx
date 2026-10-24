@@ -3,6 +3,7 @@ import { invoke } from '../../lib/ipc';
 import { applyAppearance, fontStack } from '../../lib/appearance';
 import { useDismiss } from '../../hooks/useDismiss';
 import { t } from '../../i18n';
+import SettingsRowText from './SettingsRowText';
 import './FontRow.css';
 
 interface FontRowProps {
@@ -60,10 +61,7 @@ function FontRow({ font, scale, onFontChange, onScaleChange }: FontRowProps) {
 
 	return (
 		<div className="settings-row">
-			<span className="settings-row-text">
-				<strong>{text.label}</strong>
-				<small>{text.hint}</small>
-			</span>
+			<SettingsRowText text={text} />
 
 			<div className="font-row-controls">
 				<div className="font-picker" ref={rootRef}>

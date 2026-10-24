@@ -35,7 +35,7 @@ fn release_all_click_through(app: &AppHandle) {
     template::clear_selection(app);
 }
 
-/** The X button hides to the tray; with unsaved editor changes it emits `close-requested` instead so React can ask. */
+/** The X button hides to the tray. With unsaved editor changes it emits `close-requested` instead so React can ask. */
 fn handle_control_close(control: &WebviewWindow) {
     let pending_edit: bool = control.state::<EditorState>().lock().has_unsaved_edits();
     if pending_edit {
@@ -45,7 +45,7 @@ fn handle_control_close(control: &WebviewWindow) {
     }
 }
 
-/** Every real exit ends here; unsaved edits are discarded since no dialog can be shown while shutting down. */
+/** Every real exit ends here. Unsaved edits are discarded since no dialog can be shown while shutting down. */
 fn handle_exit(app: &AppHandle) {
     app.state::<EditorState>().lock().discard_changes();
     window_manager::stop_watching_foreground_changes();
@@ -54,7 +54,7 @@ fn handle_exit(app: &AppHandle) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    //global on purpose: a click-through overlay never gets keyboard focus, so a local Escape can't reach it
+    // global on purpose: a click-through overlay never gets keyboard focus, so a local Escape can't reach it
     let release_shortcut: Shortcut = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::ALT), Code::Escape);
 
     tauri::Builder::default()
@@ -161,7 +161,7 @@ pub fn run() {
             window_manager::spawn_topmost_keeper(handle);
             window_manager::watch_foreground_changes(handle);
 
-            //no visible loading screen in the tray, so the overlays come up right away
+            // no visible loading screen in the tray, so the overlays come up right away
             if config::load().start_minimized_to_tray {
                 window_manager::hide_control(handle);
                 template::show_saved_overlays(handle);

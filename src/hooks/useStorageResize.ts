@@ -1,10 +1,11 @@
 import { useRef } from 'react';
 import { startPointerDrag } from '../lib/pointerDrag';
+import { clamp } from '../lib/overlayGeometry';
 import { numberCodec, usePersistentState } from './usePersistentState';
 
 /** The storage panel's resize: the persisted body height, the section it sizes and the handle drag. */
 export function useStorageResize() {
-	// The storage body's height in px; 0 keeps the natural single-row height.
+	// The storage body's height in px. 0 keeps the natural single-row height.
 	const [storageHeight, setStorageHeight] = usePersistentState(
 		'kawagiif.editor.storage.height',
 		0,
@@ -22,7 +23,7 @@ export function useStorageResize() {
 			storageSectionRef.current?.querySelector<HTMLElement>(
 				'.editor-panel-body',
 			);
-		// Unsized, the body is the natural row; that measure stays the minimum.
+		// Unsized, the body is the natural row. That measure stays the minimum.
 		if (body && storageHeight === 0) naturalRowRef.current = body.scrollHeight;
 		const min = naturalRowRef.current || 96;
 		const startHeight =
@@ -36,8 +37,9 @@ export function useStorageResize() {
 				lastY = ev.clientY;
 			},
 			frame: () => {
-				const next = Math.min(
-					Math.max(startHeight + lastY - startY, min),
+				const next = clamp(
+					startHeight + lastY - startY,
+					min,
 					window.innerHeight * 0.5,
 				);
 				setStorageHeight(Math.round(next));

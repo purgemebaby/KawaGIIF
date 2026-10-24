@@ -3,9 +3,6 @@ import SortMenu from './ui/SortMenu';
 import type { MediaFilters, SortMode } from '../lib/mediaFilter';
 import { tagStyle } from '../lib/tags';
 
-export { DEFAULT_FILTERS } from '../lib/mediaFilter';
-export type { MediaFilters, SortMode } from '../lib/mediaFilter';
-
 interface MediaFilterBarProps {
 	filters: MediaFilters;
 	onChange: (filters: MediaFilters) => void;

@@ -49,7 +49,7 @@ interface SketchIconProps {
 	className?: string;
 }
 
-// Animations are driven from an ancestor with the `pixel-hover` class (see SketchIcon.css).
+// Animations are driven from an ancestor with the `icon-hover` class (see SketchIcon.css).
 function SketchIcon({ name, size = 16, x, y, className }: SketchIconProps) {
 	return (
 		<svg

@@ -2,7 +2,7 @@ import libraryChibi from '../../assets/mascot/library.png';
 import './Mascot.css';
 
 interface LibraryMascotProps {
-	/** Counts the imports so far; every new value makes the camera flash again. */
+	/** Counts the imports so far. Every new value makes the camera flash again. */
 	flashes: number;
 }
 

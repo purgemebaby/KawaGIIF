@@ -7,7 +7,7 @@ export type Screen = 'home' | 'storage' | 'editor' | 'settings';
 interface NavItem {
 	id: Screen;
 	label: string;
-	/** Shown on the home ring; Home itself is not on it. */
+	/** Shown on the home ring. Home itself is not on it. */
 	icon?: SketchIconName;
 }
 

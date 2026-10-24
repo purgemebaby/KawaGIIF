@@ -6,7 +6,7 @@
 	justify-content: center;
 	gap: var(--kg-space-2);
 	padding: 9px 18px;
-	border: 1px solid transparent;
+	border: 1.5px solid var(--kg-btn-ink, var(--kg-border-strong)); /* first pass: the real border */
 	border-radius: var(--kg-btn-radius);
 	background: none;
 	color: var(--kg-fg);
@@ -17,6 +17,7 @@
 	cursor: pointer;
 	white-space: nowrap;
 	overflow: clip; /* clip, not hidden: a hidden box can still be scrolled (focus, selection) and would show the parked fill */
+	overflow-clip-margin: 4px; /* let the second pass poke past the clip edge */
 	transition:
 		background-color var(--kg-dur-fast) var(--kg-ease-out),
 		border-color var(--kg-dur-fast) var(--kg-ease-out),
@@ -26,15 +27,16 @@
 		transform var(--kg-dur-med) var(--kg-ease-pop);
 }
 
-/* the hand-drawn border: a 2px stroke displaced by the rough filter (colour per variant via --kg-btn-ink) */
+/* second pass: fainter, a hair turned, like going over the line again */
 .kg-btn::after {
 	content: '';
 	position: absolute;
-	inset: 0;
-	border: 2px solid var(--kg-btn-ink, var(--kg-accent));
+	inset: -1.5px;
+	border: 1px solid var(--kg-btn-ink, var(--kg-border-strong));
 	border-radius: inherit;
+	opacity: 0.45;
+	transform: translate(1px, 1.2px) rotate(-0.7deg);
 	pointer-events: none;
-	filter: url(#kg-rough);
 	transition: border-color var(--kg-dur-fast) var(--kg-ease-out);
 }
 
@@ -56,7 +58,7 @@
 }
 
 .kg-btn--primary::after {
-	border-color: var(--kg-accent-2);
+	display: none; /* no second pass on the solid pill */
 }
 
 .kg-btn--primary:hover:not(:disabled) {
@@ -65,10 +67,14 @@
 	transform: translateY(-1px);
 }
 
-/* Outline pill: diagonal hatching sweeps in left to right on hover. */
+/* Neutral ink at rest, accent on hover. */
 .kg-btn--secondary {
-	--kg-btn-ink: var(--kg-accent);
+	--kg-btn-ink: var(--kg-border-strong);
 	color: var(--kg-fg);
+}
+
+.kg-btn--secondary:hover:not(:disabled) {
+	--kg-btn-ink: var(--kg-accent);
 }
 
 .kg-btn--secondary::before {
@@ -79,15 +85,15 @@
 	border-radius: inherit;
 	background: repeating-linear-gradient(
 		45deg,
-		color-mix(in srgb, var(--kg-btn-ink) 80%, transparent) 0 2px,
-		transparent 2px 7px
+		color-mix(in srgb, var(--kg-btn-ink) 40%, transparent) 0 1px,
+		transparent 1px 5px
 	);
-	clip-path: inset(0 100% 0 0);
-	transition: clip-path var(--kg-dur-med) var(--kg-ease-out);
+	opacity: 0;
+	transition: opacity var(--kg-dur-med) var(--kg-ease-out);
 }
 
 .kg-btn--secondary:hover:not(:disabled)::before {
-	clip-path: inset(0 0 0 0);
+	opacity: 1;
 }
 
 /* The Tags count badge is accent-coloured, so it flips while the fill is up. */
@@ -96,10 +102,10 @@
 	color: var(--kg-accent-strong);
 }
 
-/* Outline pill: red hatching sweeps in left to right on hover; the icon wiggles. */
+/* Neutral ink at rest, danger on hover. */
 .kg-btn--danger {
-	--kg-btn-ink: var(--kg-danger);
-	color: var(--kg-danger);
+	--kg-btn-ink: var(--kg-border-strong);
+	color: var(--kg-fg);
 }
 
 .kg-btn--danger::before {
@@ -110,19 +116,20 @@
 	border-radius: inherit;
 	background: repeating-linear-gradient(
 		45deg,
-		color-mix(in srgb, var(--kg-btn-ink) 80%, transparent) 0 2px,
-		transparent 2px 7px
+		color-mix(in srgb, var(--kg-btn-ink) 40%, transparent) 0 1px,
+		transparent 1px 5px
 	);
-	clip-path: inset(0 100% 0 0);
-	transition: clip-path var(--kg-dur-med) var(--kg-ease-out);
+	opacity: 0;
+	transition: opacity var(--kg-dur-med) var(--kg-ease-out);
 }
 
 .kg-btn--danger:hover:not(:disabled) {
-	color: var(--kg-fg);
+	--kg-btn-ink: var(--kg-danger);
+	color: var(--kg-danger);
 }
 
 .kg-btn--danger:hover:not(:disabled)::before {
-	clip-path: inset(0 0 0 0);
+	opacity: 1;
 }
 
 /* sketch icons bring their own hover animation (the trash lid opens) */
@@ -144,6 +151,10 @@
 	box-shadow: var(--kg-shadow-1);
 	color: var(--kg-fg);
 	transform: scale(1.04);
+}
+
+.kg-btn--ghost:hover:not(:disabled) {
+	--kg-btn-ink: var(--kg-fg-muted);
 }
 
 .kg-btn--ghost:hover:not(:disabled) > svg,
@@ -177,7 +188,7 @@
 	gap: var(--kg-space-1);
 	max-width: 100%;
 	padding: 5px 12px;
-	border: 1px solid transparent;
+	border: 1.5px solid var(--kg-btn-ink); /* first pass: the real border */
 	border-radius: var(--kg-radius-pill);
 	background: var(--kg-bg-raised);
 	color: var(--kg-fg-muted);
@@ -186,20 +197,24 @@
 	cursor: pointer;
 	white-space: nowrap;
 	overflow: hidden;
+	overflow-clip-margin: 4px; /* let the second pass poke past the clip edge */
 	text-overflow: ellipsis;
 	transition:
 		background var(--kg-dur-fast) var(--kg-ease-out),
+		border-color var(--kg-dur-fast) var(--kg-ease-out),
 		color var(--kg-dur-fast) var(--kg-ease-out);
 }
 
+/* second pass: fainter, a hair turned, like going over the line again */
 .kg-pill::after {
 	content: '';
 	position: absolute;
-	inset: 0;
-	border: 2px solid var(--kg-btn-ink);
+	inset: -1.5px;
+	border: 1px solid var(--kg-btn-ink);
 	border-radius: inherit;
+	opacity: 0.45;
+	transform: translate(1px, 1.2px) rotate(-0.7deg);
 	pointer-events: none;
-	filter: url(#kg-rough);
 	transition: border-color var(--kg-dur-fast) var(--kg-ease-out);
 }
 
@@ -402,7 +417,7 @@
 	position: relative;
 	--kg-btn-ink: var(--kg-border-strong);
 	padding: 6px 13px;
-	border: 1px solid transparent;
+	border: 1.5px solid var(--kg-btn-ink); /* first pass: the real border */
 	border-radius: var(--kg-btn-radius);
 	background: transparent;
 	color: var(--kg-fg-muted);
@@ -411,19 +426,22 @@
 	cursor: pointer;
 	transition:
 		background-color var(--kg-dur-fast) var(--kg-ease-out),
+		border-color var(--kg-dur-fast) var(--kg-ease-out),
 		color var(--kg-dur-fast) var(--kg-ease-out),
 		box-shadow var(--kg-dur-med) var(--kg-ease-out),
 		transform var(--kg-dur-med) var(--kg-ease-pop);
 }
 
+/* second pass: fainter, a hair turned, like going over the line again */
 .filter-type::after {
 	content: '';
 	position: absolute;
-	inset: 0;
-	border: 2px solid var(--kg-btn-ink);
+	inset: -1.5px;
+	border: 1px solid var(--kg-btn-ink);
 	border-radius: inherit;
+	opacity: 0.45;
+	transform: translate(1px, 1.2px) rotate(-0.7deg);
 	pointer-events: none;
-	filter: url(#kg-rough);
 	transition: border-color var(--kg-dur-fast) var(--kg-ease-out);
 }
 
@@ -439,9 +457,8 @@
 
 .filter-type.active {
 	--kg-btn-ink: var(--kg-accent);
-	background: var(--kg-btn-gradient);
-	box-shadow: var(--kg-btn-glow);
-	color: var(--kg-fg-on-accent);
+	background: color-mix(in srgb, var(--kg-accent) 22%, transparent);
+	color: var(--kg-fg);
 	font-weight: 600;
 }
 
@@ -469,7 +486,7 @@
 		0 0 0 2px var(--kg-accent);
 }
 
-/* Compact variant: tighter row, no type buttons; its margins line it up with the strip below. */
+/* Tighter row, no type buttons. The margins line it up with the strip below. */
 .filter-bar--compact {
 	gap: var(--kg-space-2);
 	margin: 0 var(--kg-space-3) var(--kg-space-2);

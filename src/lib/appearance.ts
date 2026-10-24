@@ -1,7 +1,6 @@
-export interface Appearance {
-	ui_font: string | null;
-	font_scale: number;
-}
+import type { AppConfig } from './config';
+
+type Appearance = Pick<AppConfig, 'ui_font' | 'font_scale'>;
 
 const FALLBACK_STACK = "system-ui, 'Segoe UI', sans-serif";
 

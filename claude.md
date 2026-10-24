@@ -30,10 +30,10 @@ src/                             React frontend
   main.tsx                       control window entry (applies font settings before rendering)
   entries/overlay.tsx            overlay entry: keep this bundle light, never import control-only code
   windows/                       ControlApp (boot, exit guard, composition) and OverlayItemApp (slot, media, playback)
-  components/                    screens (Home, Storage, Editor, Settings, Loading), home/RadialMenu (ring menu), BrandBar (section logo), MediaThumb (shared thumbnail), ui/SketchIcon (hand-drawn icons, draw-in + hover animations via a `pixel-hover` ancestor; ui/PixelIcon is the old pixel-art set, kept unused until the owner decides), tags/ (chips, popovers, bulk tags, manager), pieces; settings/ holds one file per settings row
+  components/                    screens (Home, Storage, Editor, Settings, Loading), home/RadialMenu (ring menu), BrandBar (section logo), MediaThumb (shared thumbnail), ui/SketchIcon (hand-drawn icons, draw-in + hover animations via an `icon-hover` ancestor) + ui/SketchFrame (sketched outline for bubbles and puffs), tags/ (chips, popovers, bulk tags, manager), pieces; settings/ holds one file per settings row
   context/LibraryProvider.tsx    media library state shared by the control window
   hooks/                         useScreenTransitions (pan + burst), useZoomShortcuts, useEditHandles (overlay sphere/corners), useStorageResize, usePersistentState (localStorage + codecs), useTauriEvent, useEditorSync, useMediaUrl, useDismiss, useMediaSelection, useSwing (overlay pickup), useFlipGrid (Polaroid slides), ...
-  lib/                           ipc.ts (invoke/listen + browser mocks), config.ts (AppConfig + loadConfig), appEvent.ts (in-window announce/listen), media.ts, mediaFilter.ts (search/tags/sort), tags.ts (clean + colour per tag name), sketch.ts (seeded hand-drawn strokes) + sketchIcons.ts (24×24 shapes), pixelIcons.ts (old 16×16 grids), placed.ts, overlayGeometry.ts, pointerDrag.ts, appearance.ts, zoom.ts, radial.ts (ring geometry), navTransition.ts (screen pan), editorBurst.ts (ring→editor morph), navAnimations.ts
+  lib/                           ipc.ts (invoke/listen + browser mocks), config.ts (AppConfig + loadConfig), appEvent.ts (in-window announce/listen), media.ts, mediaFilter.ts (search/tags/sort), tags.ts (clean + colour per tag name), sketch.ts (seeded hand-drawn strokes) + sketchIcons.ts (24×24 shapes), placed.ts, overlayGeometry.ts, pointerDrag.ts, appearance.ts, zoom.ts, radial.ts (ring geometry), navTransition.ts (screen pan), editorBurst.ts (ring→editor morph), navAnimations.ts
   i18n/en.ts                     every visible string (`t.*`)
   styles/                        tokens, base, motion, components, index (control), overlay
 src-tauri/src/
@@ -100,7 +100,7 @@ User data: `%LOCALAPPDATA%\KawaGiif` → `config.toml`, `library_index.json`, `t
   - Control-window layout: run `npm run dev`, then capture headless with the installed Firefox and **an isolated profile** and read the PNG:
     `firefox.exe --headless --no-remote -profile <tempdir> --screenshot out.png --window-size=960,640 http://localhost:1420`.
     The capture is taken at page load, so it shows the loading screen; other screens need a way past it
-    (a dev-only URL flag would fix this). Also check `720,480` and the largest font scale.
+    (`?screen=editor&boot=0` skips it in dev). Also check `1280,800` and the largest font scale (960×640 is the smallest window).
 - **Done means:** `cargo clippy`, `npx tsc --noEmit`, `npm run build` and Prettier pass without warnings. No commits unless asked. No `--no-verify`. Stay inside the repo. Sub-agents (`kg-coder`, `kg-thinker`, `kg-reviewer`) can't browse: web searches go through main agent.
 
 ## Conventions

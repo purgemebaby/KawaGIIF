@@ -49,7 +49,7 @@ export function measureTransition(label: string, done: Promise<unknown>) {
 	};
 	requestAnimationFrame(tick);
 
-	// a cancelled animation rejects `finished`; the measurement still ends there
+	// a cancelled animation rejects `finished`. The measurement still ends there
 	done
 		.catch(() => {})
 		.finally(() => {

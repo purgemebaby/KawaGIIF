@@ -1,4 +1,4 @@
-// Transient badge shown for ~1s after a zoom change; styles use tokens, so no ControlApp.css entry.
+// Transient badge shown for about 1 s after a zoom change.
 function ZoomToast({ zoom }: { zoom: number }) {
 	return (
 		<div

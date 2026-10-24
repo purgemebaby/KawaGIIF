@@ -39,7 +39,8 @@ export const SECTORS: Sector[] = (Object.keys(CENTRES) as SectorId[]).map(
 	sectorOf,
 );
 
-function pointAt(cx: number, cy: number, r: number, deg: number): Point {
+/** Point on a circle of `r` at screen angle `deg` (y down). */
+export function pointAt(cx: number, cy: number, r: number, deg: number): Point {
 	const rad = (deg * Math.PI) / 180;
 	return [cx + r * Math.cos(rad), cy + r * Math.sin(rad)];
 }

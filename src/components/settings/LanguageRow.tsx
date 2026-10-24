@@ -1,5 +1,6 @@
 import { invoke } from '../../lib/ipc';
 import { LANGUAGES, t } from '../../i18n';
+import SettingsRowText from './SettingsRowText';
 
 interface LanguageRowProps {
 	language: string;
@@ -17,10 +18,7 @@ function LanguageRow({ language }: LanguageRowProps) {
 
 	return (
 		<div className="settings-row">
-			<span className="settings-row-text">
-				<strong>{text.label}</strong>
-				<small>{text.hint}</small>
-			</span>
+			<SettingsRowText text={text} />
 
 			<span className="settings-language">
 				{LANGUAGES.map(({ code, name }) => (

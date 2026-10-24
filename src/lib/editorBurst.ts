@@ -77,7 +77,7 @@ const HINT_HOLD = 0.9; // the hint waits for the panels to land
 
 let handoff: RingHandoff | null = null;
 
-/** Remembers where the ring is on screen; call it before the ring turns. */
+/** Remembers where the ring is on screen. Call it before the ring turns. */
 export function captureRing(svg: SVGSVGElement) {
 	const rect = svg.getBoundingClientRect();
 	const scale = rect.width / RING_SIZE;
@@ -93,7 +93,7 @@ function direction(reverse: boolean): PlaybackDirection {
 	return reverse ? 'reverse' : 'normal';
 }
 
-/** One full turn about the ring centre; `reverse` turns back from the spun position. */
+/** One full turn about the ring centre. `reverse` turns back from the spun position. */
 export function spinRing(ring: Element, reverse: boolean): Animation {
 	return ring.animate(
 		[{ transform: 'rotate(0deg)' }, { transform: `rotate(${SPIN_DEG}deg)` }],
@@ -106,7 +106,7 @@ export function spinRing(ring: Element, reverse: boolean): Animation {
 	);
 }
 
-/** Fades the selected elements in or out; `holdUntil` holds them hidden first. */
+/** Fades the selected elements in or out. `holdUntil` holds them hidden first. */
 function fade(
 	root: Element,
 	selector: string,
@@ -132,7 +132,7 @@ function fade(
 	);
 }
 
-/** The chibi slips out past the left edge, the way it slides in; coming back, Home's own greeting brings it in. */
+/** The chibi slips out past the left edge, the way it slides in. Coming back, Home's own greeting brings it in. */
 function hideMascot(home: Element): Animation[] {
 	return [...home.querySelectorAll('.home-mascot')].map((mascot) =>
 		mascot.animate(
@@ -142,13 +142,13 @@ function hideMascot(home: Element): Animation[] {
 	);
 }
 
-/** Fades the title, buttons and backdrop away, or back in when `reverse`; the chibi leaves sideways. */
+/** Fades the title, buttons and backdrop away, or back in when `reverse`. The chibi leaves sideways. */
 export function fadeHome(home: Element, reverse: boolean): Animation[] {
 	const fades = fade(home, HOME_FADED, reverse, HOME_FADE_MS);
 	return reverse ? fades : [...fades, ...hideMascot(home)];
 }
 
-/** Resolves when every animation ends; rejects if one is cancelled. */
+/** Resolves when every animation ends, or rejects if one is cancelled. */
 export function allFinished(animations: Animation[]): Promise<void> {
 	return Promise.all(animations.map((a) => a.finished)).then(() => undefined);
 }
@@ -335,7 +335,7 @@ function flyPanel(
 	const frame: Frame = { rx: ring.cx - box.left, ry: ring.cy - box.top, w, h };
 	const centre: Point = [frame.rx, frame.ry];
 	const offsetOf = (t: number): number => t / total;
-	// the ride ends at `detach`; the fling then carries the orbit FLING_DEG further
+	// the ride ends at `detach`. The fling then carries the orbit FLING_DEG further
 	const thetaF = detach + FLING_DEG;
 	const startCentre: Point = [
 		from.left - box.left + from.width / 2,
@@ -357,7 +357,7 @@ function flyPanel(
 		sx: from.width / w,
 		sy: from.height / h,
 	};
-	// the orbit adds thetaF back; an ellipse repeats every 180deg and the placed panel every 360deg, so take the nearest turns
+	// the orbit adds thetaF back. An ellipse repeats every 180deg and the placed panel every 360deg, so take the nearest turns
 	const dropSpin = nearestTurn(dirDeg - thetaF, 0, 180);
 	const placedSpin = nearestTurn(-thetaF, dropSpin, 360);
 	const ridingPose: Pose = { ...sectorPose, orbit: detach };

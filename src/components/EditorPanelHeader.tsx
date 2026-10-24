@@ -16,7 +16,7 @@ interface Hand {
 	key: number;
 }
 
-// The chevron is drawn pointing right; CSS turns it towards where the panel will move.
+// The chevron is drawn pointing right. CSS turns it towards where the panel will move.
 function PanelHeader({ title, collapsed, onToggle }: PanelHeaderProps) {
 	const [hand, setHand] = useState<Hand | null>(null);
 	const showMascot = useMascotShown();

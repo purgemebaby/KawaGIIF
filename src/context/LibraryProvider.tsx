@@ -26,7 +26,6 @@ interface LibraryContextValue {
 	loading: boolean;
 	/** File names whose content did not match their extension during the last import. */
 	rejected: string[];
-	refresh: () => Promise<void>;
 	importFiles: () => Promise<PendingImport | null>;
 	confirmImport: (paths: string[], replaceExisting: boolean) => Promise<void>;
 	dismissRejected: () => void;
@@ -161,7 +160,6 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
 				tags,
 				loading,
 				rejected,
-				refresh,
 				importFiles,
 				confirmImport,
 				dismissRejected,

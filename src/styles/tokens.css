@@ -29,7 +29,7 @@
 	--kg-tag-4: #7bffc1;
 	--kg-tag-5: #ffb27b;
 
-	/* Pixel-art icon palette (lib/pixelIcons.ts letters): dark ink outline, pastel fills. */
+	/* Sketch icons' pastel fill colours: dark ink outline, soft fills. */
 	--kg-px-ink: #2b1748;
 	--kg-px-light: #ffe3f6;
 	--kg-px-pink: #ff9fd8;
@@ -57,7 +57,7 @@
 	--kg-shadow-1: 0 2px 8px rgba(0, 0, 0, 0.35);
 	--kg-shadow-2: 0 8px 28px rgba(0, 0, 0, 0.5);
 
-	/* Islands: borderless raised surfaces with a soft shadow; wells are the inset fields inside them. */
+	/* Islands are borderless raised surfaces. Wells are the inset fields inside them. */
 	--kg-island-bg: color-mix(
 		in srgb,
 		var(--kg-bg-panel) 55%,

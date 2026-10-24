@@ -82,7 +82,7 @@ function EditorScreen() {
 	// Home greets the user again once they have visited the Editor.
 	useEffect(requestHomeGreeting, []);
 
-	// Selecting opens the drawer once; collapsing it afterwards sticks until another selection.
+	// Selecting opens the drawer once. Collapsing it afterwards sticks until another selection.
 	useEffect(() => {
 		if (selectedId) setControlCollapsed(false);
 	}, [selectedId, setControlCollapsed]);
@@ -117,20 +117,13 @@ function EditorScreen() {
 		setShowSaveConfirm(true);
 	};
 
-	const confirmSave = async () => {
-		await invoke('save_template');
+	// Save and undo both commit a change, refresh the saved ids, and clear moved state.
+	const commitTemplate = async (command: string, close: () => void) => {
+		await invoke(command);
 		const working = await invoke<Template>('get_working_template');
 		savedIdsRef.current = instanceIdsOf(working);
 		resetMoved();
-		setShowSaveConfirm(false);
-	};
-
-	const confirmUndo = async () => {
-		await invoke('discard_template_changes');
-		const saved = await invoke<Template>('get_working_template');
-		savedIdsRef.current = instanceIdsOf(saved);
-		resetMoved();
-		setShowUndoConfirm(false);
+		close();
 	};
 
 	const hasChanges =
@@ -233,7 +226,9 @@ function EditorScreen() {
 					title={t.editor.saveConfirm.title}
 					confirmLabel={t.common.apply}
 					onCancel={() => setShowSaveConfirm(false)}
-					onConfirm={confirmSave}
+					onConfirm={() =>
+						commitTemplate('save_template', () => setShowSaveConfirm(false))
+					}
 				>
 					{hasChanges ? (
 						<ul className="modal-summary">
@@ -253,7 +248,11 @@ function EditorScreen() {
 					confirmLabel={t.editor.undoConfirm.confirm}
 					destructive
 					onCancel={() => setShowUndoConfirm(false)}
-					onConfirm={confirmUndo}
+					onConfirm={() =>
+						commitTemplate('discard_template_changes', () =>
+							setShowUndoConfirm(false),
+						)
+					}
 				>
 					<p className="modal-body">{t.editor.undoConfirm.body}</p>
 				</Modal>

@@ -1,5 +1,4 @@
-// Hand-drawn (Excalidraw-like) twins of the pixel icons: the same names and layers, drawn as
-// wobbly shapes on a 24x24 grid with a ~2-unit margin. Colours are `--kg-px-*` tokens.
+// Hand-drawn (Excalidraw-like) icons: wobbly shapes on a 24x24 grid with a ~2-unit margin, filled with `--kg-px-*` tokens.
 
 import { type Point } from './sketch';
 

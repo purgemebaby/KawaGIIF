@@ -3,7 +3,7 @@ import { greetHome, homeGreetingPending } from '../../lib/mascot';
 import homeChibi from '../../assets/mascot/home.webp';
 import './Mascot.css';
 
-// Slides in at launch and after every Editor visit; Home only mounts it once it is really on screen.
+// Slides in at launch and after every Editor visit. Home only mounts it once it is really on screen.
 function HomeMascot() {
 	const [entering] = useState(homeGreetingPending);
 

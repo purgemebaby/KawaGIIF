@@ -3,7 +3,10 @@
 	flex-direction: column;
 	align-items: flex-end;
 	gap: var(--kg-space-2);
-	flex: none;
+	/* may shrink to the card's width: long translations must not overflow it */
+	flex: 0 1 auto;
+	min-width: 0;
+	max-width: 100%;
 }
 
 .font-picker {
@@ -11,7 +14,8 @@
 }
 
 .font-picker-button {
-	min-width: 180px;
+	min-width: min(180px, 100%);
+	max-width: 100%;
 	justify-content: space-between;
 }
 
@@ -89,6 +93,7 @@
 
 .font-size-group {
 	display: inline-flex;
+	max-width: 100%;
 	border: 1px solid var(--kg-border);
 	border-radius: var(--kg-radius-pill);
 	background: var(--kg-bg-input);
@@ -97,7 +102,12 @@
 }
 
 .font-size-option {
-	padding: 6px 12px;
+	flex: 0 1 auto;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	padding: 6px 10px;
 	border: none;
 	background: none;
 	color: var(--kg-fg-muted);

@@ -112,7 +112,7 @@ export function useEditHandles({
 		const dpr = window.devicePixelRatio || 1;
 		const win = getCurrentWindow();
 
-		// physical centre of the window at the drag start; moves before it resolves can't place the window
+		// physical centre of the window at the drag start. Moves before it resolves can't place the window
 		let startPhys: { x: number; y: number } | null = null;
 		Promise.all([win.outerPosition(), win.outerSize()]).then(([p, z]) => {
 			startPhys = { x: p.x + z.width / 2, y: p.y + z.height / 2 };

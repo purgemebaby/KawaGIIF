@@ -1,4 +1,4 @@
-/* Hand-drawn icons: wobbly double strokes over soft fills; the lid may poke above the box. */
+/* Hand-drawn icons: wobbly double strokes over soft fills. The lid may poke above the box. */
 .sketch-icon {
 	flex: none;
 	overflow: visible;
@@ -31,37 +31,37 @@
 	stroke-opacity: 0.55;
 }
 
-/* Hover animations, triggered by any ancestor marked `pixel-hover` (shared with the pixel icons). */
+/* Hover animations, triggered by any ancestor marked `icon-hover`. */
 .sketch-layer--open {
 	visibility: hidden;
 }
 
-.pixel-hover:is(:hover, :focus-visible)
+.icon-hover:is(:hover, :focus-visible)
 	.sketch-icon--folder
 	.sketch-layer--closed {
 	visibility: hidden;
 }
 
-.pixel-hover:is(:hover, :focus-visible)
+.icon-hover:is(:hover, :focus-visible)
 	.sketch-icon--folder
 	.sketch-layer--open {
 	visibility: visible;
 }
 
 /* every stroke redraws itself */
-.pixel-hover:is(:hover, :focus-visible) .sketch-icon .sketch-stroke {
+.icon-hover:is(:hover, :focus-visible) .sketch-icon .sketch-stroke {
 	animation: kg-sketch-draw 450ms var(--kg-ease-out);
 }
 
-.pixel-hover:is(:hover, :focus-visible) .sketch-icon--gear .sketch-icon-body {
+.icon-hover:is(:hover, :focus-visible) .sketch-icon--gear .sketch-icon-body {
 	animation: kg-sketch-spin 2.4s linear infinite;
 }
 
-.pixel-hover:is(:hover, :focus-visible) .sketch-icon--pencil .sketch-icon-body {
+.icon-hover:is(:hover, :focus-visible) .sketch-icon--pencil .sketch-icon-body {
 	animation: kg-sketch-wiggle 0.6s ease-in-out infinite;
 }
 
-.pixel-hover:is(:hover, :focus-visible)
+.icon-hover:is(:hover, :focus-visible)
 	.sketch-icon--sparkles
 	.sketch-icon-body {
 	animation: kg-sketch-twinkle 1.2s ease-in-out infinite;
@@ -75,7 +75,7 @@
 		translate var(--kg-dur-fast) var(--kg-ease-pop);
 }
 
-.pixel-hover:is(:hover, :focus-visible) .sketch-icon--trash .sketch-layer--lid {
+.icon-hover:is(:hover, :focus-visible) .sketch-icon--trash .sketch-layer--lid {
 	translate: -1px -2px;
 	rotate: -16deg;
 }
@@ -86,9 +86,7 @@
 	transition: opacity var(--kg-dur-fast) var(--kg-ease-out);
 }
 
-.pixel-hover:is(:hover, :focus-visible)
-	.sketch-icon--skull
-	.sketch-layer--eyes {
+.icon-hover:is(:hover, :focus-visible) .sketch-icon--skull .sketch-layer--eyes {
 	opacity: 1;
 	filter: drop-shadow(0 0 1px var(--kg-px-pink))
 		drop-shadow(0 0 2px var(--kg-px-sun));

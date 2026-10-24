@@ -1,18 +1,12 @@
 import {
 	useCallback,
-	useEffect,
 	useLayoutEffect,
 	useRef,
 	useState,
 	type CSSProperties,
 } from 'react';
 import { invoke } from '../lib/ipc';
-import type { AppConfig } from '../lib/config';
-import {
-	announceNavAnimations,
-	onNavAnimationsChanged,
-	prefersReducedMotion,
-} from '../lib/navAnimations';
+import { navAnimationsOn } from '../lib/navAnimations';
 import { transitionKind, worldOffset } from '../lib/navTransition';
 import {
 	allFinished,
@@ -62,7 +56,7 @@ function measureInDev(label: string, done: Promise<unknown>) {
 		import('../lib/devPerf').then((m) => m.measureTransition(label, done));
 }
 
-/** Screens mounted now; an unburst lays Home out (hidden) under the folding panels to learn where the ring is. */
+/** Screens mounted now. An unburst lays Home out (hidden) under the folding panels to learn where the ring is. */
 function mountedScreens(
 	screen: Screen,
 	transition: Transition | null,
@@ -102,19 +96,15 @@ function layerStyle(
 	};
 }
 
-/** Screen navigation with its pan and Home ↔ Editor burst animations; `navigate` settles any running sequence first. */
-export function useScreenTransitions(
-	initial: Screen,
-	configPromise: Promise<AppConfig>,
-) {
-	// `screen` is the settled screen; `transition` is set only while a pan shows both.
+/** Screen navigation with its pan and Home ↔ Editor burst animations. `navigate` settles any running sequence first. */
+export function useScreenTransitions(initial: Screen) {
+	// `screen` is the settled screen. `transition` is set only while a pan shows both.
 	const [screen, setScreen] = useState<Screen>(initial);
 	const [transition, setTransition] = useState<Transition | null>(null);
 	const [burst, setBurst] = useState<Burst | null>(null);
 	const contentRef = useRef<HTMLElement>(null);
 	const stageRef = useRef<HTMLDivElement>(null);
 	const runningRef = useRef<Running | null>(null);
-	const navAnimationsRef = useRef(true);
 
 	const screenRef = useRef(screen);
 	screenRef.current = screen;
@@ -140,14 +130,8 @@ export function useScreenTransitions(
 		if (from === 'editor' && to !== 'editor')
 			invoke('set_edit_mode', { enabled: false });
 		const content = contentRef.current;
-		const reduced = prefersReducedMotion();
 		const kind = transitionKind(from, to);
-		if (
-			!content ||
-			!navAnimationsRef.current ||
-			reduced ||
-			kind === 'instant'
-		) {
+		if (!content || !navAnimationsOn() || kind === 'instant') {
 			setScreen(to);
 			return;
 		}
@@ -194,7 +178,7 @@ export function useScreenTransitions(
 		};
 	}, [transition, settleTransition]);
 
-	// Plays one part of a burst; when it ends the other part follows, then the sequence settles.
+	// Plays one part of a burst. When it ends the other part follows, then the sequence settles.
 	useLayoutEffect(() => {
 		const stage = stageRef.current;
 		if (!burst || !stage) return;
@@ -234,17 +218,6 @@ export function useScreenTransitions(
 			animations.forEach((animation) => animation.cancel());
 		};
 	}, [burst, settleTransition]);
-
-	// The nav animations setting is read once at mount, then follows its announcements.
-	useEffect(() => {
-		configPromise.then((c) => {
-			navAnimationsRef.current = c.nav_animations ?? true;
-			announceNavAnimations(navAnimationsRef.current);
-		});
-		return onNavAnimationsChanged((enabled) => {
-			navAnimationsRef.current = enabled;
-		});
-	}, [configPromise]);
 
 	/** Settles the running sequence, then goes to `to` unless already there. */
 	const navigate = useCallback(

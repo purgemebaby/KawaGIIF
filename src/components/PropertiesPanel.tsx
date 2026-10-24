@@ -1,33 +1,17 @@
-import { useEffect, useState } from 'react';
 import { invoke } from '../lib/ipc';
-import { loadPlacedMedia, type PlacedMedia } from '../lib/placed';
-import { STATIC_TYPES, type MediaType } from '../lib/media';
+import { type PlacedMedia } from '../lib/placed';
+import { STATIC_TYPES } from '../lib/media';
+import { usePlacedMedia } from '../hooks/usePlacedMedia';
 import { t } from '../i18n';
 import Slider from './ui/Slider';
 import SketchIcon from './ui/SketchIcon';
 
-const DEFAULT_RATE = 1;
-
 function PropertiesPanel({ selectedId }: { selectedId: string | null }) {
-	const [placed, setPlaced] = useState<PlacedMedia | null>(null);
-	const [mediaType, setMediaType] = useState<MediaType | null>(null);
-
-	useEffect(() => {
-		if (!selectedId) {
-			setPlaced(null);
-			setMediaType(null);
-			return;
-		}
-		let cancelled = false;
-		loadPlacedMedia(selectedId).then((result) => {
-			if (cancelled || !result) return;
-			setPlaced(result.item);
-			setMediaType(result.mediaType);
-		});
-		return () => {
-			cancelled = true;
-		};
-	}, [selectedId]);
+	const {
+		item: placed,
+		setItem: setPlaced,
+		mediaType,
+	} = usePlacedMedia(selectedId);
 
 	if (!selectedId || !placed) {
 		return (
@@ -77,7 +61,7 @@ function PropertiesPanel({ selectedId }: { selectedId: string | null }) {
 					min={0.25}
 					max={3}
 					step={0.05}
-					value={placed.playback_rate ?? DEFAULT_RATE}
+					value={placed.playback_rate ?? 1}
 					format={(v) => `${v.toFixed(2)}x`}
 					onChange={setPlaybackRate}
 				/>
@@ -94,7 +78,7 @@ function PropertiesPanel({ selectedId }: { selectedId: string | null }) {
 			<div className="properties-danger">
 				<button
 					type="button"
-					className="kg-btn kg-btn--danger kg-btn--sm pixel-hover"
+					className="kg-btn kg-btn--danger kg-btn--sm icon-hover"
 					onClick={() =>
 						invoke('remove_placed_media', { instanceId: selectedId })
 					}
