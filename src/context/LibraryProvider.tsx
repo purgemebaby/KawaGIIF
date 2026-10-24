@@ -24,9 +24,12 @@ interface LibraryContextValue {
 	items: MediaItem[];
 	tags: TagCount[];
 	loading: boolean;
+	/** File names whose content did not match their extension during the last import. */
+	rejected: string[];
 	refresh: () => Promise<void>;
 	importFiles: () => Promise<PendingImport | null>;
 	confirmImport: (paths: string[], replaceExisting: boolean) => Promise<void>;
+	dismissRejected: () => void;
 	renameMedia: (id: string, name: string) => Promise<void>;
 	updateTags: (id: string, tags: string[]) => Promise<void>;
 	updateTagsMany: (
@@ -39,6 +42,11 @@ interface LibraryContextValue {
 	deleteMedia: (ids: string[], force?: boolean) => Promise<void>;
 }
 
+interface ImportResult {
+	items: MediaItem[];
+	rejected: string[];
+}
+
 const LARGE_FILE_BYTES = 150 * 1024 * 1024;
 
 const LibraryContext = createContext<LibraryContextValue | null>(null);
@@ -47,6 +55,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
 	const [items, setItems] = useState<MediaItem[]>([]);
 	const [tags, setTags] = useState<TagCount[]>([]);
 	const [loading, setLoading] = useState(true);
+	const [rejected, setRejected] = useState<string[]>([]);
 
 	// `loading` only covers the first fetch: a refresh keeps the grid mounted so its cards can animate.
 	const refresh = useCallback(async () => {
@@ -70,11 +79,18 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
 
 	const confirmImport = useCallback(
 		async (paths: string[], replaceExisting: boolean) => {
-			await invoke('import_media', { paths, replaceExisting });
+			setRejected([]);
+			const { rejected } = await invoke<ImportResult>('import_media', {
+				paths,
+				replaceExisting,
+			});
+			setRejected(rejected);
 			await refresh();
 		},
 		[refresh],
 	);
+
+	const dismissRejected = useCallback(() => setRejected([]), []);
 
 	const importFiles = useCallback(async (): Promise<PendingImport | null> => {
 		const selected = await open({
@@ -144,9 +160,11 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
 				items,
 				tags,
 				loading,
+				rejected,
 				refresh,
 				importFiles,
 				confirmImport,
+				dismissRejected,
 				renameMedia,
 				updateTags,
 				updateTagsMany,

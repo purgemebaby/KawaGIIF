@@ -51,6 +51,7 @@ const MOCK_RESPONSES: Record<string, unknown> = {
 	set_nav_animations: null,
 	set_show_mascot: null,
 	set_language: null,
+	open_data_folder: null,
 	list_system_fonts: ['Segoe UI', 'Arial', 'Consolas'],
 	get_working_template: { items: [] },
 	load_template: { items: [] },
@@ -61,7 +62,7 @@ const MOCK_RESPONSES: Record<string, unknown> = {
 	get_file_size: 1024 * 1024,
 	count_placed_media: 0,
 	find_reimports: [],
-	import_media: [],
+	import_media: { items: [], rejected: [] },
 	rename_media: null,
 	get_system_stats: {
 		total_ram_mb: 16_384,

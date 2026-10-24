@@ -22,6 +22,7 @@ export const es: Strings = {
 		discard: 'Descartar',
 		apply: 'Aplicar',
 		delete: 'Eliminar',
+		dismiss: 'Descartar',
 	},
 
 	home: {
@@ -41,6 +42,8 @@ export const es: Strings = {
 		emptyHint:
 			'Importa archivos multimedia para empezar a llenar tu escritorio.',
 		emptyFilteredHint: 'Prueba con otra búsqueda o limpia los filtros.',
+		rejected: (names: string[]) =>
+			`No se importó (el contenido no coincide con la extensión): ${names.join(', ')}`,
 		search: 'Buscar por nombre…',
 		types: {
 			all: 'Todos',
@@ -203,6 +206,11 @@ export const es: Strings = {
 		confirmDelete: {
 			label: 'Confirmar antes de eliminar archivos',
 			hint: 'Pregunta antes de quitar un archivo de la biblioteca. Solo se elimina la copia de KawaGIIF, nunca tu original.',
+		},
+		openFolder: {
+			label: 'Carpeta de la app',
+			hint: 'Abre la carpeta con tu biblioteca, tus archivos y el archivo de ajustes.',
+			button: 'Abrir carpeta',
 		},
 		language: {
 			label: 'Idioma',

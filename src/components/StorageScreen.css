@@ -262,12 +262,30 @@
 	min-width: 0;
 	overflow: hidden;
 	text-overflow: ellipsis;
+	/* The dotted underline says the name can be edited. */
+	text-decoration: underline dotted;
+	text-decoration-color: color-mix(
+		in srgb,
+		var(--polaroid-ink) 45%,
+		transparent
+	);
+	text-underline-offset: 3px;
+	text-decoration-thickness: 1.5px;
 }
 
 .media-name-hint {
 	flex: none;
 	opacity: 0;
 	transition: opacity var(--kg-dur-fast) var(--kg-ease-out);
+}
+
+/* The pencil takes the caption's ink, so it reads on the paper. */
+.media-name-hint .sketch-stroke {
+	stroke: var(--polaroid-ink);
+}
+
+.media-name-hint .sketch-fill {
+	fill-opacity: 0.35;
 }
 
 .media-name-label:hover .media-name-hint {

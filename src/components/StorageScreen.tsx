@@ -40,8 +40,10 @@ function StorageScreen() {
 	const {
 		items,
 		loading,
+		rejected,
 		importFiles,
 		confirmImport,
+		dismissRejected,
 		renameMedia,
 		updateTags,
 		updateTagsMany,
@@ -224,6 +226,19 @@ function StorageScreen() {
 
 			<section className="library-island">
 				{showMascot && items.length > 0 && <LibraryMascot flashes={imports} />}
+				{rejected.length > 0 && (
+					<p className="storage-notice" role="status">
+						{t.storage.rejected(rejected)}
+						<button
+							type="button"
+							className="kg-btn kg-btn--ghost kg-btn--sm"
+							aria-label={t.common.dismiss}
+							onClick={dismissRejected}
+						>
+							{t.common.dismiss}
+						</button>
+					</p>
+				)}
 				<MediaFilterBar
 					filters={filters}
 					onChange={setFilters}

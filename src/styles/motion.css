@@ -301,6 +301,12 @@
 	display: none;
 }
 
+/* the button hatch still fills with nav animations off, just without the sweep */
+:root[data-nav-animations='off'] .kg-btn--secondary::before,
+:root[data-nav-animations='off'] .kg-btn--danger::before {
+	transition: none;
+}
+
 /* A paw presses or pulls a panel's tab; --hand-x/--hand-y point away from the panel. */
 @keyframes kg-hand-push {
 	0% {
@@ -392,6 +398,12 @@
 	.library-mascot-flash,
 	.editor-panel-hand {
 		display: none;
+	}
+
+	/* the button hatch appears instantly instead of sweeping */
+	.kg-btn--secondary::before,
+	.kg-btn--danger::before {
+		transition: none;
 	}
 
 	*,

@@ -67,6 +67,7 @@ function RamGauge() {
 	const ratio = Math.min(stats.used_ram_mb / stats.total_ram_mb, 1);
 	const needleAngle = START_ANGLE + SWEEP * ratio;
 	const needle = polar(CX, CY, NEEDLE_RADIUS, needleAngle);
+	const isHigh = ratio > HIGH_RATIO;
 
 	return (
 		<div className="ram-gauge">
@@ -83,8 +84,12 @@ function RamGauge() {
 				<path
 					d={arcPath(CX, CY, ARC_RADIUS, START_ANGLE, needleAngle)}
 					className={
-						ratio > HIGH_RATIO ? 'ram-gauge-fill is-high' : 'ram-gauge-fill'
+						isHigh ? 'ram-gauge-fill-base is-high' : 'ram-gauge-fill-base'
 					}
+				/>
+				<path
+					d={arcPath(CX, CY, ARC_RADIUS, START_ANGLE, needleAngle)}
+					className={isHigh ? 'ram-gauge-fill is-high' : 'ram-gauge-fill'}
 				/>
 				<line
 					x1={CX}

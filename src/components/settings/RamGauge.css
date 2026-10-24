@@ -16,22 +16,38 @@
 }
 
 .ram-gauge-track,
-.ram-gauge-fill {
+.ram-gauge-fill,
+.ram-gauge-fill-base {
 	fill: none;
-	stroke-width: 6;
 	stroke-linecap: round;
+	filter: url(#kg-rough-wide);
 }
 
 .ram-gauge-track {
 	stroke: var(--kg-bg-input);
+	stroke-width: 4;
 }
 
-.ram-gauge-fill {
+/* a soft solid underlay so the hatched arc reads as one thick bar */
+.ram-gauge-fill-base {
 	stroke: var(--kg-accent);
+	stroke-opacity: 0.25;
+	stroke-width: 8;
 	transition: stroke var(--kg-dur-med) var(--kg-ease-out);
 }
 
+.ram-gauge-fill {
+	stroke: url(#kg-hatch);
+	color: var(--kg-accent);
+	stroke-width: 8;
+	transition: color var(--kg-dur-med) var(--kg-ease-out);
+}
+
 .ram-gauge-fill.is-high {
+	color: var(--kg-danger);
+}
+
+.ram-gauge-fill-base.is-high {
 	stroke: var(--kg-danger);
 }
 

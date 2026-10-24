@@ -82,3 +82,14 @@
 	justify-content: center;
 	gap: max(var(--kg-space-3), 1.6cqmin);
 }
+
+/* Home's two buttons stay outlined: the hatch never reveals, and the border just darkens on hover. */
+.home-actions .kg-btn:hover::before {
+	clip-path: inset(0 100% 0 0);
+}
+
+.home-actions .kg-btn:hover {
+	--kg-btn-ink: var(--kg-fg);
+	background: none;
+	box-shadow: none;
+}

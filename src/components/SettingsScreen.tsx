@@ -8,6 +8,7 @@ import { useMascotShown } from '../hooks/useMascotShown';
 import FontRow from './settings/FontRow';
 import LanguageRow from './settings/LanguageRow';
 import LoadingIndicatorRow from './settings/LoadingIndicatorRow';
+import OpenFolderRow from './settings/OpenFolderRow';
 import SettingsMascot from './mascot/SettingsMascot';
 import RamGauge from './settings/RamGauge';
 import SettingsSection from './settings/SettingsSection';
@@ -123,6 +124,8 @@ function SettingsScreen() {
 								)
 							}
 						/>
+
+						<OpenFolderRow />
 					</SettingsSection>
 
 					<SettingsSection

@@ -118,7 +118,7 @@
 	padding: var(--kg-space-3) 0;
 }
 
-.settings-row:not(.settings-row-number) > :not(.settings-row-text) {
+.settings-row > :not(.settings-row-text) {
 	margin-inline-start: auto;
 }
 
@@ -174,14 +174,24 @@
 .settings-switch-track {
 	position: absolute;
 	inset: 0;
-	border: 1px solid var(--kg-border-strong);
+	border: 1px solid transparent;
 	border-radius: var(--kg-radius-pill);
 	background: var(--kg-bg-input);
 	box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.45);
 	pointer-events: none;
-	transition:
-		background var(--kg-dur-fast) var(--kg-ease-out),
-		border-color var(--kg-dur-fast) var(--kg-ease-out);
+	transition: background var(--kg-dur-fast) var(--kg-ease-out);
+}
+
+/* the track's hand-drawn border (accent when checked) */
+.settings-switch-track::before {
+	content: '';
+	position: absolute;
+	inset: 0;
+	border: 2px solid var(--kg-border-strong);
+	border-radius: inherit;
+	pointer-events: none;
+	filter: url(#kg-rough);
+	transition: border-color var(--kg-dur-fast) var(--kg-ease-out);
 }
 
 .settings-switch-track::after {
@@ -200,8 +210,11 @@
 }
 
 .settings-switch input:checked + .settings-switch-track {
-	border-color: var(--kg-accent);
 	background: var(--kg-accent);
+}
+
+.settings-switch input:checked + .settings-switch-track::before {
+	border-color: var(--kg-accent);
 }
 
 .settings-switch input:checked + .settings-switch-track::after {
@@ -217,9 +230,11 @@
 /* Pool size: the hint is long, so the field sits under it */
 
 .settings-row-number {
-	flex-direction: column;
-	align-items: flex-start;
 	cursor: default;
+}
+
+.settings-row-number .settings-row-text {
+	flex: 1 1 8em;
 }
 
 .settings-row-number input[type='number'] {

@@ -19,6 +19,7 @@ export const en = {
 		discard: 'Discard',
 		apply: 'Apply',
 		delete: 'Delete',
+		dismiss: 'Dismiss',
 	},
 
 	home: {
@@ -37,6 +38,8 @@ export const en = {
 		emptyLibrary: 'Nothing here yet o(╥﹏╥)o',
 		emptyHint: 'Import media to start filling your desktop.',
 		emptyFilteredHint: 'Try another search, or clear the filters.',
+		rejected: (names: string[]) =>
+			`Not imported (the content does not match the extension): ${names.join(', ')}`,
 		search: 'Search by name…',
 		types: {
 			all: 'All',
@@ -194,6 +197,11 @@ export const en = {
 		confirmDelete: {
 			label: 'Confirm before deleting files',
 			hint: "Ask before removing a file from library. Only KawaGIIF's copy is deleted, never your original.",
+		},
+		openFolder: {
+			label: 'App folder',
+			hint: 'Open the folder with your library, media and settings file.',
+			button: 'Open folder',
 		},
 		language: {
 			label: 'Language',

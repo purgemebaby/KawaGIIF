@@ -16,6 +16,7 @@ import SettingsScreen from '../components/SettingsScreen';
 import LoadingScreen from '../components/LoadingScreen';
 import ZoomToast from '../components/ZoomToast';
 import Modal, { MODAL_ROOT_ID } from '../components/ui/Modal';
+import RoughDefs from '../components/ui/RoughDefs';
 import './ControlApp.css';
 
 type PendingExit = { kind: 'navigate'; screen: Screen } | { kind: 'hide' };
@@ -123,6 +124,7 @@ function ControlApp() {
 	return (
 		<LibraryProvider>
 			<div className="control-shell">
+				<RoughDefs />
 				{booting && (
 					<LoadingScreen
 						steps={bootSteps}

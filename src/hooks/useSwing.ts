@@ -16,8 +16,7 @@ const MAX_SKEW = 6;
 const STRETCH_PER_SPEED = 0.00003;
 const STRETCH_PER_RISE = 0.00002;
 const MAX_STRETCH = 0.04;
-const CARRY_SIDE = 150; // longest side while carried, in logical px
-const MAX_CARRIED_SCALE = 0.5; // never above this, so the tilted corners stay inside the window
+const CARRY_SIDE = 34; // longest side while carried, in logical px (matches .sidebar-thumb)
 const STILL_MS = 70; // no move for this long = the hand stopped, so every target goes back to rest
 const LOST_CHECK_MS = 2500; // no move for this long: ask Rust whether the item is still carried
 const LOST_POLL_MS = 1000;
@@ -37,10 +36,7 @@ interface Session {
 }
 
 const carriedScale = () =>
-	Math.min(
-		MAX_CARRIED_SCALE,
-		CARRY_SIDE / Math.max(window.innerWidth, window.innerHeight, 1),
-	);
+	CARRY_SIDE / Math.max(window.innerWidth, window.innerHeight, 1);
 
 /**
  * Claw-machine pickup: from `start()` to `pickup-ended` the media hangs from its top edge and reacts to the window's
