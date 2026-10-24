@@ -14,7 +14,7 @@ root="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel)}"
 cd "$root" || exit 1
 ollama="ollama"
 command -v ollama >/dev/null 2>&1 || ollama="$LOCALAPPDATA/Programs/Ollama/ollama.exe"
-run_dir="${TMPDIR:-/tmp}/kg-ollama/$(date +%Y%m%d-%H%M%S)"
+run_dir="${TMPDIR:-/tmp}/kg-ollama/$(date +%Y%m%d-%H%M%S)-$$"  # PID: workers launched in the same second get their own folder
 mkdir -p "$run_dir"
 
 # One line per dirty or untracked file with its content hash, so edits on already-dirty files are caught too.
@@ -24,7 +24,7 @@ snapshot() {
     done
 }
 
-snapshot > "$run_dir/before.txt"
+snapshot | sort > "$run_dir/before.txt"
 awk '/^ALLOWED_FILES:/{f=1;next} f&&/^[[:space:]]*-[[:space:]]/{sub(/^[[:space:]]*-[[:space:]]*/,"");sub(/[[:space:]]+$/,"");print;next} f{exit}' "$contract" > "$run_dir/allowed.txt"
 [ -s "$run_dir/allowed.txt" ] || { echo "contract has no ALLOWED_FILES list"; exit 1; }
 
@@ -44,7 +44,7 @@ timeout "$inner_timeout" "$ollama" launch claude --model "$model" --yes -- \
     > "$run_dir/inner.json" 2> "$run_dir/inner.err" < /dev/null
 inner_exit=$?
 
-snapshot > "$run_dir/after.txt"
+snapshot | sort > "$run_dir/after.txt"
 comm -13 "$run_dir/before.txt" "$run_dir/after.txt" | sed 's/^[^ ]* //' | sort -u > "$run_dir/touched.txt"
 grep -vxF -f "$run_dir/allowed.txt" "$run_dir/touched.txt" > "$run_dir/violations.txt"
 
