@@ -1,110 +1,240 @@
-# KawaGiif
+<p align="center">
+  <img src="docs/media/icon.webp" alt="KawaGIIF mascot" width="160">
+</p>
 
-An open source Windows app that shows GIFs, images and videos (GIF, WEBP, PNG, JPEG, MP4, SVG) as transparent, always-on-top overlays on the desktop. It is a pure viewer: there is no audio. It stays out of the way — click-through, hidden from the taskbar — and light enough to keep running all day next to a game.
+<p align="center">
+  <a href="https://github.com/purgemebaby/KawaGIIF/actions/workflows/ci.yml"><img src="https://github.com/purgemebaby/KawaGIIF/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/purgemebaby/KawaGIIF/actions/workflows/codeql.yml"><img src="https://github.com/purgemebaby/KawaGIIF/actions/workflows/codeql.yml/badge.svg" alt="CodeQL"></a>
+  <a href="https://github.com/purgemebaby/KawaGIIF/releases/latest"><img src="https://img.shields.io/github/v/release/purgemebaby/KawaGIIF?color=a97bff&label=version" alt="Latest version"></a>
+  <a href="https://github.com/purgemebaby/KawaGIIF/releases"><img src="https://img.shields.io/github/downloads/purgemebaby/KawaGIIF/total?color=ff7bd5&label=downloads" alt="Downloads"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/purgemebaby/KawaGIIF?color=a97bff" alt="License: MIT"></a>
+  <br>
+  <img src="https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D4?logo=windows&logoColor=white" alt="Platform: Windows 10 | 11">
+  <img src="https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri&logoColor=white" alt="Tauri 2">
+  <img src="https://img.shields.io/badge/Rust-stable-B7410E?logo=rust&logoColor=white" alt="Rust">
+  <a href="#contributing"><img src="https://img.shields.io/badge/PRs-welcome-a97bff" alt="PRs welcome"></a>
+  <a href="https://ko-fi.com/L0T824SRAJ"><img src="https://img.shields.io/badge/Ko--fi-support-72a4f2?logo=ko-fi&logoColor=white" alt="Support on Ko-fi"></a>
+</p>
 
-## Download & install
+<h1 align="center">KawaGIIF</h1>
 
-Get the latest installer from [releases](https://github.com/purgemebaby/KawaGIIF/releases/latest) and run the downloaded `-setup.exe` file.
+<p align="center"><b>Give your desktop some personality.</b></p>
 
-The installer is unsigned, so Windows SmartScreen may show "Windows protected your PC". Click **More info**, then **Run anyway**.
+<!-- Banner: save it as docs/media/banner.png and replace this comment with:
+<p align="center"><img src="docs/media/banner.png" alt="KawaGIIF banner"></p>
+-->
 
-Requirements:
+<!-- Presentation video: drag the .mp4 (max 10 MB) into a GitHub issue or the README editor,
+then paste the https://github.com/user-attachments/assets/... URL below, on a line of its own. -->
 
-- Windows 10 (64-bit) or Windows 11.
-- The WebView2 runtime: preinstalled on Windows 11; the installer downloads it on Windows 10 if missing.
+## Introduction
 
-### Updates
+KawaGIIF lets you drop any GIF, image or looping video straight onto your screen, with no window, no frame and no background. Just the animation, floating on top of everything, exactly where you put it.
 
-KawaGiif checks GitHub for a newer release when it starts. If there is one, a card in Home shows the new version; installing it is up to you, the app never updates itself on its own.
+- Set it once and it comes back every time you turn on the PC.
 
-## Screenshots
+- Overlays sit on top of borderless-fullscreen games, ignore your clicks so they never steal focus, and the app idles in the tray using about as much memory as a browser tab.
 
-<!-- demo GIF / screenshots go here -->
+- Layer transparent PNGs, SVGs and animated WEBPs over your wallpaper and widgets. Resize, rotate, fade and speed up each one until the setup is pixel-perfect, then save it as your layout.
+
+Everything is **click-through** outside the editor, nothing shows up in the taskbar or Alt+Tab, and one shortcut (`Ctrl+Alt+Esc`) brings control back whenever you need it. KawaGIIF is free, open source and made to stay out of your way.
+
+## Contents
+
+- [Features](#features)
+- [Download & install](#download--install)
+- [Usage](#usage)
+- [Compatibility](#compatibility)
+- [Known issues](#known-issues)
+- [Build from source](#build-from-source)
+- [Translations](#translations)
+- [Privacy](#privacy)
+- [FAQ](#faq)
+- [Contributing](#contributing)
+- [AI policy](#ai-policy)
+- [Roadmap](#roadmap)
+- [Support](#support)
+- [Acknowledgements](#acknowledgements)
+- [License](#license)
 
 ## Features
 
-- **Media library:** import GIF, WEBP, PNG, JPEG, MP4 and SVG files, tag them and filter by tag, type or name.
-- **Visual editor:** place animations on the desktop, drag, resize, nudge and rotate them, and set opacity and playback speed for each one.
-- **Click-through:** outside the editor, clicks go through the animations, so they never get in the way. Press `Ctrl+Alt+Esc` to release click-through on every overlay.
-- **Hidden from the taskbar and Alt+Tab.** Closing the window sends the app to the system tray.
-- **Starts with Windows (optional)** and restores the saved layout on launch.
-- **Interface:** English or Spanish, a UI font picker, text size and window zoom, an optional mascot and a custom loading-screen image.
-- **Updates are optional:** the app checks GitHub at launch and shows a card in Home when a new release exists.
-- **Single instance:** launching the app a second time just shows the control panel again.
+**Library**
 
-## Stack
+- Import GIF, WEBP, PNG, JPEG, MP4 and SVG files. They are copied into the app's own folder, so moving or deleting the originals never breaks anything.
+- Rename items, tag them, and filter by tag, type or name.
 
-- [Tauri v2](https://tauri.app/): Rust backend, with WebView2 rendering the UI.
-- React + TypeScript + Vite for the control panel and the overlay windows.
-- The [`windows`](https://crates.io/crates/windows) crate for Win32 window styles that Tauri doesn't handle reliably.
+**Editor**
 
-## Development
+- Drag animations from the library onto the desktop.
+- Move, resize, nudge and rotate each one, and set its opacity and playback speed.
+- Save the layout or discard the changes.
 
-Requirements: Node.js, Rust (stable) and the [Tauri prerequisites for Windows](https://tauri.app/start/prerequisites/).
+**On the desktop**
+
+- Click-through outside the editor: clicks reach whatever is below. `Ctrl+Alt+Esc` makes every overlay clickable again.
+- Optional start with Windows, restoring your saved layout.
+
+**Interface**
+
+- English and Spanish.
+- UI font picker (any installed font), text size, window zoom and more...
+
+## Download & install
+
+1. Download the latest `KawaGIIF_x.y.z_x64-setup.exe` from the [releases page](https://github.com/purgemebaby/KawaGIIF/releases/latest).
+2. Run it. The installer is not signed yet, so Windows SmartScreen may show "Windows protected your PC": click **More info**, then **Run anyway**.
+3. KawaGIIF opens with its control panel. Close the window at any time: the app keeps running in the system tray.
+
+**Updates.** At launch KawaGIIF checks GitHub for a newer release.
+
+**Uninstall.** Use _Settings → Apps → Installed apps → KawaGIIF → Uninstall_. Your library and settings stay in `%LOCALAPPDATA%\KawaGIIF`
+
+## Usage
+
+**Quick start**
+
+1. Open **Library** and import some files.
+2. Open **Editor** and drag an item from the media bar onto the desktop.
+3. Move, resize or rotate it, and adjust opacity and speed in the properties panel.
+4. Press **Save**. Your layout comes back every time KawaGIIF starts.
+
+**Shortcuts**
+
+| Keys                                     | Where                    | Action                               |
+| ---------------------------------------- | ------------------------ | ------------------------------------ |
+| `Ctrl` + `Alt` + `Esc`                   | Anywhere                 | Make every overlay clickable again   |
+| `Delete` / `Backspace`                   | Editor                   | Remove the selected animation        |
+| Arrow keys (`Shift` for 10 px)           | Editor, overlay selected | Nudge the animation by 1 px          |
+| `Ctrl` + `+` / `-` / `0`, `Ctrl` + wheel | Control panel            | Zoom the interface in, out, or reset |
+
+## Compatibility
+
+|                                           | Status                                                                                     |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Windows 11 (25H2)                         |  Tested                                                                                  |
+| Windows 10 (22H2)                         | Expected to work, not tested yet                                                        |
+| Architecture                              | x64                                                                                        |
+| WebView2 runtime                          | Preinstalled on Windows 11, the installer downloads it on Windows 10 if missing |
+| Games in borderless / windowed fullscreen | Overlays show on top                                                                    |
+| Games in exclusive fullscreen             | Not possible, see [Known issues](#known-issues)                                         |
+| macOS / Linux                             | Not supported: the app right now relies on Win32 window styles                                       |
+
+## Known issues
+
+- No overlays over exclusive-fullscreen games. In that mode the game takes over the screen and Windows stops compositing other windows, so nothing can be drawn on top without injecting code into the game, which anti-cheat systems flag. Set the game to _borderless_ or _windowed fullscreen_ instead.
+- KawaGIIF is a pure viewer and videos play muted, by design.
+- SmartScreen warns on first install until the app builds up reputation or gets a code-signing certificate.
+- Windows 10 is not tested yet, so reports are welcome.
+
+## Build from source
+
+**Requirements**
+
+- [Node.js](https://nodejs.org/) LTS
+- [Rust](https://rustup.rs/) stable, 1.90 or newer
+- The [Tauri prerequisites for Windows](https://tauri.app/start/prerequisites/): Microsoft C++ Build Tools and WebView2
 
 ```shell
+git clone https://github.com/purgemebaby/KawaGIIF.git
+cd KawaGIIF
 npm install
-npm run tauri dev     # run the app with hot reload
-npm run tauri build   # build the NSIS installer
-npm run dev           # frontend only, in a browser, with mocked backend data
-cargo test            # Rust tests (run in src-tauri)
+npm run tauri dev       # run the app with hot reload
+npm run tauri build     # build the NSIS installer (src-tauri/target/release/bundle/nsis)
+npm run dev             # frontend only, in a browser, with mocked backend data
+cd src-tauri && cargo test
 ```
 
-User data lives in `%LOCALAPPDATA%\KawaGiif`: `config.toml`, `library_index.json`, `template.json` and the `media` folder.
+**Dependencies.** At runtime KawaGIIF only needs the WebView2 runtime. It is built with [Tauri 2](https://tauri.app/) (Rust + WebView2), [React 19](https://react.dev/) with TypeScript and Vite, the [`windows`](https://crates.io/crates/windows) crate for the Win32 window styles Tauri doesn't cover, [gifuct-js](https://github.com/matt-way/gifuct-js) as a GIF decoder fallback and [Motion](https://motion.dev/) for the overlay animations. The Tauri plugins are pinned to versions that match Tauri 2.11, because the `windows` crate must stay on the same version Tauri uses.
 
-## Objectives
+The architecture is described in [docs/Rust-Guide.md](docs/Rust-Guide.md), and memory measurements in [docs/profiling.md](docs/profiling.md).
 
-Work that is already decided but not done yet.
+## Translations
 
-### M8: editor revamp
+Available languages: **English** and **Spanish**. Change the language in _Settings_.
 
-- [ ] Floating editor windows (library panel, top bar, unsaved-changes dialog), pre-created hidden at startup like the overlay pool.
-- [ ] The control window hides while editing and comes back on exit.
-- [ ] Pop and slide-in animations done in CSS, replayed on every entry via a nonce used as a React `key`.
-- [ ] The library panel collapses to a thin tab (the window really shrinks) after dragging an animation out of it.
-- [ ] Split `set_edit_mode` into `enter_edit_mode` and `exit_edit_mode(Save | Discard)`.
-- [ ] Top bar controls: opacity, speed, flip H/V, X/Y/width/height, reset, delete, placed-items list.
-- [ ] New commands `set_item_flip`, `set_overlay_bounds` (move and resize in one call) and `reset_item_properties` (keeps position and size).
-- [ ] Marching-ants selection outline with an inset shadow.
-- [ ] Eight resize handles (corners and edges) using `setPointerCapture`, so a resize doesn't freeze when the cursor leaves the window.
-- [ ] Replace `EditorScreen` and `PropertiesPanel`; the Editor nav item becomes a launcher.
+To add a language:
 
-### M9: new settings
+1. Copy `src/i18n/en.ts` to `src/i18n/<code>.ts` and translate it. It is typed from the English file, so the compiler tells you about any missing key.
+2. Register it in `DICTIONARIES` and `LANGUAGES` in `src/i18n/index.ts`.
+3. Add the code to `LANGUAGES` in `src-tauri/src/config.rs`.
+4. Translate the three tray menu labels in `src-tauri/src/tray.rs`.
 
-- [x] New `AppConfig` fields with `#[serde(default)]`, so old `config.toml` files keep loading.
-- [x] UI font picker fed by the installed Windows fonts (GDI enumeration, includes per-user fonts), each option previewed in its own font; the title and loading screen keep their display font.
-- [x] UI font size setting (Small, Default, Large, Larger), applied to every UI text through one CSS scale variable.
-- [x] Custom loading-screen image from Settings: its own file picker (GIF, PNG or JPEG), copied into the app folder so deleting library media never breaks it, shown inside a 34x34 box with a warning for big or non-square files, and a reset back to the default ball.
-- [ ] Soft limit on placed animations, derived from free RAM and a measured per-animation cost, with a user override.
-- [ ] Replace the 4 settings setters (`set_launch_on_startup`, `set_start_minimized_to_tray`, `set_confirm_media_delete`, `set_overlay_pool_size`) with one typed `set_setting` command (a Rust enum) when the new settings land.
+Then open a pull request. Machine-assisted translations are fine, see the [AI policy](#ai-policy).
 
-### Gaps from the original feature list
+## Privacy
 
-- [ ] Command-line arguments with `clap`.
-- [ ] Hide on hover: fade an animation out when the cursor gets close.
-- [ ] Right-click menu on the animation itself, with "delete".
-- [ ] Per-asset FPS control (today only the playback rate can be changed).
-- [ ] Global shortcut to show or hide every animation at once.
-- [ ] Choose the media storage folder from Settings. Postponed: needs a plan for missing or revoked write permissions.
+- No telemetry, no analytics, no accounts.
+- The only network request is the update check against this repository's GitHub releases at launch.
+- Imported files are copied to `%LOCALAPPDATA%\KawaGIIF\media` and never leave your computer.
 
-### Known bugs
+## FAQ
 
-- [x] A thin white strip showed at the top of the overlays on Windows 11 when switching between edit mode and other tabs (tao re-adds `WS_CAPTION`; fixed with a window subclass that blocks the non-client paint).
-- [x] Launching a second instance crashed it with `0xC0000409`. Fixed with `tauri-plugin-single-instance`: a second launch now just shows the control panel.
-- [x] Sleeping overlay slots still cost ~22 MB each: every window was its own renderer. All windows now share one (`--process-per-site`), see [docs/profiling.md](docs/profiling.md).
-- [x] Overlays fell behind the taskbar after a focus change: the keeper never re-raised them (tao skips `SetWindowPos` when the topmost flag doesn't change). They are now raised every 2 s and on every foreground change.
+**Why does Windows warn me when I install it?**
+The installer isn't code-signed yet. It is built in the open by [GitHub Actions](.github/workflows/release.yml) from this repository.
 
-### Performance
+**How much memory does it use?**
+About 140 MB with the panel in the tray and around 230 to 310 MB with one to three GIFs placed, measured on Windows 11 ([details](docs/profiling.md)). The _Simultaneous animations_ setting controls how many overlay windows are reserved.
 
-- [x] Control window sleeps while hidden in the tray; default pool size 4. Measured −35 % to −60 % private memory ([docs/profiling.md](docs/profiling.md)).
-- [x] Overlays appear when the loading screen ends; the loading screen follows real boot steps instead of a fixed 5 s.
-- [x] Lighter GIF player: decode frames on demand (WebCodecs `ImageDecoder`) instead of keeping every frame decoded.
-- [ ] Destroy the control window on hide and recreate it on show, if its memory in the shared renderer matters.
+**Where are my files and settings?**
+In `%LOCALAPPDATA%\KawaGIIF`; _Settings → App folder → Open folder_ takes you there. If a data file ever gets corrupted, KawaGIIF keeps it next to the others as `<name>.broken-<date>` instead of overwriting it.
+
+## Contributing
+
+Issues and pull requests are welcome (bugs, ideas, support...) For a bug report, include your Windows version, the KawaGIIF version and the steps to reproduce it.
+
+Before opening a pull request, make sure these pass (CI runs them too):
+
+```shell
+npx tsc --noEmit
+npx prettier --check "src/**/*.{ts,tsx,css}"
+npm run build
+cd src-tauri
+cargo clippy --all-targets -- -D warnings
+cargo test
+```
+
+Conventions:
+
+- Formatting comes from `.prettierrc.json` (tabs, single quotes, 80 columns).
+- Every visible string goes through `src/i18n`, and every colour, size and spacing comes from `src/styles/tokens.css`.
+- Rust commands return `AppResult`. No `unwrap` in app code.
+- Commit messages follow `type(scope): summary`, for example `fix(editor): keep the selection after a resize`.
+- Recommended setup: [VS Code](https://code.visualstudio.com/) with the [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) and [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer) extensions.
+
+To report a security problem, please use a [private security advisory](https://github.com/purgemebaby/KawaGIIF/security/advisories/new) instead of a public issue.
+
+## AI policy
+
+AI tools are very welcome. You can use them to write code, documentation or translations, and send the result as a pull request. I don't mind at all if you use them.
+
+However, you stay responsible for what you submit and make sure to test it, see if CI passes, and understand it well enough to answer questions in the review. 
+
+## Roadmap
+
+**Next (0.1.x)**
+
+- Add a "marketplace" to search directly images, GIFs... from many sources to download them and use it without leaving the app.
+
+**Settings and features**
+
+- A soft limit on placed animations, based on free memory.
+- One typed `set_setting` command instead of one per setting.
+- Command-line arguments, fade-on-hover, a right-click menu on overlays, per-animation FPS, and a global shortcut to show or hide everything.
+- Choose the media storage folder.
+
+Done items move to the [CHANGELOG](CHANGELOG.md).
+
+## Support
+
+KawaGIIF actual features are free and always will be. If you enjoy it, you can buy me some cokes:
+
+<a href="https://ko-fi.com/L0T824SRAJ"><img src="https://ko-fi.com/img/githubbutton_sm.svg" alt="Support me on Ko-fi"></a>
+
+## Acknowledgements
+
+- The [Fredoka](https://fonts.google.com/specimen/Fredoka) and [Modak](https://fonts.google.com/specimen/Modak) fonts, under the SIL Open Font License
 
 ## License
 
-MIT, see [LICENSE](LICENSE). The bundled fonts (Fredoka, Modak) are licensed under the SIL Open Font License 1.1; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
-
-## Recommended IDE setup
-
-- [VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
+KawaGIIF is released under the [MIT License](LICENSE).

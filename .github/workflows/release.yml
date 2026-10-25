@@ -30,7 +30,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: 'KawaGiif ${{ github.ref_name }}'
+          releaseName: 'KawaGIIF ${{ github.ref_name }}'
           releaseBody: 'See CHANGELOG.md for what changed. Windows may show a SmartScreen warning: More info -> Run anyway.'
           releaseDraft: true
           prerelease: false

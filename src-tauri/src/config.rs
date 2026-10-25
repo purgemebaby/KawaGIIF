@@ -26,10 +26,10 @@ fn default_language() -> String { LANGUAGES[0].to_owned() }
 
 fn config_path() -> PathBuf { data_dir().join("config.toml") }
 
-/** The app data folder, `%LOCALAPPDATA%\KawaGiif`. */
+/** The app data folder, `%LOCALAPPDATA%\KawaGIIF`. */
 pub fn data_dir() -> &'static Path {
     static DIR: OnceLock<PathBuf> = OnceLock::new();
-    DIR.get_or_init(|| dirs::data_local_dir().expect("could not resolve %LOCALAPPDATA%").join("KawaGiif"))
+    DIR.get_or_init(|| dirs::data_local_dir().expect("could not resolve %LOCALAPPDATA%").join("KawaGIIF"))
 }
 
 /** Writes `<path>.tmp` then renames it over the file, so a crash never leaves a truncated file. */

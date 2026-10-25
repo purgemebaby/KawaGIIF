@@ -15,6 +15,8 @@ permissions:
 
 jobs:
   analyze:
+    # code scanning is free on public repos only; skipped (not failed) while the repo is private
+    if: ${{ !github.event.repository.private }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false

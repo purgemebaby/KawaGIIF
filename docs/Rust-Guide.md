@@ -1,4 +1,4 @@
-# KawaGiif - Rust Guide
+# KawaGIIF - Rust Guide
 
 ## 1. Model
 
@@ -250,7 +250,7 @@ media file is gone or no slot was free); its payload is
 | `set_font_scale` | `scale: f32` (clamped 0.85 to 1.3) | `AppResult<()>` |
 | `set_ui_zoom` | `zoom: f32` (caller window) | `AppResult<f32>` (clamps to 0.7–1.5, saves `ui_zoom` in config.toml, applies the webview zoom, returns the applied value) |
 | `set_nav_animations` | `enabled: bool` | `AppResult<()>` (saves `nav_animations`: the ring menu, the screen pan and the editor burst; off = instant switches) |
-| `open_data_folder` | — | `AppResult<()>` (opens `%LOCALAPPDATA%\KawaGiif` in Explorer, creating it if missing) |
+| `open_data_folder` | — | `AppResult<()>` (opens `%LOCALAPPDATA%\KawaGIIF` in Explorer, creating it if missing) |
 | `set_show_mascot` | `enabled: bool` | `AppResult<()>` (saves `show_mascot`: the chibi mascot in Home, Settings, the Editor and the empty Library) |
 | `set_language` | `language: String` (`"en"` or `"es"`, `config::LANGUAGES`) | `AppResult<()>` (saves the UI language and relabels the tray menu; the control window reloads itself to apply the rest of the UI) |
 

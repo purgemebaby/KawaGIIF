@@ -251,7 +251,7 @@ pub fn log_overlay_state(_app: &AppHandle, _moment: &str) {}
 pub fn create_control_window(app: &AppHandle) -> tauri::Result<WebviewWindow> {
     let window = WebviewWindowBuilder::new(app, CONTROL_LABEL, WebviewUrl::App("index.html".into()))
         .additional_browser_args(BROWSER_ARGS)
-        .title("KawaGiif")
+        .title("KawaGIIF")
         .inner_size(CONTROL_BASE.0, CONTROL_BASE.1)
         .center()
         .min_inner_size(MIN_CONTROL.0, MIN_CONTROL.1)
@@ -324,7 +324,7 @@ pub fn create_overlay_pool(app: &AppHandle) -> tauri::Result<()> {
             .resizable(false)
             .shadow(false)
             .background_color(Color(0, 0, 0, 0))
-            .window_classname("KawaGiifOverlay")
+            .window_classname("KawaGIIFOverlay")
             .visible(false)
             .build()?;
 

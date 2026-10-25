@@ -32,7 +32,8 @@ uuid = { version = "1", features = ["v4", "serde"] }
 thiserror = "2"
 sysinfo = { version = "0.33", default-features = false, features = ["system"] }
 tauri-plugin-single-instance = "~2.4.5"
-tauri-plugin-updater = "~2.12.0"
+# no default "zip" feature: updates ship as a signed .exe, and zip 4.x has open advisories
+tauri-plugin-updater = { version = "~2.12.0", default-features = false, features = ["rustls-tls", "system-proxy"] }
 
 [target.'cfg(windows)'.dependencies]
 webview2-com = "0.38"

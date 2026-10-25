@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "KawaGiif",
+  "productName": "KawaGIIF",
   "version": "0.1.0",
   "identifier": "com.kawagiif.app",
   "build": {
@@ -33,8 +33,8 @@
       "assetProtocol": {
         "enable": true,
         "scope": [
-          "$LOCALDATA/KawaGiif/media/**",
-          "$LOCALDATA/KawaGiif/loading-indicator-*"
+          "$LOCALDATA/KawaGIIF/media/**",
+          "$LOCALDATA/KawaGIIF/loading-indicator-*"
         ]
       }
     }
@@ -48,7 +48,7 @@
     "homepage": "https://github.com/purgemebaby/KawaGIIF",
     "category": "Utility",
     "shortDescription": "GIFs, images and videos as transparent overlays on your desktop",
-    "longDescription": "KawaGiif shows GIFs, images and videos as transparent, always-on-top, click-through overlays on the Windows desktop. Light enough to stay on all day next to games.",
+    "longDescription": "KawaGIIF shows GIFs, images and videos as transparent, always-on-top, click-through overlays on the Windows desktop. Light enough to stay on all day next to games.",
     "licenseFile": "../LICENSE",
     "icon": [
       "icons/32x32.png",

@@ -1,8 +1,8 @@
 # Memory scenarios for docs/profiling.md. Runs the release exe with several templates and prints private / working-set MB
-# per process role. Backs up and restores template.json and config.toml. Close any running KawaGiif first.
+# per process role. Backs up and restores template.json and config.toml. Close any running KawaGIIF first.
 param([string]$Exe = (Join-Path $PSScriptRoot '..\src-tauri\target\release\kawagiif.exe'), [int]$Settle = 20, [int]$LeakMinutes = 5)
 
-$data = Join-Path $env:LOCALAPPDATA 'KawaGiif'
+$data = Join-Path $env:LOCALAPPDATA 'KawaGIIF'
 $bak = Join-Path $env:TEMP 'kawagiif-profile-backup'
 New-Item -ItemType Directory -Force $bak | Out-Null
 Copy-Item (Join-Path $data 'template.json') $bak -Force
