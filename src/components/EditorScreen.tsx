@@ -7,6 +7,7 @@ import {
 	type ReactNode,
 } from 'react';
 import { invoke } from '../lib/ipc';
+import { notifyError } from '../lib/notify';
 import { requestHomeGreeting } from '../lib/mascot';
 import type { Template } from '../lib/placed';
 import { useEditorSync } from '../hooks/useEditorSync';
@@ -74,7 +75,10 @@ function EditorScreen() {
 	);
 
 	const deleteSelected = useCallback(() => {
-		if (selectedId) invoke('remove_placed_media', { instanceId: selectedId });
+		if (selectedId)
+			invoke('remove_placed_media', { instanceId: selectedId }).catch(
+				notifyError,
+			);
 	}, [selectedId]);
 
 	useDeleteShortcut(selectedId !== null, deleteSelected);
@@ -90,38 +94,52 @@ function EditorScreen() {
 	useEffect(() => {
 		let cancelled = false;
 		(async () => {
-			const tpl = await invoke<Template>('load_template');
-			if (cancelled) return;
-			savedIdsRef.current = instanceIdsOf(tpl);
-			await invoke('set_edit_mode', { enabled: true });
+			try {
+				const tpl = await invoke<Template>('load_template');
+				if (cancelled) return;
+				savedIdsRef.current = instanceIdsOf(tpl);
+				await invoke('set_edit_mode', { enabled: true });
+			} catch (e) {
+				notifyError(e);
+			}
 		})();
 		return () => {
 			cancelled = true;
-			invoke('set_edit_mode', { enabled: false });
+			invoke('set_edit_mode', { enabled: false }).catch(notifyError);
 		};
 	}, []);
 
 	const openSaveConfirm = async () => {
-		const working = await invoke<Template>('get_working_template');
-		const currentIds = instanceIdsOf(working);
-		const added = working.items.filter(
-			(i) => !savedIdsRef.current.has(i.instance_id),
-		).length;
-		const removed = [...savedIdsRef.current].filter(
-			(id) => !currentIds.has(id),
-		).length;
-		const moved = [...movedInstanceIds].filter(
-			(id) => currentIds.has(id) && savedIdsRef.current.has(id),
-		).length;
-		setChangeSummary({ added, moved, removed });
-		setShowSaveConfirm(true);
+		try {
+			const working = await invoke<Template>('get_working_template');
+			const currentIds = instanceIdsOf(working);
+			const added = working.items.filter(
+				(i) => !savedIdsRef.current.has(i.instance_id),
+			).length;
+			const removed = [...savedIdsRef.current].filter(
+				(id) => !currentIds.has(id),
+			).length;
+			const moved = [...movedInstanceIds].filter(
+				(id) => currentIds.has(id) && savedIdsRef.current.has(id),
+			).length;
+			setChangeSummary({ added, moved, removed });
+			setShowSaveConfirm(true);
+		} catch (e) {
+			notifyError(e);
+		}
 	};
 
 	// Save and undo both commit a change, refresh the saved ids, and clear moved state.
 	const commitTemplate = async (command: string, close: () => void) => {
-		await invoke(command);
-		const working = await invoke<Template>('get_working_template');
-		savedIdsRef.current = instanceIdsOf(working);
+		try {
+			await invoke(command);
+			const working = await invoke<Template>('get_working_template');
+			savedIdsRef.current = instanceIdsOf(working);
+		} catch (e) {
+			// Keep the confirm modal open: nothing was committed.
+			notifyError(e);
+			return;
+		}
 		resetMoved();
 		close();
 	};

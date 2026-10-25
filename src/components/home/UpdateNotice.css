@@ -1,0 +1,93 @@
+/* Home's optional update card: a sketch-outlined island in the top-left corner. */
+.update-notice {
+	--update-notice-w: clamp(200px, 24vw, 260px);
+	--update-chibi-h: calc(var(--update-notice-w) * 0.54 * 157 / 240);
+	/* only the straight cut hides behind the card's top edge, so the open mouth stays visible */
+	--update-chibi-sink: calc(var(--update-chibi-h) * 0.07);
+	--sketch-ink: var(--kg-fg-muted);
+	--sketch-paper: var(--kg-island-bg);
+	--sketch-width: 2px;
+
+	position: absolute;
+	top: var(--kg-space-5);
+	left: var(--kg-space-5);
+	z-index: 2;
+	width: var(--update-notice-w);
+	padding: var(--kg-space-3) var(--kg-space-4) var(--kg-space-4);
+	/* the chibi rides above the card, but stays inside the window */
+	margin-top: calc(
+		var(--update-chibi-h) - var(--update-chibi-sink) - var(--kg-space-5) +
+			var(--kg-space-2)
+	);
+	animation: kg-pop var(--kg-dur-slow) var(--kg-ease-pop);
+}
+
+/* The frame's paper fill is the card surface, so it hides the chibi's cut edge. */
+.update-notice-frame {
+	position: absolute;
+	inset: 0;
+	z-index: -1;
+	width: 100%;
+	height: 100%;
+}
+
+/* The chibi peeks over the card, its bottom sunk behind the frame (z-index -2 < -1). */
+.update-notice-chibi {
+	position: absolute;
+	left: var(--kg-space-2);
+	bottom: calc(100% - var(--update-chibi-sink));
+	z-index: -2;
+	width: 54%;
+	aspect-ratio: 240 / 157;
+	pointer-events: none;
+	animation: kg-mascot-float 4.5s ease-in-out infinite;
+}
+
+.update-notice-title {
+	margin: 0 0 var(--kg-space-3);
+	color: var(--kg-fg);
+	font-family: var(--kg-font-heading);
+	font-size: var(--kg-text-md);
+	font-weight: 600;
+	line-height: 1.4;
+}
+
+.update-notice-row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--kg-space-3);
+}
+
+.update-notice-dismiss {
+	margin-left: auto;
+	padding: var(--kg-space-1);
+	border: none;
+	background: none;
+	color: var(--kg-fg-faint);
+	font-family: inherit;
+	font-size: var(--kg-text-sm);
+	line-height: 1;
+	cursor: pointer;
+	transition: color var(--kg-dur-fast) var(--kg-ease-out);
+}
+
+.update-notice-dismiss:hover {
+	color: var(--kg-fg);
+}
+
+/* The mascot setting hides the chibi: no room to leave, the card rises back. */
+.update-notice:not(:has(.update-notice-chibi)) {
+	margin-top: 0;
+}
+
+/* Too short a window for the chibi above the card. */
+@media (max-height: 560px) {
+	.update-notice {
+		margin-top: 0;
+	}
+
+	.update-notice-chibi {
+		display: none;
+	}
+}

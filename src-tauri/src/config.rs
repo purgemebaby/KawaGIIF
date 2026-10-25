@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::error::AppResult;
 
@@ -43,11 +44,25 @@ pub fn write_atomic(path: &Path, contents: &[u8]) -> AppResult<()> {
     Ok(())
 }
 
+/** Seconds since the Unix epoch, 0 if the clock reads before it. */
+pub fn now_unix() -> u64 { SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs()) }
+
+/** Reads `path` and parses it; a file that exists but can't be read or parsed is renamed aside first, since the next save would overwrite it and lose the user's data. */
+pub fn read_or_quarantine<T: Default>(path: &Path, parse: impl FnOnce(&str) -> Option<T>) -> T {
+    if !path.is_file() { return T::default(); } // no file yet is a first run, not damage
+    let Some(value) = fs::read_to_string(path).ok().and_then(|contents| parse(&contents)) else {
+        let name = path.file_name().unwrap_or_default().to_string_lossy();
+        let stamp = now_unix();
+        let _ = fs::rename(path, path.with_file_name(format!("{name}.broken-{stamp}")));
+        #[cfg(debug_assertions)]
+        eprintln!("[kawagiif] {} could not be read or parsed, set aside as {name}.broken-{stamp}", path.display());
+        return T::default();
+    };
+    value
+}
+
 pub fn load() -> AppConfig {
-    fs::read_to_string(config_path())
-        .ok()
-        .and_then(|contents| toml::from_str(&contents).ok())
-        .unwrap_or_default()
+    read_or_quarantine(&config_path(), |s| toml::from_str(s).ok())
 }
 
 pub fn update(change: impl FnOnce(&mut AppConfig)) -> AppResult<()> {
@@ -107,5 +122,53 @@ impl Default for AppConfig {
             show_mascot: true,
             language: default_language(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn parse_vec(s: &str) -> Option<Vec<u32>> { serde_json::from_str(s).ok() }
+
+    fn temp_folder() -> PathBuf {
+        // a unique folder per test, so parallel runs never touch each other's files
+        let dir = std::env::temp_dir().join(format!("kawagiif-config-{}", uuid::Uuid::new_v4()));
+        fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[test]
+    fn read_or_quarantine_missing_file_gives_default() {
+        let dir = temp_folder();
+        let path = dir.join("missing.json");
+        assert!(read_or_quarantine(&path, parse_vec).is_empty());
+        assert!(!path.exists()); // nothing is created for a file that was never there
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn read_or_quarantine_valid_file_is_parsed() {
+        let dir = temp_folder();
+        let path = dir.join("valid.json");
+        fs::write(&path, "[1,2,3]").unwrap();
+        assert_eq!(read_or_quarantine(&path, parse_vec), vec![1, 2, 3]);
+        assert_eq!(fs::read_to_string(&path).unwrap(), "[1,2,3]"); // a good file is left untouched
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn read_or_quarantine_broken_file_is_set_aside() {
+        let dir = temp_folder();
+        let path = dir.join("broken.json");
+        fs::write(&path, "not json").unwrap();
+        assert!(read_or_quarantine(&path, parse_vec).is_empty());
+        assert!(!path.exists()); // the original name is gone
+        let siblings: Vec<String> = fs::read_dir(&dir).unwrap()
+            .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(siblings.iter().filter(|name| name.starts_with("broken.json.broken-")).count(), 1); // renamed aside, not copied
+        assert_eq!(siblings.len(), 1); // nothing else appeared in the folder
+        fs::remove_dir_all(&dir).unwrap();
     }
 }

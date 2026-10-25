@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { invoke } from '../lib/ipc';
+import { notifyError } from '../lib/notify';
 import { loadConfig } from '../lib/config';
 import {
 	fileNameOf,
@@ -84,7 +85,14 @@ function StorageScreen() {
 	const requestDelete = useCallback(
 		async (ids: string[]) => {
 			if (ids.length === 0) return;
-			const placed = await invoke<number>('count_placed_media', { ids });
+			let placed = 0;
+			try {
+				placed = await invoke<number>('count_placed_media', { ids });
+			} catch (e) {
+				// Unknown placed count: don't delete anything unasked.
+				notifyError(e);
+				return;
+			}
 			if (confirmBeforeDelete || placed > 0) {
 				setDeleting({ ids, placed });
 			} else {

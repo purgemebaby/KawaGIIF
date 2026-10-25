@@ -1,4 +1,5 @@
 import { invoke } from '../../lib/ipc';
+import { notifyError } from '../../lib/notify';
 import { LANGUAGES, t } from '../../i18n';
 import SettingsRowText from './SettingsRowText';
 
@@ -12,7 +13,12 @@ function LanguageRow({ language }: LanguageRowProps) {
 	// Reloads the window: some modules read `t` at load time.
 	const switchTo = async (code: string) => {
 		if (code === language) return;
-		await invoke('set_language', { language: code });
+		try {
+			await invoke('set_language', { language: code });
+		} catch (e) {
+			notifyError(e);
+			return;
+		}
 		window.location.reload();
 	};
 

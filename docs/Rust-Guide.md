@@ -19,8 +19,10 @@ in this order:
    `EditorState`, `LibraryState`, `SysState`. From now on any command can ask
    for them as `State<...>`.
 
-2. **Plugins**: `dialog` (Open-file dialog), `autostart` (Windows registry),
-   global shortcuts...
+2. **Plugins**: `single-instance` (registered first on purpose: a second
+   launch only shows the control window again), `updater` (signed
+   releases from GitHub), `dialog` (Open-file dialog), `autostart`
+   (Windows registry), global shortcuts...
 
 3. **`generate_handler![...]`**: List of every function React may `invoke`.
    A `#[tauri::command]` that isn't here doesn't exist in the frontend.
@@ -32,6 +34,7 @@ in this order:
    4. Registers the `Ctrl+Alt+Esc` shortcut.
    5. `tray::setup`
    6. `window_manager::spawn_topmost_keeper` background thread, every 2 s; every 250 ms while the foreground app is a borderless fullscreen window (it may re-raise itself), and no raise at all while it is exclusive-fullscreen Direct3D (nothing can show over it). `native::foreground_fullscreen` tells the three states apart (`SHQueryUserNotificationState` plus a window-rect == monitor-rect check). Over true exclusive fullscreen the game must be set to borderless windowed.
+   7. `updater::check_in_background`: a background look for a newer signed release on GitHub (see 4.6).
 
 5. **Event loop** (`.run(...)`): On `RunEvent::ExitRequested` → `handle_exit`
    (discard unsaved edits, hide every overlay).
@@ -45,11 +48,11 @@ Only **Tray → Quit** kill all process (including main one).
 Read the modules top to bottom. Each one only calls the ones below it.
 
 | Layer          | Module                                     | What does                                        |
-| -------------- | ------------------------------------------ | ------------------------------------------------ | ------------- |
+| -------------- | ------------------------------------------ | ------------------------------------------------ |
 | Wiring         | `lib.rs`                                   | Builder, plugins, `setup`, close/exit policy     |
 | Entry points   | `commands.rs`, `tray.rs`                   | Small commands and tray menu                     |
 | Domain + state | `template.rs`                              | Placed animations, editor state, slot assignment |
-| Domain + state | `library.rs`                               | Imported media, tags                             | the catalogue |
+| Domain + state | `library.rs`                               | Imported media, tags, the catalogue              |
 | Window ops     | `window_manager.rs`                        | Pool of windows, show/hide/move, styles          |
 | OS             | `native/windows.rs`                        | Raw Win32 (`unsafe`)                             |
 | Foundations    | `config.rs`, `error.rs`, `system_stats.rs` | Settings file, atomic writes, error type, RAM    |
@@ -59,7 +62,8 @@ A transparent window created after startup is born without `WS_EX_LAYERED`
 
 - Placing an animation = alloc a slot and showing it. Slots are not saved, but on restart they're handed out again in template order.
 
-- **Free slots sleep.** Each window is its own WebView2 renderer process, so an empty slot used to cost as much as a busy one. When a slot is freed, Rust emits `slot-released`. Rust then makes that webview dormant to use less resources. `show_slot` wakes it before showing it. The window is never destroyed, so `WS_EX_LAYERED` value doesn't reset.
+- **Free slots sleep.** Every window shares one WebView2 renderer (`--process-per-site` in `window_manager::BROWSER_ARGS`), not one process per window, so the renderer's base cost is paid once; an empty slot used to cost as much as a busy one when each window had its own. When a slot is freed, Rust emits `slot-released`. Rust then makes that webview dormant to use less resources (`TrySuspend`/`Resume` only: Microsoft advises against mixing them with `MemoryUsageTargetLevel`). `show_slot` wakes it before showing it. While the editor is open, the next free slot stays awake (`Editor::should_sleep`, `warm_spare_slot`), so a drag from the media bar shows at once instead of waiting ~400 ms for WebView2 to resume; closing the editor puts it back to sleep. The window is never destroyed, so `WS_EX_LAYERED` value doesn't reset.
+- **Broken data files don't kill the app.** `config.toml`, `library_index.json` and `template.json` that exist but can't be parsed are renamed to `<name>.broken-<unix>` before defaults are used (`config::read_or_quarantine`).
 
 - Two different IDs, don't mix them up:
   - `media_id`: A file in the library (`MediaItem.id`).
@@ -110,6 +114,11 @@ release). On `Moved`, `clamp_to_work_area` corrects at once the moves made
 from Rust (the carry, `nudge_overlay`, `set_overlay_rect`); if it had to,
 a new `Moved` comes, which needs no correction, so no loop. A drag is
 already constrained, so the clamp finds nothing to fix there.
+`slide_into_view` eases back a window that `fit_overlay_to_media` grew
+past the screen edge (~10 frames, instant when the nav animations are
+off); it and `clamp_to_work_area` both get the destination from
+`work_area_target` (`window_manager.rs`), the one place that computes
+where the clamp would move a window.
 A selected overlay in edit mode shows three handles: two corner handles
 on the media's own top-left and bottom-right corners (they turn with it),
 and one rotate sphere centred in the top margin (the transparent
@@ -152,6 +161,15 @@ frees slots, rewrites `template.json` once) → `library-changed` +
 `placed-items-changed`. `force=false` with placed references still returns
 `MediaReferenced(n)` as a safety net.
 
+### 4.6 Update check
+
+`setup()` calls `updater::check_in_background` once: offline or a missing
+feed just means no notice. When GitHub has a newer signed release, the
+update is stored in `UpdateState` and `update-available` (the version
+string) is emitted. Home shows a card; the user's click runs
+`install_update`, which downloads, installs passively and restarts the
+app. Nothing is ever installed without that click.
+
 ---
 
 ## 5. Windows API
@@ -160,11 +178,11 @@ Tauri sets some window styles unreliably and resets others on its own.
 `window_manager::reapply_overlay_style` calls most of these to reapply them or avoid to lose the values we are interested for to not be changed.
 
 | Function                   | Fixes                                                                                                               |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------- | --- |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------- |
 | `force_hide_taskb`         | `skip_taskbar(true)` is buggy and Tauri re-runs it on focus. That removes `WS_EX_APPWINDOW`, add `WS_EX_TOOLWINDOW` |
 | `force_borderless`         | `decorations(false)` gets undone → strip caption/frame/edge bits + `SWP_FRAMECHANGED`                               |
 | `disable_dwm_focus_border` | Windows 11 accent border and rounded corners (drawn by DWM)                                                         |
-| `force_layered`            | `set_ignore_cursor_events(false)` removes `WS_EX_LAYERED` → grey opaque frame                                       |     |
+| `force_layered`            | `set_ignore_cursor_events(false)` removes `WS_EX_LAYERED` → grey opaque frame                                       |
 | `force_clearbg`            | white class brush flashes before WebView paints                                                                     |
 | `top_everything`           | re-stack at top of the topmost band                                                                                 |
 
@@ -198,13 +216,19 @@ from the any-foreground hook (a click on the control window raises it).
 | `item-playback-rate-changed` | `update_item` via `set_item_playback_rate`       | one overlay  | `OverlayItemApp` (`"self"`)                          |
 | `item-reset`                 | `reset_placed_media`                              | one overlay  | `OverlayItemApp` (`"self"`) → refits                 |
 | `click-through-changed`      | `lib::release_all_click_through`                 | each overlay | (not consumed yet)                                   |
+| `update-available`           | `updater::check_in_background`                   | all          | Home (update card)                                   |
+| `overlays-skipped`           | `template::show_saved_overlays`                 | control      | boot notice for saved items left out                 |
 
 `emit` broadcasts to every window. For per-overlay events Rust uses `emit_to`
 **and** React listens with `listenToSelf` (`getCurrentWebviewWindow().listen`).
 
+`overlays-skipped` fires when saved animations were left out at boot (their
+media file is gone or no slot was free); its payload is
+`{missing, notPlaced, poolSize}`.
+
 ---
 
-## 10. Commands catalogue (React → Rust)
+## 7. Commands catalogue (React → Rust)
 
 `State<…>`, `AppHandle` and `WebviewWindow` arguments are injected by Tauri:
 
@@ -252,6 +276,7 @@ from the any-foreground hook (a click on the control window raises it).
 | Command | Args | Returns |
 |---|---|---|
 | `load_template` | — | `AppResult<Template>` |
+| `show_boot_overlays` | — | `()` (the loading screen is over: place the saved animations; same path as starting in the tray) |
 | `get_working_template` | — | `Template` |
 | `has_unsaved_changes` | — | `bool` |
 | `list_placed_items` | — | `Vec<PlacedItemSummary>` |
@@ -273,5 +298,17 @@ from the any-foreground hook (a click on the control window raises it).
 | `nudge_overlay` | `dx: i32, dy: i32` (caller window) | `AppResult<()>` |
 | `kill_all_overlays` | — | `()` |
 | `overlay_idle` | (caller window) | `()` — puts the caller's webview to sleep if its slot is free |
+
+**system_stats.rs**
+| Command | Args | Returns |
+|---|---|---|
+| `get_system_stats` | — | `SystemStats` (`total_ram_mb`, `used_ram_mb`, `available_ram_mb`, `app_ram_mb`; refreshed on every call, the app's total counts every WebView2 process it spawned) |
+| `debug_memory_breakdown` | — | `String` (debug builds only: MB per process of the app family, sorted) |
+
+**updater.rs**
+| Command | Args | Returns |
+|---|---|---|
+| `get_available_update` | — | `Option<String>` (version of the release found at boot; Home asks on mount in case it missed the event) |
+| `install_update` | — | `AppResult<()>` (downloads and installs the pending update passively, then restarts; the update stays stored, so a failed try can be retried) |
 
 ---

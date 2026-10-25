@@ -3,6 +3,8 @@ name = "kawagiif"
 version = "0.1.0"
 description = "Animations, GIFs and videos always visible on top of the desktop"
 authors = ["Alberto"]
+license = "MIT"
+repository = "https://github.com/purgemebaby/KawaGIIF"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -29,6 +31,8 @@ dirs = "6"
 uuid = { version = "1", features = ["v4", "serde"] }
 thiserror = "2"
 sysinfo = { version = "0.33", default-features = false, features = ["system"] }
+tauri-plugin-single-instance = "~2.4.5"
+tauri-plugin-updater = "~2.12.0"
 
 [target.'cfg(windows)'.dependencies]
 webview2-com = "0.38"

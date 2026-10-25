@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { invoke } from '../lib/ipc';
+import { notifyError } from '../lib/notify';
 import { loadConfig, type AppConfig } from '../lib/config';
 import { t } from '../i18n';
 import { announceNavAnimations } from '../lib/navAnimations';
@@ -81,8 +82,15 @@ function SettingsScreen() {
 		command: string,
 		args: Record<string, unknown>,
 	) => {
+		const previous = config[key];
 		setConfig({ ...config, [key]: value });
-		await invoke(command, args);
+		try {
+			await invoke(command, args);
+		} catch (e) {
+			// The backend kept the old value (e.g. the autostart registry write failed), so the toggle goes back too.
+			setConfig((c) => c && { ...c, [key]: previous });
+			notifyError(e);
+		}
 	};
 
 	const sections = t.settings.sections;

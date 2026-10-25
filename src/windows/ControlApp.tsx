@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { invoke } from '../lib/ipc';
+import { notifyError } from '../lib/notify';
 import { loadConfig } from '../lib/config';
 import { announceShowMascot } from '../lib/mascot';
 import { announceNavAnimations } from '../lib/navAnimations';
 import { useTauriEvent } from '../hooks/useTauriEvent';
 import { useScreenTransitions } from '../hooks/useScreenTransitions';
 import { useZoomShortcuts } from '../hooks/useZoomShortcuts';
+import { useErrorToast } from '../hooks/useErrorToast';
 import { LibraryProvider } from '../context/LibraryProvider';
 import { t } from '../i18n';
 import BrandBar from '../components/BrandBar';
@@ -15,7 +17,7 @@ import StorageScreen from '../components/StorageScreen';
 import EditorScreen from '../components/EditorScreen';
 import SettingsScreen from '../components/SettingsScreen';
 import LoadingScreen from '../components/LoadingScreen';
-import ZoomToast from '../components/ZoomToast';
+import Toast from '../components/ui/Toast';
 import Modal, { MODAL_ROOT_ID } from '../components/ui/Modal';
 import './ControlApp.css';
 
@@ -82,6 +84,7 @@ function ControlApp() {
 	const { layers, stageClass, stageRef, contentRef, navigate, destination } =
 		useScreenTransitions(DEV_SCREEN ?? 'home');
 	const zoomToast = useZoomShortcuts(configPromise);
+	const error = useErrorToast();
 
 	const runExit = useCallback(
 		(exit: PendingExit) => {
@@ -114,10 +117,16 @@ function ControlApp() {
 
 	const resolveExit = async (action: 'save' | 'discard') => {
 		if (!pendingExit) return;
-		if (action === 'save') {
-			await invoke('save_template');
-		} else {
-			await invoke('discard_template_changes');
+		try {
+			if (action === 'save') {
+				await invoke('save_template');
+			} else {
+				await invoke('discard_template_changes');
+			}
+		} catch (e) {
+			// Keep the guard open: leaving would drop unsaved work.
+			notifyError(e);
+			return;
 		}
 		const exit = pendingExit;
 		setPendingExit(null);
@@ -183,7 +192,13 @@ function ControlApp() {
 
 				<div id={MODAL_ROOT_ID} />
 
-				{zoomToast !== null && <ZoomToast zoom={zoomToast} />}
+				{zoomToast !== null && <Toast>{Math.round(zoomToast * 100)} %</Toast>}
+
+				{error.message !== null && (
+					<Toast tone="error" onDismiss={error.dismiss}>
+						{error.message}
+					</Toast>
+				)}
 			</div>
 		</LibraryProvider>
 	);

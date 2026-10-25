@@ -1,0 +1,3 @@
+[advisories]
+# glib/GTK is only compiled for Linux (Tauri's GTK backend); KawaGiif ships for Windows only.
+ignore = ["RUSTSEC-2024-0429"]

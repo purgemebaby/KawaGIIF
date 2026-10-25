@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import settingsBody from '../../assets/mascot/settings-body.png';
+import settingsBody from '../../assets/mascot/settings-body.webp';
 import settingsWrench from '../../assets/mascot/settings-wrench.webp';
 import { clamp } from '../../lib/overlayGeometry';
 import './Mascot.css';

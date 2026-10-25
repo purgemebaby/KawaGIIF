@@ -8,6 +8,7 @@ mod native;
 mod system_stats;
 mod template;
 mod tray;
+mod updater;
 mod window_manager;
 
 use tauri::{AppHandle, Emitter, EventTarget, Manager, RunEvent, WebviewWindow, WindowEvent};
@@ -16,6 +17,7 @@ use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut,
 use library::LibraryState;
 use system_stats::SysState;
 use template::EditorState;
+use updater::UpdateState;
 
 /* Personal Note for me:
 - tauri::RunEvent: app-wide events of the event loop (e.g. about to exit). WindowEvent is per window (e.g. X clicked).
@@ -58,9 +60,13 @@ pub fn run() {
     let release_shortcut: Shortcut = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::ALT), Code::Escape);
 
     tauri::Builder::default()
+        // first plugin on purpose: a second launch (autostart already running) only brings the window back
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| window_manager::show_control(app)))
         .manage(EditorState::default())
         .manage(LibraryState::default())
         .manage(SysState::default())
+        .manage(UpdateState::default())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, None))
         .plugin(
@@ -129,6 +135,8 @@ pub fn run() {
             template::fit_overlay_to_media,
             template::kill_all_overlays,
             template::overlay_idle,
+            updater::get_available_update,
+            updater::install_update,
         ])
         .setup(move |app| {
             #[cfg(debug_assertions)]
@@ -160,6 +168,7 @@ pub fn run() {
             tray::setup(handle)?;
             window_manager::spawn_topmost_keeper(handle);
             window_manager::watch_foreground_changes(handle);
+            updater::check_in_background(handle);
 
             // no visible loading screen in the tray, so the overlays come up right away
             if config::load().start_minimized_to_tray {

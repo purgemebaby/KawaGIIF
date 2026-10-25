@@ -70,6 +70,8 @@ const MOCK_RESPONSES: Record<string, unknown> = {
 		available_ram_mb: 6_554,
 		app_ram_mb: 214,
 	},
+	get_available_update: new URLSearchParams(location.search).get('update'),
+	install_update: null,
 };
 
 // Mocks that compute a value from their args, mirroring the Rust clamping.

@@ -270,6 +270,8 @@
 :root[data-nav-animations='off']
 	:is(
 		.home-mascot,
+		.update-notice,
+		.update-notice-chibi,
 		.storage-empty-mascot,
 		.library-mascot,
 		.settings-mascot,
@@ -370,6 +372,8 @@
 @media (prefers-reduced-motion: reduce) {
 	/* Mascots hold still and the panel hand is not shown. */
 	.home-mascot,
+	.update-notice,
+	.update-notice-chibi,
 	.storage-empty-mascot,
 	.library-mascot,
 	.settings-mascot,

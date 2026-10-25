@@ -29,6 +29,12 @@ pub enum AppError {
     #[error(transparent)]
     Autostart(#[from] tauri_plugin_autostart::Error),
 
+    #[error(transparent)]
+    Updater(#[from] tauri_plugin_updater::Error),
+
+    #[error("No update is waiting to be installed")]
+    NoPendingUpdate,
+
     #[error("No media with id {0}")]
     MediaNotFound(Uuid),
 

@@ -8,6 +8,7 @@ import {
 } from 'react';
 import { open } from '@tauri-apps/plugin-dialog';
 import { invoke } from '../lib/ipc';
+import { notifyError } from '../lib/notify';
 import type { MediaItem, TagCount } from '../lib/media';
 import { useTauriEvent } from '../hooks/useTauriEvent';
 
@@ -65,6 +66,8 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
 			]);
 			setItems(media);
 			setTags(tagCounts);
+		} catch (e) {
+			notifyError(e);
 		} finally {
 			setLoading(false);
 		}
@@ -79,12 +82,16 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
 	const confirmImport = useCallback(
 		async (paths: string[], replaceExisting: boolean) => {
 			setRejected([]);
-			const { rejected } = await invoke<ImportResult>('import_media', {
-				paths,
-				replaceExisting,
-			});
-			setRejected(rejected);
-			await refresh();
+			try {
+				const { rejected } = await invoke<ImportResult>('import_media', {
+					paths,
+					replaceExisting,
+				});
+				setRejected(rejected);
+				await refresh();
+			} catch (e) {
+				notifyError(e);
+			}
 		},
 		[refresh],
 	);
@@ -92,66 +99,89 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
 	const dismissRejected = useCallback(() => setRejected([]), []);
 
 	const importFiles = useCallback(async (): Promise<PendingImport | null> => {
-		const selected = await open({
-			multiple: true,
-			filters: [
-				{
-					name: 'Media',
-					extensions: ['gif', 'mp4', 'jpg', 'jpeg', 'png', 'webp', 'svg'],
-				},
-			],
-		});
-		if (!selected) return null;
-		const paths = Array.isArray(selected) ? selected : [selected];
+		try {
+			const selected = await open({
+				multiple: true,
+				filters: [
+					{
+						name: 'Media',
+						extensions: ['gif', 'mp4', 'jpg', 'jpeg', 'png', 'webp', 'svg'],
+					},
+				],
+			});
+			if (!selected) return null;
+			const paths = Array.isArray(selected) ? selected : [selected];
 
-		const reimports = await invoke<string[]>('find_reimports', { paths });
-		const sizes = await Promise.all(
-			paths.map(async (path) => {
-				try {
-					return {
-						path,
-						bytes: await invoke<number>('get_file_size', { path }),
-					};
-				} catch {
-					return { path, bytes: 0 };
-				}
-			}),
-		);
-		const large = sizes.filter((f) => f.bytes >= LARGE_FILE_BYTES);
+			const reimports = await invoke<string[]>('find_reimports', { paths });
+			const sizes = await Promise.all(
+				paths.map(async (path) => {
+					try {
+						return {
+							path,
+							bytes: await invoke<number>('get_file_size', { path }),
+						};
+					} catch {
+						return { path, bytes: 0 };
+					}
+				}),
+			);
+			const large = sizes.filter((f) => f.bytes >= LARGE_FILE_BYTES);
 
-		if (large.length === 0 && reimports.length === 0) {
-			await confirmImport(paths, false);
+			if (large.length === 0 && reimports.length === 0) {
+				await confirmImport(paths, false);
+				return null;
+			}
+			return { paths, large, reimports, replaceExisting: false };
+		} catch (e) {
+			notifyError(e);
 			return null;
 		}
-		return { paths, large, reimports, replaceExisting: false };
 	}, [confirmImport]);
 
-	const renameMedia = useCallback(async (id: string, name: string) => {
-		await invoke('rename_media', { id, name });
-	}, []);
-
-	const updateTags = useCallback(async (id: string, next: string[]) => {
-		await invoke('update_media_tags', { id, tags: next });
-	}, []);
-
-	const updateTagsMany = useCallback(
-		async (ids: string[], add: string[], remove: string[]) => {
-			await invoke('update_tags_many', { ids, add, remove });
+	// Runs a library command, showing the error toast instead of rejecting to the caller.
+	const invokeGuarded = useCallback(
+		async (command: string, args?: Record<string, unknown>) => {
+			try {
+				await invoke(command, args);
+			} catch (e) {
+				notifyError(e);
+			}
 		},
 		[],
 	);
 
-	const renameTag = useCallback(async (from: string, to: string) => {
-		await invoke('rename_tag', { from, to });
-	}, []);
+	const renameMedia = useCallback(
+		(id: string, name: string) => invokeGuarded('rename_media', { id, name }),
+		[invokeGuarded],
+	);
 
-	const deleteTag = useCallback(async (name: string) => {
-		await invoke('delete_tag', { name });
-	}, []);
+	const updateTags = useCallback(
+		(id: string, next: string[]) =>
+			invokeGuarded('update_media_tags', { id, tags: next }),
+		[invokeGuarded],
+	);
 
-	const deleteMedia = useCallback(async (ids: string[], force = false) => {
-		await invoke('delete_media', { ids, force });
-	}, []);
+	const updateTagsMany = useCallback(
+		(ids: string[], add: string[], remove: string[]) =>
+			invokeGuarded('update_tags_many', { ids, add, remove }),
+		[invokeGuarded],
+	);
+
+	const renameTag = useCallback(
+		(from: string, to: string) => invokeGuarded('rename_tag', { from, to }),
+		[invokeGuarded],
+	);
+
+	const deleteTag = useCallback(
+		(name: string) => invokeGuarded('delete_tag', { name }),
+		[invokeGuarded],
+	);
+
+	const deleteMedia = useCallback(
+		(ids: string[], force = false) =>
+			invokeGuarded('delete_media', { ids, force }),
+		[invokeGuarded],
+	);
 
 	return (
 		<LibraryContext.Provider

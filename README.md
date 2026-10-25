@@ -1,14 +1,36 @@
-# KawaGIIF
+# KawaGiif
 
-An open source Windows app that shows GIFs, images and videos (GIF, WEBP, PNG, JPEG, MP4) as transparent, always-on-top overlays on the desktop. It's a pure viewer: there is no audio.
+An open source Windows app that shows GIFs, images and videos (GIF, WEBP, PNG, JPEG, MP4, SVG) as transparent, always-on-top overlays on the desktop. It is a pure viewer: there is no audio. It stays out of the way — click-through, hidden from the taskbar — and light enough to keep running all day next to a game.
+
+## Download & install
+
+Get the latest installer from [releases](https://github.com/purgemebaby/KawaGIIF/releases/latest) and run the downloaded `-setup.exe` file.
+
+The installer is unsigned, so Windows SmartScreen may show "Windows protected your PC". Click **More info**, then **Run anyway**.
+
+Requirements:
+
+- Windows 10 (64-bit) or Windows 11.
+- The WebView2 runtime: preinstalled on Windows 11; the installer downloads it on Windows 10 if missing.
+
+### Updates
+
+KawaGiif checks GitHub for a newer release when it starts. If there is one, a card in Home shows the new version; installing it is up to you, the app never updates itself on its own.
+
+## Screenshots
+
+<!-- demo GIF / screenshots go here -->
 
 ## Features
 
-- **Media library:** import files, tag them and filter by tag, type or name.
-- **Visual editor:** place animations on the desktop, drag, resize and nudge them, and set opacity and playback speed for each one.
+- **Media library:** import GIF, WEBP, PNG, JPEG, MP4 and SVG files, tag them and filter by tag, type or name.
+- **Visual editor:** place animations on the desktop, drag, resize, nudge and rotate them, and set opacity and playback speed for each one.
 - **Click-through:** outside the editor, clicks go through the animations, so they never get in the way. Press `Ctrl+Alt+Esc` to release click-through on every overlay.
 - **Hidden from the taskbar and Alt+Tab.** Closing the window sends the app to the system tray.
 - **Starts with Windows (optional)** and restores the saved layout on launch.
+- **Interface:** English or Spanish, a UI font picker, text size and window zoom, an optional mascot and a custom loading-screen image.
+- **Updates are optional:** the app checks GitHub at launch and shows a card in Home when a new release exists.
+- **Single instance:** launching the app a second time just shows the control panel again.
 
 ## Stack
 
@@ -23,15 +45,16 @@ Requirements: Node.js, Rust (stable) and the [Tauri prerequisites for Windows](h
 ```shell
 npm install
 npm run tauri dev     # run the app with hot reload
-npm run tauri build   # build the installer
+npm run tauri build   # build the NSIS installer
 npm run dev           # frontend only, in a browser, with mocked backend data
+cargo test            # Rust tests (run in src-tauri)
 ```
 
 User data lives in `%LOCALAPPDATA%\KawaGiif`: `config.toml`, `library_index.json`, `template.json` and the `media` folder.
 
 ## Objectives
 
-Work that is already decided but not done yet. Detailed specs for M8 and M9 live in the old development plan (written in Spanish, against older code: the blueprint grid it mentions has been removed since).
+Work that is already decided but not done yet.
 
 ### M8: editor revamp
 
@@ -48,7 +71,7 @@ Work that is already decided but not done yet. Detailed specs for M8 and M9 live
 
 ### M9: new settings
 
-- [ ] New `AppConfig` fields with `#[serde(default)]`, so old `config.toml` files keep loading.
+- [x] New `AppConfig` fields with `#[serde(default)]`, so old `config.toml` files keep loading.
 - [x] UI font picker fed by the installed Windows fonts (GDI enumeration, includes per-user fonts), each option previewed in its own font; the title and loading screen keep their display font.
 - [x] UI font size setting (Small, Default, Large, Larger), applied to every UI text through one CSS scale variable.
 - [x] Custom loading-screen image from Settings: its own file picker (GIF, PNG or JPEG), copied into the app folder so deleting library media never breaks it, shown inside a 34x34 box with a warning for big or non-square files, and a reset back to the default ball.
@@ -67,7 +90,7 @@ Work that is already decided but not done yet. Detailed specs for M8 and M9 live
 ### Known bugs
 
 - [x] A thin white strip showed at the top of the overlays on Windows 11 when switching between edit mode and other tabs (tao re-adds `WS_CAPTION`; fixed with a window subclass that blocks the non-client paint).
-- [ ] Launching a second instance crashes it with `0xC0000409`; likely `global_shortcut().register` failing in `setup()`. Planned fix: `tauri-plugin-single-instance`.
+- [x] Launching a second instance crashed it with `0xC0000409`. Fixed with `tauri-plugin-single-instance`: a second launch now just shows the control panel.
 - [x] Sleeping overlay slots still cost ~22 MB each: every window was its own renderer. All windows now share one (`--process-per-site`), see [docs/profiling.md](docs/profiling.md).
 - [x] Overlays fell behind the taskbar after a focus change: the keeper never re-raised them (tao skips `SetWindowPos` when the topmost flag doesn't change). They are now raised every 2 s and on every foreground change.
 
@@ -75,8 +98,12 @@ Work that is already decided but not done yet. Detailed specs for M8 and M9 live
 
 - [x] Control window sleeps while hidden in the tray; default pool size 4. Measured −35 % to −60 % private memory ([docs/profiling.md](docs/profiling.md)).
 - [x] Overlays appear when the loading screen ends; the loading screen follows real boot steps instead of a fixed 5 s.
-- [ ] Lighter GIF player: decode frames on demand (WebCodecs `ImageDecoder`) instead of keeping every frame decoded.
+- [x] Lighter GIF player: decode frames on demand (WebCodecs `ImageDecoder`) instead of keeping every frame decoded.
 - [ ] Destroy the control window on hide and recreate it on show, if its memory in the shared renderer matters.
+
+## License
+
+MIT, see [LICENSE](LICENSE). The bundled fonts (Fredoka, Modak) are licensed under the SIL Open Font License 1.1; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## Recommended IDE setup
 

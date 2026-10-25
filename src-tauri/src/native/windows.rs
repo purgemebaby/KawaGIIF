@@ -10,12 +10,9 @@ use std::mem::size_of;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::OnceLock;
 
-use webview2_com::Microsoft::Web::WebView2::Win32::{
-    ICoreWebView2Controller, ICoreWebView2_19, ICoreWebView2_3,
-    COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_LOW, COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_NORMAL,
-};
+use webview2_com::Microsoft::Web::WebView2::Win32::{ICoreWebView2Controller, ICoreWebView2_3};
 use webview2_com::TrySuspendCompletedHandler;
-use windows::core::Interface;
+use windows::core::{Interface, BOOL};
 use windows::Win32::Foundation::{COLORREF, HWND, LPARAM, LRESULT, POINT, RECT, WPARAM};
 use windows::Win32::UI::Accessibility::{SetWinEventHook, UnhookWinEvent, HWINEVENTHOOK};
 use windows::Win32::Graphics::Dwm::{
@@ -387,36 +384,28 @@ pub fn disable_dwm_focus_border(hwnd: HWND) {
 
 // WebView2
 /**
- * Puts a hidden overlay's web page to sleep, or wakes it up. Sleeping lowers its memory target and suspends it, waking reverses the steps.
+ * Puts a hidden overlay's web page to sleep, or wakes it up. Only TrySuspend/Resume: they already lower and restore the
+ * memory target, and Microsoft advises against mixing them with MemoryUsageTargetLevel.
  */
 pub fn set_webview_dormant(controller: &ICoreWebView2Controller, dormant: bool) {
-    let result: Result<(), windows::core::Error> = (|| 
+    let result: Result<(), windows::core::Error> = (||
         unsafe {
-            // older WebView2 runtimes lack these interfaces, so they stay optional
-            let webview = controller.CoreWebView2()?;
-            let memory = webview.cast::<ICoreWebView2_19>().ok();
-            let suspend = webview.cast::<ICoreWebView2_3>().ok();
+            // older WebView2 runtimes lack this interface, so it stays optional
+            let suspend = controller.CoreWebView2()?.cast::<ICoreWebView2_3>().ok();
 
             if dormant {
+                // TrySuspend only works on a hidden webview; it completes asynchronously
                 controller.SetIsVisible(false)?;
-
-                // ask Chromium to free memory
-                if let Some(memory) = &memory {
-                    memory.SetMemoryUsageTargetLevel(COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_LOW)?;
-                }
-
-                // the suspend completes asynchronously
                 if let Some(suspend) = &suspend {
                     suspend.TrySuspend(&(TrySuspendCompletedHandler::create(Box::new(|_, _| Ok(())))))?;
                 }
-            } 
+            }
             else {
+                // waking an awake webview (the editor's spare slot) costs nothing
                 if let Some(suspend) = &suspend {
-                    suspend.Resume()?;
-                }
-
-                if let Some(memory) = &memory {
-                    memory.SetMemoryUsageTargetLevel(COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_NORMAL)?;
+                    let mut suspended = BOOL::default();
+                    suspend.IsSuspended(&mut suspended)?;
+                    if suspended.as_bool() { suspend.Resume()?; }
                 }
                 controller.SetIsVisible(true)?;
             }

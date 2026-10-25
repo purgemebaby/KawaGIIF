@@ -1,4 +1,5 @@
 import { invoke } from '../lib/ipc';
+import { notifyError } from '../lib/notify';
 import { useLibrary } from '../context/LibraryProvider';
 import { useMediaFilters } from '../hooks/useMediaFilters';
 import { t } from '../i18n';
@@ -49,7 +50,7 @@ function MediaSidebar({ wrap = false }: { wrap?: boolean }) {
 			);
 			if (distance < DRAG_THRESHOLD_PX) return;
 			stop();
-			spawn(mediaId);
+			spawn(mediaId).catch(notifyError);
 		};
 
 		window.addEventListener('mousemove', onMove);

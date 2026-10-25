@@ -1,5 +1,5 @@
-import editorChibi from '../../assets/mascot/editor.png';
-import editorPencil from '../../assets/mascot/editor-pencil.png';
+import editorChibi from '../../assets/mascot/editor.webp';
+import editorPencil from '../../assets/mascot/editor-pencil.webp';
 import { useMascotShown } from '../../hooks/useMascotShown';
 import { t } from '../../i18n';
 import type { Point } from '../../lib/sketch';

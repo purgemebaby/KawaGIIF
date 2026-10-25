@@ -4,13 +4,13 @@
 
 - **Private bytes**: memory only that process owns.
 - Measure a **release** build (`npx tauri build --no-bundle` → `src-tauri/target/release/kawagiif.exe`).
-- Only one instance can run at a time: a second one aborts at startup (global shortcut registration fails).
+- Only one instance runs at a time: a second launch just shows the existing window (tauri-plugin-single-instance), so close the app before measuring.
 
 ## Tools used
 
 1. **[`docs/profile.ps1`](profile.ps1).**: Starts the release exe with several templates and prints private and working-set MB per process role. Close the app before running it. Run it with `powershell -ExecutionPolicy Bypass -File docs/profile.ps1 [-LeakMinutes 5]`.
 
-2. **DevTools heap snapshot (JS heap of one page)**: The control window opens devtools in dev builds. Use Memory → Heap snapshot and sort by Retained size. For an overlay, run the app with `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9222`, then open `edge://inspect` in Edge and pick the overlay page. Decoded GIF frames show as `Uint8ClampedArray` held by `GifCanvasPlayer`'s frames.
+2. **DevTools heap snapshot (JS heap of one page)**: The control window opens devtools in dev builds. Use Memory → Heap snapshot and sort by Retained size. For an overlay, run the app with `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9222`, then open `edge://inspect` in Edge and pick the overlay page. GIF frames are decoded in `src/workers/gifPlayer.worker.ts` (WebCodecs `ImageDecoder`, gifuct fallback), so inspect the worker, not the page heap.
 3. **Sysinternals VMMap (native memory of one process).**
    - Pick the `msedgewebview2.exe` renderer and compare:
      - **Private Data**: JS heap, DOM, decoded images.
@@ -46,7 +46,7 @@ Private MB per process:
   - All pages are on the same origin, so they now share one renderer process instead of one each.
   - Trade-off: a renderer crash takes every window down at once, and all pages share one JS main thread. That's fine for these light pages.
 - **Control window sleeps while hidden** (`window_manager::hide_control` / `show_control`, through `set_webview_dormant`).
-- **Default pool size 4 instead of 8.** The Settings hint now says each reserved slot costs memory.
+- **Default pool size 4 instead of 8.** The Settings hint says the app reserves 1 window per animation at startup, that the count can be raised (1-20) to place more, and that it applies after restarting.
 
 ## After
 

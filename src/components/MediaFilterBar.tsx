@@ -17,6 +17,7 @@ const TYPE_OPTIONS: { value: MediaFilters['type']; label: string }[] = [
 	{ value: 'jpeg', label: t.storage.types.jpeg },
 	{ value: 'png', label: t.storage.types.png },
 	{ value: 'webp', label: t.storage.types.webp },
+	{ value: 'svg', label: t.storage.types.svg },
 ];
 
 const SORT_OPTIONS: { value: SortMode; label: string }[] = [

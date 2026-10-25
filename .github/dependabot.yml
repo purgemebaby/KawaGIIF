@@ -1,0 +1,44 @@
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      npm-minor-patch:
+        update-types:
+          - 'minor'
+          - 'patch'
+
+  - package-ecosystem: cargo
+    directory: /src-tauri
+    schedule:
+      interval: weekly
+    groups:
+      cargo-minor-patch:
+        update-types:
+          - 'minor'
+          - 'patch'
+    # These must be upgraded together by hand: our `windows` crate must equal
+    # the version tao uses (check `cargo tree -i windows`). Security updates
+    # still arrive.
+    ignore:
+      - dependency-name: 'tauri*'
+        update-types: ['version-update:semver-minor', 'version-update:semver-major']
+      - dependency-name: 'tao'
+        update-types: ['version-update:semver-minor', 'version-update:semver-major']
+      - dependency-name: 'windows'
+        update-types: ['version-update:semver-minor', 'version-update:semver-major']
+      - dependency-name: 'webview2-com*'
+        update-types: ['version-update:semver-minor', 'version-update:semver-major']
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      github-actions-minor-patch:
+        update-types:
+          - 'minor'
+          - 'patch'

@@ -1,4 +1,4 @@
-import libraryChibi from '../../assets/mascot/library.png';
+import libraryChibi from '../../assets/mascot/library.webp';
 import './Mascot.css';
 
 interface LibraryMascotProps {

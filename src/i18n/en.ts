@@ -22,6 +22,23 @@ export const en = {
 		dismiss: 'Dismiss',
 	},
 
+	errors: {
+		generic: (detail: string) => `Something went wrong: ${detail}`,
+		// Boot report; only the parts above zero are joined.
+		overlaysSkipped: (missing: number, notPlaced: number, poolSize: number) => {
+			const parts: string[] = [];
+			if (missing > 0)
+				parts.push(
+					`${missing} saved animation${missing === 1 ? '' : 's'} skipped: file${missing === 1 ? '' : 's'} not found.`,
+				);
+			if (notPlaced > 0)
+				parts.push(
+					`${notPlaced} animation${notPlaced === 1 ? '' : 's'} didn't fit. Raise “Simultaneous animations” in Settings (now ${poolSize}).`,
+				);
+			return parts.join(' ');
+		},
+	},
+
 	home: {
 		minimizeToTray: 'Hide as icon',
 		panic: {
@@ -29,6 +46,13 @@ export const en = {
 				'Tired of the animations? Close them all in one click (you will keep the configuration)',
 			button: 'Remove windows',
 		},
+	},
+
+	update: {
+		title: (version: string) => `New update (●´ω｀●) v${version}`,
+		install: 'Update',
+		installing: 'Updating…',
+		dismiss: 'Dismiss',
 	},
 
 	storage: {
@@ -48,6 +72,7 @@ export const en = {
 			jpeg: 'JPEG',
 			png: 'PNG',
 			webp: 'WEBP',
+			svg: 'SVG',
 		},
 		sort: {
 			label: 'Sort',

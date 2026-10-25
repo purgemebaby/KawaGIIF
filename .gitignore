@@ -16,20 +16,14 @@ dist-ssr
 src-tauri/target/
 src-tauri/gen/schemas/
 
-# Claude Code: agents, hooks, scripts, the kg-swarm skill and settings.json are shared; the rest is machine-specific
-.claude/*
-!.claude/agents/
-!.claude/hooks/
-!.claude/scripts/
-!.claude/settings.json
-!.claude/skills/
-.claude/skills/*
-!.claude/skills/kg-swarm/
-.claude/hooks/.state/
+# Claude Code setup stays local to the owner's machine
+.claude/
+CLAUDE.md
 .agents/
 skills-lock.json
 
-# Local environment variables and secrets
+# Local environment variables and secrets (the updater signing key lives in %USERPROFILE%\.tauri, never here)
+*.key
 .env
 .env.local
 .env.*.local
@@ -45,6 +39,7 @@ skills-lock.json
 *.sln
 *.sw?
 .codegraph/*
+graphify-out
 
 # Windows
 Thumbs.db

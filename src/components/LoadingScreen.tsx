@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useLoadingIndicator } from '../hooks/useLoadingIndicator';
 import KawaTitle from './brand/KawaTitle';
-import loadingIcon from '../assets/mascot/loading-icon.png';
+import loadingIcon from '../assets/mascot/loading-icon.webp';
 import './LoadingScreen.css';
 
 // floor so the neon bar is on screen long enough to be seen. the real length comes from `steps`

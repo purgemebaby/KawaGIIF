@@ -13,9 +13,6 @@ use crate::error::{AppError, AppResult};
 use crate::library::{LibraryState, MediaType};
 use crate::window_manager;
 
-#[cfg(windows)]
-use crate::native::windows as native;
-
 /* Personal Note for me:
 - tauri::Emitter + EventTarget: `emit_to(EventTarget::webview_window(label), ..)` sends an event to one window only.
 */
@@ -34,12 +31,9 @@ static PENDING_FIT: Mutex<Option<(Uuid, u32, u32)>> = Mutex::new(None);
 
 fn template_path() -> PathBuf { config::data_dir().join("template.json") }
 
-/** Reads `template.json` (positions and sizes in physical pixels, what `Moved`/`Resized` report). A missing or broken file gives an empty template. */
+/** Reads `template.json` (positions and sizes in physical pixels, what `Moved`/`Resized` report). A missing file gives an empty template; a broken one is set aside first. */
 fn load_template_from_disk() -> Template {
-    std::fs::read_to_string(template_path())
-        .ok()
-        .and_then(|contents| serde_json::from_str(&contents).ok())
-        .unwrap_or_default()
+    config::read_or_quarantine(&template_path(), |s| serde_json::from_str(s).ok())
 }
 
 fn save_template_to_disk(tpl: &Template) -> AppResult<()> {
@@ -148,6 +142,11 @@ pub struct SpawnedOverlay {
     pub window_label: &'static str,
 }
 
+/** Saved animations the boot placement left out, so the control window can tell the user why. */
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct OverlaysSkipped { missing: usize, not_placed: usize, pool_size: usize }
+
 /** Payload of the per-item events, with `instance_id` so an overlay drops anything that is not its own. */
 #[derive(Serialize, Clone)]
 struct ItemValueChanged<T: Clone> {
@@ -186,8 +185,17 @@ impl Editor {
         (0..self.slots.len()).filter(|&i| self.slots[i].is_some()).collect()
     }
 
+    /// The slot `alloc_slot` takes next.
+    fn next_free_slot(&self) -> Option<usize> { self.slots.iter().position(Option::is_none) }
+
+    /// Free slots sleep, except the next one while the editor is open: a drag from the media bar then shows at once
+    /// instead of waiting ~400 ms for WebView2 to resume.
+    fn should_sleep(&self, slot: usize) -> bool {
+        self.slots.get(slot).is_some_and(Option::is_none) && !(self.edit_mode && self.next_free_slot() == Some(slot))
+    }
+
     fn alloc_slot(&mut self, instance_id: Uuid, arrival: Arrival) -> AppResult<usize> {
-        let slot = self.slots.iter().position(Option::is_none).ok_or(AppError::PoolFull(self.slots.len()))?;
+        let slot = self.next_free_slot().ok_or(AppError::PoolFull(self.slots.len()))?;
         self.slots[slot] = Some(instance_id);
         self.arrivals[slot] = arrival;
         Ok(slot)
@@ -288,8 +296,23 @@ fn release_all_slots(app: &AppHandle, state: &EditorState) {
     }
 }
 
-fn slot_is_free(app: &AppHandle, slot: usize) -> bool {
-    app.state::<EditorState>().lock().slots.get(slot).is_some_and(Option::is_none)
+fn slot_should_sleep(app: &AppHandle, slot: usize) -> bool { app.state::<EditorState>().lock().should_sleep(slot) }
+
+/** Wakes the editor's spare slot (see `Editor::should_sleep`), so it is ready before the next drag. */
+fn warm_spare_slot(app: &AppHandle) {
+    let Some(slot) = app.state::<EditorState>().lock().next_free_slot() else { return; };
+    let Some(window) = window_manager::slot_window(app, slot) else { return; };
+    let handle = app.clone();
+    window_manager::set_slot_dormant(&window, false, move || !slot_should_sleep(&handle, slot));
+}
+
+/** Puts free slots back to sleep once the editor closes; a slot reused or an editor reopened meanwhile stays awake. */
+fn sleep_free_slots(app: &AppHandle) {
+    for slot in 0..window_manager::pool_size() {
+        let Some(window) = window_manager::slot_window(app, slot) else { continue; };
+        let handle = app.clone();
+        window_manager::set_slot_dormant(&window, true, move || slot_should_sleep(&handle, slot));
+    }
 }
 
 fn respawn_overlays_from(app: &AppHandle, state: &EditorState, tpl: &Template, interactive: bool) -> AppResult<()> {
@@ -305,8 +328,8 @@ fn respawn_overlays_from(app: &AppHandle, state: &EditorState, tpl: &Template, i
 #[tauri::command]
 pub fn overlay_idle(app: AppHandle, window: WebviewWindow) {
     let Some(slot) = window_manager::slot_from_label(window.label()) else { return; };
-    if slot_is_free(&app, slot) {
-        window_manager::set_slot_dormant(&window, true, move || slot_is_free(&app, slot));
+    if slot_should_sleep(&app, slot) {
+        window_manager::set_slot_dormant(&window, true, move || slot_should_sleep(&app, slot));
     }
 }
 
@@ -392,18 +415,12 @@ pub fn show_saved_overlays(app: &AppHandle) {
         tpl.items.iter().partition(|item| lib.has_file(&item.media_id))
     };
     let missing = missing.len();
-    if missing > 0 { eprintln!("[kawagiif] {missing} saved animation(s) skipped: their media file is missing."); }
 
     release_all_slots(app, &state);
 
     let skipped = placeable.into_iter().filter(|item| place_item_in_slot(app, &state, item, false, Arrival::Pop).is_err()).count();
-    if skipped > 0 {
-        eprintln!(
-            "[kawagiif] {skipped} saved animation(s) were not placed: the template has {} items and the pool holds {}. \
-             Raise \"Simultaneous animations\" in Settings and restart.",
-            tpl.items.len(),
-            window_manager::pool_size(),
-        );
+    if missing > 0 || skipped > 0 {
+        let _ = app.emit_to(EventTarget::webview_window(window_manager::CONTROL_LABEL), "overlays-skipped", OverlaysSkipped { missing, not_placed: skipped, pool_size: window_manager::pool_size() });
     }
     window_manager::log_overlay_state(app, "startup, template restored");
 }
@@ -520,7 +537,7 @@ pub fn set_edit_mode(app: AppHandle, state: State<EditorState>, enabled: bool) {
         editor.edit_mode = enabled;
         if !enabled { editor.selected = None; }
     }
-    if !enabled { notify_selection_cleared(&app); }
+    if enabled { warm_spare_slot(&app); } else { notify_selection_cleared(&app); sleep_free_slots(&app); }
     // on the main thread like every other refresh, so two of them can never apply out of order
     let handle = app.clone();
     let _ = app.run_on_main_thread(move || refresh_edit_activity(&handle));
@@ -722,6 +739,7 @@ pub fn spawn_placed_media(app: AppHandle, state: State<EditorState>, media_id: U
         }
     });
 
+    warm_spare_slot(&app); // the next drag gets an awake window too
     notify_placed_items_changed(&app);
     window_manager::log_overlay_state(&app, "animation placed");
     Ok(SpawnedOverlay { instance_id, window_label: window_manager::slot_label(slot) })
@@ -732,50 +750,6 @@ pub fn remove_placed_media(app: AppHandle, state: State<EditorState>, instance_i
     state.lock().working.items.retain(|item| item.instance_id != instance_id);
     release_slot_for_instance(&app, &state, &instance_id);
     notify_placed_items_changed(&app);
-}
-
-/** Where `clamp_to_work_area` would move a window: the top-left `pos` is pulled back inside the monitor (minus `inset`), so the transparent `HANDLE_MARGIN` may overhang the edge. */
-fn limit_to_monitor(pos: (i32, i32), size: (u32, u32), monitor_rect: (i32, i32, i32, i32), inset: i32) -> (i32, i32) {
-    let (wx, wy, ww, wh) = monitor_rect;
-    let x = pos.0.min(wx + ww - size.0 as i32 + inset).max(wx - inset);
-    let y = pos.1.min(wy + wh - size.1 as i32 + inset).max(wy - inset);
-    (x, y)
-}
-
-/**
- * Slides a grown overlay back onto its monitor instead of teleporting it. `fit_overlay_to_media` can grow a dropped
- * animation past the screen edge. `clamp_to_work_area` jumps it there, so this eases it over ~10 frames and clamps at
- * the end as a safety net. Jumps straight there when the nav animations are off or the window already fits.
- */
-fn slide_into_view(window: &WebviewWindow) {
-    #[cfg(windows)]
-    {
-        let Ok(hwnd) = window.hwnd() else { window_manager::clamp_to_work_area(window); return; };
-        let Some(rect) = native::force_work_area(hwnd) else { window_manager::clamp_to_work_area(window); return; };
-        let (Ok(pos), Ok(size), Ok(scale)) = (window.outer_position(), window.outer_size(), window.scale_factor()) else { return; };
-        let inset = (f64::from(window_manager::HANDLE_MARGIN) * scale).round() as i32;
-        let target = limit_to_monitor((pos.x, pos.y), (size.width, size.height), rect, inset);
-        if target == (pos.x, pos.y) { return; }
-        if !config::load().nav_animations { window_manager::clamp_to_work_area(window); return; }
-
-        let window = window.clone();
-        let start = (pos.x, pos.y);
-        window_manager::SLIDING.store(true, Ordering::Relaxed);
-        std::thread::spawn(move || {
-            for i in 1..=10 {
-                let t = i as f64 / 10.0;
-                let ease = t * (2.0 - t); // ease-out quad
-                let x = start.0 + ((target.0 - start.0) as f64 * ease).round() as i32;
-                let y = start.1 + ((target.1 - start.1) as f64 * ease).round() as i32;
-                let _ = window.set_position(PhysicalPosition::new(x, y));
-                std::thread::sleep(Duration::from_millis(16));
-            }
-            window_manager::SLIDING.store(false, Ordering::Relaxed);
-            window_manager::clamp_to_work_area(&window); // safety net
-        });
-    }
-    #[cfg(not(windows))]
-    window_manager::clamp_to_work_area(window);
 }
 
 /// Sizes the window to the media's aspect ratio, shrunk to `MAX_SPAWN_SIDE` (scaled to the monitor's DPI) but never
@@ -816,7 +790,7 @@ pub fn fit_overlay_to_media(
 
     if let Some(window) = window {
         let _ = window_manager::place(&window, x, y, width, height);
-        slide_into_view(&window);
+        window_manager::slide_into_view(&window);
     }
 }
 
@@ -830,18 +804,20 @@ pub fn nudge_overlay(window: WebviewWindow, dx: i32, dy: i32) -> AppResult<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::limit_to_monitor;
+    use super::*;
+
+    fn editor_with(slots: Vec<Option<Uuid>>, edit_mode: bool) -> Editor {
+        let arrivals = vec![Arrival::Reload; slots.len()];
+        Editor { working: Template::default(), saved: Template::default(), selected: None, edit_mode, edit_active: false, slots, arrivals, save_generation: 0 }
+    }
 
     #[test]
-    fn limit_keeps_inside_and_pulls_edges_back() {
-        let monitor = (100, 100, 500, 500);
-        let size = (100, 100);
-        let inset = 32;
-        // fully inside stays put
-        assert_eq!(limit_to_monitor((200, 200), size, monitor, inset), (200, 200));
-        // overflowing right and bottom slides to the far edge, inset in from it
-        assert_eq!(limit_to_monitor((900, 900), size, monitor, inset), (532, 532));
-        // overflowing left and top slides to the near edge, inset in from it
-        assert_eq!(limit_to_monitor((-50, -50), size, monitor, inset), (68, 68));
+    fn only_the_next_free_slot_stays_awake_while_editing() {
+        let editing = editor_with(vec![Some(Uuid::new_v4()), None, None], true);
+        assert!(!editing.should_sleep(0)); // occupied
+        assert!(!editing.should_sleep(1)); // the spare the next drag takes
+        assert!(editing.should_sleep(2));
+        let closed = editor_with(vec![Some(Uuid::new_v4()), None, None], false);
+        assert!(closed.should_sleep(1)); // editor closed: every free slot sleeps
     }
 }

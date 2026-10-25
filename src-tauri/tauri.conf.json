@@ -41,12 +41,37 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["nsis"],
+    "createUpdaterArtifacts": true,
+    "publisher": "Alberto",
+    "copyright": "Copyright (c) 2026 Alberto. MIT License.",
+    "homepage": "https://github.com/purgemebaby/KawaGIIF",
+    "category": "Utility",
+    "shortDescription": "GIFs, images and videos as transparent overlays on your desktop",
+    "longDescription": "KawaGiif shows GIFs, images and videos as transparent, always-on-top, click-through overlays on the Windows desktop. Light enough to stay on all day next to games.",
+    "licenseFile": "../LICENSE",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.ico"
-    ]
+    ],
+    "windows": {
+      "nsis": {
+        "languages": ["English", "Spanish"]
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDcxMjk5QUIyNTdGMUUwNUIKUldSYjRQRlhzcG9wY1hiT1NZWkQ0YnkvcFQvekZNQk5lMDZtdlhGNEZpbEM2TjNvdFUxWWE0ekcK",
+      "endpoints": [
+        "https://github.com/purgemebaby/KawaGIIF/releases/latest/download/latest.json"
+      ],
+      "requireSignedVersion": true,
+      "windows": {
+        "installMode": "passive"
+      }
+    }
   }
 }

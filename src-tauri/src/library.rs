@@ -4,7 +4,6 @@ use std::collections::{HashMap, HashSet};
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, MutexGuard, PoisonError};
-use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, State};
 use uuid::Uuid;
 
@@ -14,9 +13,6 @@ use crate::template::{self, EditorState};
 
 
 
-fn now_unix() -> u64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs())
-}
 fn notify_library_changed(app: &AppHandle) {
     let _ = app.emit("library-changed", ());
 }
@@ -111,7 +107,7 @@ impl MediaItem {
                 .unwrap_or("file")
                 .to_owned(),
             media_type,
-            imported_at_unix: now_unix(),
+            imported_at_unix: config::now_unix(),
             tags: Vec::new(),
             source_path: Some(source_key(source)),
             missing: false,
@@ -235,10 +231,7 @@ impl LibraryIndex {
     }
     /// Loads the index, normalizing tags and stripping legacy extensions.
     fn load() -> Self {
-        let mut index: Self = std::fs::read_to_string(Self::index_path())
-            .ok()
-            .and_then(|contents| serde_json::from_str(&contents).ok())
-            .unwrap_or_default();
+        let mut index: Self = config::read_or_quarantine(&Self::index_path(), |s| serde_json::from_str(s).ok());
 
         let known = index.known_tags();
         for item in &mut index.items {

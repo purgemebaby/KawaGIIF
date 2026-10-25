@@ -4,7 +4,7 @@ import { invoke } from '../../lib/ipc';
 import { useLoadingIndicator } from '../../hooks/useLoadingIndicator';
 import { t } from '../../i18n';
 import SettingsRowText from './SettingsRowText';
-import loadingIcon from '../../assets/mascot/loading-icon.png';
+import loadingIcon from '../../assets/mascot/loading-icon.webp';
 import './LoadingIndicatorRow.css';
 
 const INDICATOR_EXTENSIONS = ['gif', 'png', 'jpg', 'jpeg'];

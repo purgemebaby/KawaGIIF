@@ -25,6 +25,22 @@ export const es: Strings = {
 		dismiss: 'Descartar',
 	},
 
+	errors: {
+		generic: (detail: string) => `Algo salió mal: ${detail}`,
+		overlaysSkipped: (missing: number, notPlaced: number, poolSize: number) => {
+			const parts: string[] = [];
+			if (missing > 0)
+				parts.push(
+					`${missing} animación${missing === 1 ? '' : 'es'} guardada${missing === 1 ? '' : 's'} omitida${missing === 1 ? '' : 's'}: archivo${missing === 1 ? '' : 's'} no encontrado${missing === 1 ? '' : 's'}.`,
+				);
+			if (notPlaced > 0)
+				parts.push(
+					`${notPlaced} animación${notPlaced === 1 ? '' : 'es'} no ${notPlaced === 1 ? 'cupo' : 'cupieron'}. Sube “Animaciones simultáneas” en Ajustes (ahora ${poolSize}).`,
+				);
+			return parts.join(' ');
+		},
+	},
+
 	home: {
 		minimizeToTray: 'Ocultar como icono',
 		panic: {
@@ -32,6 +48,13 @@ export const es: Strings = {
 				'¿Cansado de las animaciones? Ciérralas todas con un clic (conservarás la configuración)',
 			button: 'Quitar ventanas',
 		},
+	},
+
+	update: {
+		title: (version: string) => `Nueva versión (●´ω｀●) v${version}`,
+		install: 'Actualizar',
+		installing: 'Actualizando…',
+		dismiss: 'Cerrar',
 	},
 
 	storage: {
@@ -52,6 +75,7 @@ export const es: Strings = {
 			jpeg: 'JPEG',
 			png: 'PNG',
 			webp: 'WEBP',
+			svg: 'SVG',
 		},
 		sort: {
 			label: 'Ordenar',

@@ -3,6 +3,7 @@ import { useMascotShown } from '../hooks/useMascotShown';
 import KawaTitle from './brand/KawaTitle';
 import KawaiiBackdrop from './brand/KawaiiBackdrop';
 import RadialMenu from './home/RadialMenu';
+import UpdateNotice from './home/UpdateNotice';
 import HomeMascot from './mascot/HomeMascot';
 import SketchIcon from './ui/SketchIcon';
 import type { Screen } from './navItems';
@@ -26,6 +27,8 @@ function HomeScreen({
 	return (
 		<div className="home-screen">
 			{!quiet && <KawaiiBackdrop />}
+
+			{!quiet && !booting && <UpdateNotice />}
 
 			<div className="home-header">
 				<KawaTitle size="clamp(46px, 8cqmin, 110px)" />

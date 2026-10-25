@@ -15,7 +15,7 @@ pub const MAX_POOL: u32 = 20;
 pub const HANDLE_MARGIN: u32 = 32; // logical px of transparent room on every side of the media
 pub const CONTROL_LABEL: &str = "control";
 /** Set while a dropped overlay eases back to the screen edge, so the `Moved` clamp doesn't jump it there first. */
-pub static SLIDING: AtomicBool = AtomicBool::new(false);
+static SLIDING: AtomicBool = AtomicBool::new(false);
 const OV_LABEL: &str = "OV-SLOT-";
 const KEEPER_INTERVAL: Duration = Duration::from_secs(2);
 const KEEPER_FULLSCREEN_INTERVAL: Duration = Duration::from_millis(250); // a borderless game that goes topmost buries the overlays within this
@@ -102,25 +102,61 @@ pub fn raise_overlays_above_control(app: &AppHandle) {
     after_queued(&control, move |_| raise_visible_overlays(&handle, false));
 }
 
+/** Where `clamp_to_work_area` would move a window: the top-left `pos` is pulled back inside the monitor (minus `inset`), so the transparent `HANDLE_MARGIN` may overhang the edge. */
+fn limit_to_monitor(pos: (i32, i32), size: (u32, u32), monitor_rect: (i32, i32, i32, i32), inset: i32) -> (i32, i32) {
+    let (wx, wy, ww, wh) = monitor_rect;
+    let x = pos.0.min(wx + ww - size.0 as i32 + inset).max(wx - inset);
+    let y = pos.1.min(wy + wh - size.1 as i32 + inset).max(wy - inset);
+    (x, y)
+}
+
+/** A window's top-left now and where `limit_to_monitor` clamps it to (`None` when the monitor can't be queried). */
+fn work_area_target(window: &WebviewWindow) -> Option<((i32, i32), (i32, i32))> {
+    #[cfg(windows)]
+    let target = {
+        let rect = native::force_work_area(window.hwnd().ok()?)?;
+        let (pos, size, scale) = (window.outer_position().ok()?, window.outer_size().ok()?, window.scale_factor().ok()?);
+        let inset = (f64::from(HANDLE_MARGIN) * scale).round() as i32;
+        let pos = (pos.x, pos.y);
+        Some((pos, limit_to_monitor(pos, (size.width, size.height), rect, inset)))
+    };
+    #[cfg(not(windows))]
+    let target = { let _ = window; None };
+    target
+}
+
 /** Keeps an overlay's media inside the whole rectangle of its monitor (taskbar included, on purpose): the window itself may overhang it by `HANDLE_MARGIN`, which is transparent. Returns `true` if it moved. */
 pub fn clamp_to_work_area(window: &WebviewWindow) -> bool {
-    #[cfg(windows)]
-    {
-        let Ok(hwnd) = window.hwnd() else { return false; };
-        let Some((wx, wy, ww, wh)) = native::force_work_area(hwnd) else { return false; };
-        let (Ok(pos), Ok(size), Ok(scale)) = (window.outer_position(), window.outer_size(), window.scale_factor()) else { return false; };
-        let inset = (f64::from(HANDLE_MARGIN) * scale).round() as i32;
+    let Some((pos, target)) = work_area_target(window) else { return false; };
+    if target == pos { return false; }
+    let _ = window.set_position(PhysicalPosition::new(target.0, target.1));
+    true
+}
 
-        let x = pos.x.min(wx + ww - size.width as i32 + inset).max(wx - inset);
-        let y = pos.y.min(wy + wh - size.height as i32 + inset).max(wy - inset);
-        if (x, y) != (pos.x, pos.y) {
+/**
+ * Slides a grown overlay back onto its monitor instead of teleporting it. `fit_overlay_to_media` can grow a dropped
+ * animation past the screen edge. `clamp_to_work_area` jumps it there, so this eases it over ~10 frames and clamps at
+ * the end as a safety net. Jumps straight there when the nav animations are off or the window already fits.
+ */
+pub fn slide_into_view(window: &WebviewWindow) {
+    let Some((start, target)) = work_area_target(window) else { return; };
+    if target == start { return; }
+    if !crate::config::load().nav_animations { clamp_to_work_area(window); return; }
+
+    let window = window.clone();
+    SLIDING.store(true, Ordering::Relaxed);
+    std::thread::spawn(move || {
+        for i in 1..=10 {
+            let t = i as f64 / 10.0;
+            let ease = t * (2.0 - t); // ease-out quad
+            let x = start.0 + ((target.0 - start.0) as f64 * ease).round() as i32;
+            let y = start.1 + ((target.1 - start.1) as f64 * ease).round() as i32;
             let _ = window.set_position(PhysicalPosition::new(x, y));
-            return true;
+            std::thread::sleep(Duration::from_millis(16));
         }
-    }
-    #[cfg(not(windows))]
-    let _ = window;
-    false
+        SLIDING.store(false, Ordering::Relaxed);
+        clamp_to_work_area(&window); // safety net
+    });
 }
 
 /** Moves and resizes a window in one step (physical px). */
@@ -503,4 +539,22 @@ fn primary_button_down() -> bool {
     return native::primary_button_down();
     #[cfg(not(windows))]
     false
+}
+
+#[cfg(test)]
+mod tests {
+    use super::limit_to_monitor;
+
+    #[test]
+    fn limit_keeps_inside_and_pulls_edges_back() {
+        let monitor = (100, 100, 500, 500);
+        let size = (100, 100);
+        let inset = 32;
+        // fully inside stays put
+        assert_eq!(limit_to_monitor((200, 200), size, monitor, inset), (200, 200));
+        // overflowing right and bottom slides to the far edge, inset in from it
+        assert_eq!(limit_to_monitor((900, 900), size, monitor, inset), (532, 532));
+        // overflowing left and top slides to the near edge, inset in from it
+        assert_eq!(limit_to_monitor((-50, -50), size, monitor, inset), (68, 68));
+    }
 }
