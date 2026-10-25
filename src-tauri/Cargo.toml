@@ -30,7 +30,7 @@ toml = "0.8"
 dirs = "6"
 uuid = { version = "1", features = ["v4", "serde"] }
 thiserror = "2"
-sysinfo = { version = "0.33", default-features = false, features = ["system"] }
+sysinfo = { version = "0.39", default-features = false, features = ["system"] }
 tauri-plugin-single-instance = "~2.4.5"
 tauri-plugin-updater = "~2.12.0"
 
