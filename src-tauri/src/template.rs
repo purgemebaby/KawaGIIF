@@ -220,7 +220,7 @@ impl Editor {
             if let Some((w, h)) = size { item.width = w; item.height = h; }
             before != (item.x, item.y, item.width, item.height)
         };
-        let mut changed = self.item_mut(instance_id).is_some_and(&apply);
+        let mut changed = self.item_mut(instance_id).is_some_and(apply);
         if also_saved {
             if let Some(item) = self.saved.items.iter_mut().find(|item| item.instance_id == *instance_id) {
                 changed |= apply(item);

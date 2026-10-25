@@ -10,6 +10,13 @@ updates:
         update-types:
           - 'minor'
           - 'patch'
+    ignore:
+      # The Tauri CLI requires @tauri-apps/* to match the Rust tauri crate: upgrade both together by hand.
+      - dependency-name: '@tauri-apps/*'
+        update-types: ['version-update:semver-minor', 'version-update:semver-major']
+      # TypeScript majors change the compiler; adopt them on purpose, not from a weekly PR.
+      - dependency-name: 'typescript'
+        update-types: ['version-update:semver-major']
 
   - package-ecosystem: cargo
     directory: /src-tauri
