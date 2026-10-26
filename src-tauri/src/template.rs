@@ -70,10 +70,26 @@ fn notify_selection_cleared(app: &AppHandle) {
     let _ = app.emit("selection-changed", Option::<Uuid>::None);
 }
 
-/** Drops the selection without touching edit mode, for a click-through release (Ctrl+Alt+Esc) outside the editor. */
-pub fn clear_selection(app: &AppHandle) {
-    app.state::<EditorState>().lock().selected = None;
-    notify_selection_cleared(app);
+/**
+ * Ctrl+Alt+Esc outside the editor: the first press makes every overlay clickable and drops the selection (so no stale one
+ * shows up when the editor opens), the next one makes them click-through again. Does nothing while editing is live: the
+ * overlays are clickable already. `refresh_edit_activity` resets it, so the first press after the editor closes releases.
+ */
+pub fn toggle_click_through_release(app: &AppHandle) {
+    let state = app.state::<EditorState>();
+    let released: bool = {
+        let mut editor = state.lock();
+        if editor.edit_active { return; }
+        editor.click_through_released = !editor.click_through_released;
+        if editor.click_through_released { editor.selected = None; }
+        editor.click_through_released
+    };
+
+    for window in window_manager::overlay_windows(app) {
+        window_manager::set_overlay_click_through(&window, !released);
+        let _ = app.emit_to(EventTarget::webview_window(window.label()), "click-through-changed", !released);
+    }
+    if released { notify_selection_cleared(app); }
 }
 
 
@@ -165,6 +181,7 @@ pub struct Editor {
     selected: Option<Uuid>,
     edit_mode: bool, // the editor screen is open (the intent)
     edit_active: bool, // what `refresh_edit_activity` last applied: edit_mode, control window open and app in the foreground
+    click_through_released: bool, // Ctrl+Alt+Esc made the overlays clickable outside the editor
     slots: Vec<Option<Uuid>>,
     arrivals: Vec<Arrival>, // per slot, read by `get_slot_info`
     save_generation: u64, // last move waiting for `schedule_save`
@@ -239,6 +256,7 @@ impl Default for EditorState {
             selected: None,
             edit_mode: false,
             edit_active: false,
+            click_through_released: false,
             slots: vec![None; window_manager::pool_size()],
             arrivals: vec![Arrival::Reload; window_manager::pool_size()],
             save_generation: 0,
@@ -552,6 +570,7 @@ pub fn refresh_edit_activity(app: &AppHandle) {
         let active: bool = editor.edit_mode && in_use;
         if active == editor.edit_active { return; }
         editor.edit_active = active;
+        editor.click_through_released = false; // the loop below sets every occupied overlay anyway
         (active, editor.occupied_slots())
     };
 
@@ -808,7 +827,7 @@ mod tests {
 
     fn editor_with(slots: Vec<Option<Uuid>>, edit_mode: bool) -> Editor {
         let arrivals = vec![Arrival::Reload; slots.len()];
-        Editor { working: Template::default(), saved: Template::default(), selected: None, edit_mode, edit_active: false, slots, arrivals, save_generation: 0 }
+        Editor { working: Template::default(), saved: Template::default(), selected: None, edit_mode, edit_active: false, click_through_released: false, slots, arrivals, save_generation: 0 }
     }
 
     #[test]

@@ -28,15 +28,6 @@ use updater::UpdateState;
 
 
 
-/** Turns click-through off on every overlay and drops the selection, which means nothing outside the editor. */
-fn release_all_click_through(app: &AppHandle) {
-    for window in window_manager::overlay_windows(app) {
-        window_manager::set_overlay_click_through(&window, false);
-        let _ = app.emit_to(EventTarget::webview_window(window.label()), "click-through-changed", false);
-    }
-    template::clear_selection(app);
-}
-
 /** The X button hides to the tray. With unsaved editor changes it emits `close-requested` instead so React can ask. */
 fn handle_control_close(control: &WebviewWindow) {
     let pending_edit: bool = control.state::<EditorState>().lock().has_unsaved_edits();
@@ -56,7 +47,8 @@ fn handle_exit(app: &AppHandle) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // global on purpose: a click-through overlay never gets keyboard focus, so a local Escape can't reach it
+    // global on purpose: a click-through overlay never gets keyboard focus, so a local Escape can't reach it.
+    // AltGr counts as Ctrl+Alt on Windows, so AltGr+Esc fires it too
     let release_shortcut: Shortcut = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::ALT), Code::Escape);
 
     tauri::Builder::default()
@@ -73,7 +65,7 @@ pub fn run() {
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(move |app, shortcut, event| {
                     if *shortcut == release_shortcut && event.state == ShortcutState::Pressed {
-                        release_all_click_through(app);
+                        template::toggle_click_through_release(app);
                     }
                 })
                 .build(),

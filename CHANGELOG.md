@@ -18,7 +18,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - The app checks GitHub for updates at launch: Home shows a card with the new version, and installing it is optional.
 - Single instance: launching the app a second time just shows the control panel again.
 - No taskbar or Alt+Tab entry; closing the window hides it to the system tray.
-- `Ctrl+Alt+Esc` releases click-through on every overlay at once.
+- `Ctrl+Alt+Esc` (or `AltGr+Esc`) toggles click-through on every overlay at once: one press makes them clickable, the next one click-through again.
 
 ### Fixed
 

@@ -141,7 +141,7 @@ Arrow keys → `nudge_overlay(dx, dy)` (Shift = 10 px steps).
 `set_edit_mode` only records the intent (the editor screen is open). `template::refresh_edit_activity` decides whether editing is *active*: intent, and the control window visible and not minimized (`window_manager::control_is_open`), and one of our windows in the foreground (`native::foreground_is_ours`, fed by `watch_any_foreground`).
 When it is not active, editing is *suspended*: overlays go click-through again, the selection outline and handles are hidden, and the control window stops being topmost. The working copy and the selection stay, and editing resumes when the app is foregrounded again. Nothing is saved or discarded automatically.
 Losing the foreground suspends after 150 ms (`refresh_edit_activity_soon`), because clicking from one of our windows to another briefly has no foreground window of ours; resuming, hiding and minimizing apply at once. `edit-mode-changed` carries the *active* state.
-Leaving the editor sends `set_edit_mode(false)` as soon as navigation starts (`ControlApp.changeScreen`), not when the exit animation ends; the editor's unmount sends it again as a safety net, and its mount effect drops a late `set_edit_mode(true)` once it has been cleaned up. `select_overlay` ignores clicks while editing is not active, and `Ctrl+Alt+Esc` (`release_all_click_through`) also clears the selection (`template::clear_selection`), so no stale selection shows up when the editor opens again.
+Leaving the editor sends `set_edit_mode(false)` as soon as navigation starts (`ControlApp.changeScreen`), not when the exit animation ends; the editor's unmount sends it again as a safety net, and its mount effect drops a late `set_edit_mode(true)` once it has been cleaned up. `select_overlay` ignores clicks while editing is not active, and `Ctrl+Alt+Esc` (`template::toggle_click_through_release`) toggles click-through on every overlay while editing is not active. Releasing also clears the selection, so no stale selection shows up when the editor opens again. `refresh_edit_activity` resets the toggle whenever it applies, so the first press after leaving the editor releases again.
 
 ### 4.4 Save / discard
 
@@ -215,7 +215,7 @@ from the any-foreground hook (a click on the control window raises it).
 | `item-opacity-changed`       | `update_item` via `set_item_opacity`             | one overlay  | `OverlayItemApp` (`"self"`)                          |
 | `item-playback-rate-changed` | `update_item` via `set_item_playback_rate`       | one overlay  | `OverlayItemApp` (`"self"`)                          |
 | `item-reset`                 | `reset_placed_media`                              | one overlay  | `OverlayItemApp` (`"self"`) → refits                 |
-| `click-through-changed`      | `lib::release_all_click_through`                 | each overlay | (not consumed yet)                                   |
+| `click-through-changed`      | `template::toggle_click_through_release`         | each overlay | (not consumed yet)                                   |
 | `update-available`           | `updater::check_in_background`                   | all          | Home (update card)                                   |
 | `overlays-skipped`           | `template::show_saved_overlays`                 | control      | boot notice for saved items left out                 |
 
