@@ -12,7 +12,7 @@
   <img src="https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D4?logo=windows&logoColor=white" alt="Platform: Windows 10 | 11">
   <img src="https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri&logoColor=white" alt="Tauri 2">
   <img src="https://img.shields.io/badge/Rust-stable-B7410E?logo=rust&logoColor=white" alt="Rust">
-  <a href="#contributing"><img src="https://img.shields.io/badge/PRs-welcome-a97bff" alt="PRs welcome"></a>
+  <a href="#-contributing"><img src="https://img.shields.io/badge/PRs-welcome-a97bff" alt="PRs welcome"></a>
   <a href="https://ko-fi.com/L0T824SRAJ"><img src="https://img.shields.io/badge/Ko--fi-support-72a4f2?logo=ko-fi&logoColor=white" alt="Support on Ko-fi"></a>
 </p>
 
@@ -20,10 +20,7 @@
 
 <p align="center"><b>Give your desktop some personality.</b></p>
 
-<!-- Presentation video: drag the .mp4 (max 10 MB) into a GitHub issue or the README editor,
-then paste the https://github.com/user-attachments/assets/... URL below, on a line of its own. -->
-
-## Introduction
+## <img src="src/assets/mascot/home.webp" height="40"> Introduction
 
 KawaGIIF lets you drop any GIF, image or looping video straight onto your screen, with no window, no frame and no background. Just the animation, floating on top of everything, exactly where you put it.
 
@@ -35,23 +32,23 @@ KawaGIIF lets you drop any GIF, image or looping video straight onto your screen
 
 ## Contents
 
-- [Features](#features)
-- [Download & install](#download--install)
-- [Usage](#usage)
+- [Features](#-features)
+- [Download & install](#-download--install)
+- [Usage](#-usage)
 - [Compatibility](#compatibility)
 - [Known issues](#known-issues)
-- [Build from source](#build-from-source)
+- [Build from source](#-build-from-source)
 - [Translations](#translations)
 - [Privacy](#privacy)
 - [FAQ](#faq)
-- [Contributing](#contributing)
+- [Contributing](#-contributing)
 - [AI policy](#ai-policy)
 - [Roadmap](#roadmap)
-- [Support](#support)
+- [Support](#-support)
 - [Acknowledgements](#acknowledgements)
 - [License](#license)
 
-## Features
+## <img src="src/assets/mascot/library.webp" height="40"> Features
 
 **Library**
 
@@ -74,7 +71,7 @@ KawaGIIF lets you drop any GIF, image or looping video straight onto your screen
 - English and Spanish.
 - UI font picker (any installed font), text size, window zoom and more...
 
-## Download & install
+## <img src="src/assets/mascot/update.webp" height="40"> Download & install
 
 1. Download the latest `KawaGIIF_x.y.z_x64-setup.exe` from the [releases page](https://github.com/purgemebaby/KawaGIIF/releases/latest).
 2. Run it. The installer is not signed yet, so Windows SmartScreen may show "Windows protected your PC": click **More info**, then **Run anyway**.
@@ -84,7 +81,7 @@ KawaGIIF lets you drop any GIF, image or looping video straight onto your screen
 
 **Uninstall.** Use _Settings → Apps → Installed apps → KawaGIIF → Uninstall_. Your library and settings stay in `%LOCALAPPDATA%\KawaGIIF`
 
-## Usage
+## <img src="src/assets/mascot/editor.webp" height="40"> Usage
 
 **Quick start**
 
@@ -121,7 +118,7 @@ KawaGIIF lets you drop any GIF, image or looping video straight onto your screen
 - SmartScreen warns on first install until the app builds up reputation or gets a code-signing certificate.
 - Windows 10 is not tested yet, so reports are welcome.
 
-## Build from source
+## <img src="src/assets/mascot/settings-body.webp" height="40"> Build from source
 
 **Requirements**
 
@@ -129,9 +126,19 @@ KawaGIIF lets you drop any GIF, image or looping video straight onto your screen
 - [Rust](https://rustup.rs/) stable, 1.90 or newer
 - The [Tauri prerequisites for Windows](https://tauri.app/start/prerequisites/): Microsoft C++ Build Tools and WebView2
 
+**Clone.** A plain `git clone` also downloads `docs/media/`, the images used only by this README. To get only what you need to build, skip that folder:
+
 ```shell
-git clone https://github.com/purgemebaby/KawaGIIF.git
+git clone --filter=blob:none --sparse https://github.com/purgemebaby/KawaGIIF.git
 cd KawaGIIF
+git sparse-checkout set --no-cone '*' '!docs/media/*'
+```
+
+`--filter=blob:none` downloads a file only when it is checked out, and the sparse checkout leaves `docs/media/` out, so those files never reach your disk. Run `git sparse-checkout disable` if you want it later.
+
+**Build and run**
+
+```shell
 npm install
 npm run tauri dev       # run the app with hot reload
 npm run tauri build     # build the NSIS installer (src-tauri/target/release/bundle/nsis)
@@ -173,7 +180,7 @@ About 140 MB with the panel in the tray and around 230 to 310 MB with one to thr
 **Where are my files and settings?**
 In `%LOCALAPPDATA%\KawaGIIF`; _Settings → App folder → Open folder_ takes you there. If a data file ever gets corrupted, KawaGIIF keeps it next to the others as `<name>.broken-<date>` instead of overwriting it.
 
-## Contributing
+## <img src="src/assets/mascot/empty-library.webp" height="40"> Contributing
 
 Issues and pull requests are welcome (bugs, ideas, support...) For a bug report, include your Windows version, the KawaGIIF version and the steps to reproduce it.
 
@@ -219,7 +226,7 @@ However, you stay responsible for what you submit and make sure to test it, see 
 
 Done items move to the [CHANGELOG](CHANGELOG.md).
 
-## Support
+## <img src="src/assets/mascot/loading-icon.webp" height="40"> Support
 
 KawaGIIF actual features are free and always will be. If you enjoy it, you can buy me some cokes:
 
