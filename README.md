@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/media/icon.webp" alt="KawaGIIF mascot" width="160">
+  <img src="docs/media/banner.webp" alt="KawaGIIF banner">
 </p>
 
 <p align="center">
@@ -20,10 +20,6 @@
 
 <p align="center"><b>Give your desktop some personality.</b></p>
 
-<!-- Banner: save it as docs/media/banner.png and replace this comment with:
-<p align="center"><img src="docs/media/banner.png" alt="KawaGIIF banner"></p>
--->
-
 <!-- Presentation video: drag the .mp4 (max 10 MB) into a GitHub issue or the README editor,
 then paste the https://github.com/user-attachments/assets/... URL below, on a line of its own. -->
 
@@ -35,9 +31,7 @@ KawaGIIF lets you drop any GIF, image or looping video straight onto your screen
 
 - Overlays sit on top of borderless-fullscreen games, ignore your clicks so they never steal focus, and the app idles in the tray using about as much memory as a browser tab.
 
-- Layer transparent PNGs, SVGs and animated WEBPs over your wallpaper and widgets. Resize, rotate, fade and speed up each one until the setup is pixel-perfect, then save it as your layout.
-
-Everything is **click-through** outside the editor, nothing shows up in the taskbar or Alt+Tab, and one shortcut (`Ctrl+Alt+Esc`) brings control back whenever you need it. KawaGIIF is free, open source and made to stay out of your way.
+- Layer transparent PNGs, SVGs and animated WEBPs over your wallpaper and widgets. Resize, rotate, fade and speed up each one until the setup is pixel-perfect, then save it as your layout. KawaGIIF is free, open source and made to stay out of your way.
 
 ## Contents
 
@@ -72,7 +66,7 @@ Everything is **click-through** outside the editor, nothing shows up in the task
 
 **On the desktop**
 
-- Click-through outside the editor: clicks reach whatever is below. `Ctrl+Alt+Esc` makes every overlay clickable again.
+- Click-through outside the editor: clicks reach whatever is below. `Ctrl+Alt+Esc` (or `AltGr+Esc`) makes every overlay clickable; press it again to go back to click-through.
 - Optional start with Windows, restoring your saved layout.
 
 **Interface**
@@ -103,7 +97,7 @@ Everything is **click-through** outside the editor, nothing shows up in the task
 
 | Keys                                     | Where                    | Action                               |
 | ---------------------------------------- | ------------------------ | ------------------------------------ |
-| `Ctrl` + `Alt` + `Esc`                   | Anywhere                 | Make every overlay clickable again   |
+| `Ctrl` + `Alt` + `Esc` / `Ctrl` + `AltGr` + `Esc` | Anywhere                 | Toggle click-through on every overlay |
 | `Delete` / `Backspace`                   | Editor                   | Remove the selected animation        |
 | Arrow keys (`Shift` for 10 px)           | Editor, overlay selected | Nudge the animation by 1 px          |
 | `Ctrl` + `+` / `-` / `0`, `Ctrl` + wheel | Control panel            | Zoom the interface in, out, or reset |
