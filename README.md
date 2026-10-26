@@ -18,7 +18,10 @@
 
 <h1 align="center">KawaGIIF</h1>
 
-<p align="center"><b>Give your desktop some personality.</b></p>
+https://github.com/user-attachments/assets/4827124b-1fba-4b6c-9d7b-7a6401a80ddb
+
+<a href="https://ko-fi.com/L0T824SRAJ"><img src="https://ko-fi.com/img/githubbutton_sm.svg" alt="Support me on Ko-fi"></a>
+
 
 ## <img src="src/assets/mascot/home.webp" height="40"> Introduction
 
@@ -39,13 +42,10 @@ KawaGIIF lets you drop any GIF, image or looping video straight onto your screen
 - [Known issues](#known-issues)
 - [Build from source](#-build-from-source)
 - [Translations](#translations)
-- [Privacy](#privacy)
 - [FAQ](#faq)
 - [Contributing](#-contributing)
-- [AI policy](#ai-policy)
-- [Roadmap](#roadmap)
+- [To Do](#to-do)
 - [Support](#-support)
-- [Acknowledgements](#acknowledgements)
 - [License](#license)
 
 ## <img src="src/assets/mascot/library.webp" height="40"> Features
@@ -63,7 +63,7 @@ KawaGIIF lets you drop any GIF, image or looping video straight onto your screen
 
 **On the desktop**
 
-- Click-through outside the editor: clicks reach whatever is below. `Ctrl+Alt+Esc` (or `AltGr+Esc`) makes every overlay clickable; press it again to go back to click-through.
+- Click-through outside the editor. `Ctrl+Alt+Esc` (or `AltGr+Esc`) makes every overlay clickable. Press it again to go back to click-through.
 - Optional start with Windows, restoring your saved layout.
 
 **Interface**
@@ -126,15 +126,11 @@ KawaGIIF lets you drop any GIF, image or looping video straight onto your screen
 - [Rust](https://rustup.rs/) stable, 1.90 or newer
 - The [Tauri prerequisites for Windows](https://tauri.app/start/prerequisites/): Microsoft C++ Build Tools and WebView2
 
-**Clone.** A plain `git clone` also downloads `docs/media/`, the images used only by this README. To get only what you need to build, skip that folder:
-
 ```shell
 git clone --filter=blob:none --sparse https://github.com/purgemebaby/KawaGIIF.git
 cd KawaGIIF
-git sparse-checkout set --no-cone '*' '!docs/media/*'
+git sparse-checkout set --no-cone '*' '!docs/*' #If you don't want .md overview of the app logic and profiling script.
 ```
-
-`--filter=blob:none` downloads a file only when it is checked out, and the sparse checkout leaves `docs/media/` out, so those files never reach your disk. Run `git sparse-checkout disable` if you want it later.
 
 **Build and run**
 
@@ -148,8 +144,6 @@ cd src-tauri && cargo test
 
 **Dependencies.** At runtime KawaGIIF only needs the WebView2 runtime. It is built with [Tauri 2](https://tauri.app/) (Rust + WebView2), [React 19](https://react.dev/) with TypeScript and Vite, the [`windows`](https://crates.io/crates/windows) crate for the Win32 window styles Tauri doesn't cover, [gifuct-js](https://github.com/matt-way/gifuct-js) as a GIF decoder fallback and [Motion](https://motion.dev/) for the overlay animations. The Tauri plugins are pinned to versions that match Tauri 2.11, because the `windows` crate must stay on the same version Tauri uses.
 
-The architecture is described in [docs/Rust-Guide.md](docs/Rust-Guide.md), and memory measurements in [docs/profiling.md](docs/profiling.md).
-
 ## Translations
 
 Available languages: **English** and **Spanish**. Change the language in _Settings_.
@@ -159,17 +153,12 @@ To add a language:
 1. Copy `src/i18n/en.ts` to `src/i18n/<code>.ts` and translate it. It is typed from the English file, so the compiler tells you about any missing key.
 2. Register it in `DICTIONARIES` and `LANGUAGES` in `src/i18n/index.ts`.
 3. Add the code to `LANGUAGES` in `src-tauri/src/config.rs`.
-4. Translate the three tray menu labels in `src-tauri/src/tray.rs`.
 
-Then open a pull request. Machine-assisted translations are fine, see the [AI policy](#ai-policy).
-
-## Privacy
-
-- No telemetry, no analytics, no accounts.
-- The only network request is the update check against this repository's GitHub releases at launch.
-- Imported files are copied to `%LOCALAPPDATA%\KawaGIIF\media` and never leave your computer.
+Then open a PR. Machine-assisted translations are fine, see the [AI policy](#ai-policy).
 
 ## FAQ
+**Does KawaGIIF use internet for something?**
+No telemetry, no analytics, no accounts. The only network request at the moment is the update check against this repository's GitHub releases at launch.
 
 **Why does Windows warn me when I install it?**
 The installer isn't code-signed yet. It is built in the open by [GitHub Actions](.github/workflows/release.yml) from this repository.
@@ -205,13 +194,9 @@ Conventions:
 
 To report a security problem, please use a [private security advisory](https://github.com/purgemebaby/KawaGIIF/security/advisories/new) instead of a public issue.
 
-## AI policy
+AI tools are very welcome. You can use them to write code, documentation or translations, and send the result as a pull request. I don't mind at all if you use them. However, you stay responsible for what you submit and make sure to test it, see if CI passes, and understand it well enough to answer questions in the review. 
 
-AI tools are very welcome. You can use them to write code, documentation or translations, and send the result as a pull request. I don't mind at all if you use them.
-
-However, you stay responsible for what you submit and make sure to test it, see if CI passes, and understand it well enough to answer questions in the review. 
-
-## Roadmap
+## To Do
 
 **Next (0.1.x)**
 
@@ -226,15 +211,6 @@ However, you stay responsible for what you submit and make sure to test it, see 
 
 Done items move to the [CHANGELOG](CHANGELOG.md).
 
-## <img src="src/assets/mascot/loading-icon.webp" height="40"> Support
-
-KawaGIIF actual features are free and always will be. If you enjoy it, you can buy me some cokes:
-
-<a href="https://ko-fi.com/L0T824SRAJ"><img src="https://ko-fi.com/img/githubbutton_sm.svg" alt="Support me on Ko-fi"></a>
-
-## Acknowledgements
-
-- The [Fredoka](https://fonts.google.com/specimen/Fredoka) and [Modak](https://fonts.google.com/specimen/Modak) fonts, under the SIL Open Font License
 
 ## License
 
