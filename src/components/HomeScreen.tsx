@@ -50,7 +50,6 @@ function HomeScreen({
 					type="button"
 					className="kg-btn kg-btn--danger icon-hover"
 					onClick={() => invoke('kill_all_overlays')}
-					title={t.home.panic.description}
 				>
 					<SketchIcon name="skull" />
 					{t.home.panic.button}

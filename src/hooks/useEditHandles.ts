@@ -1,4 +1,4 @@
-import { useEffect, useState, type MutableRefObject } from 'react';
+import { useEffect, useRef, useState, type MutableRefObject } from 'react';
 import { currentMonitor, getCurrentWindow } from '@tauri-apps/api/window';
 import { invoke } from '../lib/ipc';
 import {
@@ -178,5 +178,40 @@ export function useEditHandles({
 		);
 	};
 
-	return { media, flipped, onCornerStart, onRotateStart };
+	// A slider burst arrives faster than the window can resize: pin the media for the whole burst and send the
+	// latest angle once per frame, unpinning shortly after the last call so the resize can't reflow the media.
+	const burstRef = useRef<{
+		media: Size;
+		latest: { rotation: number; width: number; height: number } | null;
+		raf: number;
+		release: number;
+	} | null>(null);
+
+	const rotateTo = (deg: number) => {
+		if (!burstRef.current) {
+			burstRef.current = { media, latest: null, raf: 0, release: 0 };
+			setHeldSize(media);
+		}
+		const burst = burstRef.current;
+		setRotation(deg);
+		burst.latest = { rotation: deg, ...windowFor(burst.media, deg) };
+		if (!burst.raf) {
+			burst.raf = requestAnimationFrame(() => {
+				burst.raf = 0;
+				if (!burst.latest) return;
+				invoke('rotate_overlay', burst.latest);
+				burst.latest = null;
+			});
+		}
+		clearTimeout(burst.release);
+		burst.release = window.setTimeout(() => {
+			// a hidden window never fires rAF: send what it never did before unpinning
+			cancelAnimationFrame(burst.raf);
+			if (burst.latest) invoke('rotate_overlay', burst.latest);
+			burstRef.current = null;
+			setHeldSize(null);
+		}, 150);
+	};
+
+	return { media, flipped, onCornerStart, onRotateStart, rotateTo };
 }

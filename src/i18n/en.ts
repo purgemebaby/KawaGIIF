@@ -40,10 +40,8 @@ export const en = {
 	},
 
 	home: {
-		minimizeToTray: 'Hide as icon',
+		minimizeToTray: 'Minimize to tray',
 		panic: {
-			description:
-				'Tired of the animations? Close them all in one click (you will keep the configuration)',
 			button: 'Remove windows',
 		},
 	},
@@ -64,6 +62,11 @@ export const en = {
 		emptyFilteredHint: 'Try another search, or clear the filters.',
 		rejected: (names: string[]) =>
 			`Not imported (the content does not match the extension): ${names.join(', ')}`,
+		tooLarge: (names: string[]) =>
+			`Not imported (too big to show safely): ${names.join(', ')}`,
+		dropSkipped: (names: string[]) =>
+			`Not imported (not a GIF, video or image): ${names.join(', ')}`,
+		dropHint: 'Drop to import',
 		search: 'Search by name…',
 		types: {
 			all: 'All',
@@ -190,7 +193,9 @@ export const en = {
 		empty: 'Select an animation on the desktop to edit its properties.',
 		opacity: 'Opacity',
 		speed: 'Speed',
+		rotation: 'Rotation',
 		reset: 'Reset',
+		resetOne: (label: string) => `Reset ${label}`,
 		resetHint:
 			'Sets the size, angle, speed and opacity back to how the animation was placed. Its position stays the same.',
 	},

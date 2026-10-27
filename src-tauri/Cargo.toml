@@ -32,6 +32,9 @@ uuid = { version = "1", features = ["v4", "serde"] }
 thiserror = "2"
 sysinfo = { version = "0.33", default-features = false, features = ["system"] }
 tauri-plugin-single-instance = "~2.4.5"
+# import limits (dimensions, GIF frame count) and shrinking oversized still images
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"] }
+gif = "0.14"
 # no default "zip" feature: updates ship as a signed .exe, and zip 4.x has open advisories
 tauri-plugin-updater = { version = "~2.12.0", default-features = false, features = ["rustls-tls", "system-proxy"] }
 

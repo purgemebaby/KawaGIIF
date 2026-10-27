@@ -1,5 +1,5 @@
 import './RadialMenu.css';
-import { HOME_TILES, type Screen } from '../navItems';
+import { homeTiles, type Screen } from '../navItems';
 import SketchIcon from '../ui/SketchIcon';
 import {
 	RING_INNER,
@@ -27,6 +27,9 @@ const ICON_NUDGE: Partial<Record<Screen, number>> = {
 const CENTRE = RING_SIZE / 2;
 
 function RadialMenu({ onSelect }: RadialMenuProps) {
+	// read per render, so a language switch relabels the ring without a reload
+	const tiles = homeTiles();
+
 	const onKeyDown = (event: KeyboardEvent, id: Screen) => {
 		if (event.key !== 'Enter' && event.key !== ' ') return;
 		event.preventDefault();
@@ -56,7 +59,7 @@ function RadialMenu({ onSelect }: RadialMenuProps) {
 			</defs>
 
 			{SECTORS.map((sector) => {
-				const tile = HOME_TILES.find((item) => item.id === sector.id);
+				const tile = tiles.find((item) => item.id === sector.id);
 				if (!tile) return null;
 				const dir = directionOf(sector.id);
 				const x = CENTRE + dir.x * LABEL_RADIUS;

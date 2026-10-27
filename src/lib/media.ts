@@ -18,6 +18,22 @@ export interface TagCount {
 
 export const STATIC_TYPES: MediaType[] = ['jpeg', 'png', 'svg'];
 
+/** Extensions the importer takes. The backend still checks each file's content, so this only spares a round trip. */
+export const MEDIA_EXTENSIONS = [
+	'gif',
+	'mp4',
+	'jpg',
+	'jpeg',
+	'png',
+	'webp',
+	'svg',
+];
+
+export function hasMediaExtension(path: string): boolean {
+	const ext = path.split('.').pop()?.toLowerCase() ?? '';
+	return MEDIA_EXTENSIONS.includes(ext);
+}
+
 export const isVideoType = (type: MediaType | null): boolean => type === 'mp4';
 
 export function isImageType(type: MediaType | null): boolean {

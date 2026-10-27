@@ -24,9 +24,9 @@ export function useEscape(
 	}, [enabled, first]);
 }
 
-/** Closes on an outside pointer-down or an Escape keydown while enabled. */
+/** Closes on a pointer-down outside every ref (a portalled popover passes its own too) or an Escape keydown while enabled. */
 export function useDismiss(
-	rootRef: RefObject<HTMLElement | null>,
+	rootRefs: RefObject<HTMLElement | null> | RefObject<HTMLElement | null>[],
 	enabled: boolean,
 	onDismiss: () => void,
 ) {
@@ -37,12 +37,15 @@ export function useDismiss(
 
 	useEffect(() => {
 		if (!enabled) return;
+		const refs = Array.isArray(rootRefs) ? rootRefs : [rootRefs];
 		const onPointerDown = (e: PointerEvent) => {
-			if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
-				onDismissRef.current();
-			}
+			const inside = refs.some((ref) =>
+				ref.current?.contains(e.target as Node),
+			);
+			if (!inside && refs[0].current) onDismissRef.current();
 		};
 		window.addEventListener('pointerdown', onPointerDown, true);
 		return () => window.removeEventListener('pointerdown', onPointerDown, true);
-	}, [rootRef, enabled]);
+		// not keyed on `rootRefs`: an inline array is new every render, while the refs inside never change
+	}, [enabled]);
 }

@@ -59,10 +59,10 @@ const MOCK_RESPONSES: Record<string, unknown> = {
 	has_unsaved_changes: false,
 	get_placed_media: null,
 	get_slot_info: null,
-	get_file_size: 1024 * 1024,
+	get_file_sizes: [],
 	count_placed_media: 0,
 	find_reimports: [],
-	import_media: { items: [], rejected: [] },
+	import_media: { items: [], rejected: [], too_large: [] },
 	rename_media: null,
 	get_system_stats: {
 		total_ram_mb: 16_384,

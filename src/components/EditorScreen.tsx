@@ -14,6 +14,7 @@ import { useEditorSync } from '../hooks/useEditorSync';
 import { useDeleteShortcut } from '../hooks/useDeleteShortcut';
 import { booleanCodec, usePersistentState } from '../hooks/usePersistentState';
 import { useStorageResize } from '../hooks/useStorageResize';
+import { useUnsavedChanges } from '../hooks/useUnsavedChanges';
 import { t } from '../i18n';
 import EditorMascot from './mascot/EditorMascot';
 import EditorPanelHeader from './EditorPanelHeader';
@@ -56,6 +57,7 @@ function EditorScreen() {
 	});
 	const savedIdsRef = useRef<Set<string>>(new Set());
 	const { movedInstanceIds, resetMoved, selectedId } = useEditorSync();
+	const { dirty, refresh } = useUnsavedChanges();
 	const [storageCollapsed, setStorageCollapsed] = usePersistentState(
 		'kawagiif.editor.storage.collapsed',
 		false,
@@ -140,6 +142,7 @@ function EditorScreen() {
 			notifyError(e);
 			return;
 		}
+		refresh();
 		resetMoved();
 		close();
 	};
@@ -202,7 +205,7 @@ function EditorScreen() {
 					onToggle={() => setControlCollapsed(!controlCollapsed)}
 				/>
 				<PanelCollapse collapsed={controlCollapsed}>
-					<PropertiesPanel selectedId={selectedId} />
+					<PropertiesPanel selectedId={selectedId} onEdited={refresh} />
 				</PanelCollapse>
 			</section>
 
@@ -223,6 +226,7 @@ function EditorScreen() {
 						<button
 							type="button"
 							className="kg-btn kg-btn--secondary"
+							disabled={!dirty}
 							onClick={() => setShowUndoConfirm(true)}
 						>
 							{t.editor.undo}

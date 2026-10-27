@@ -38,6 +38,9 @@ pub enum AppError {
     #[error("No media with id {0}")]
     MediaNotFound(Uuid),
 
+    #[error("Media can only be deleted from the control window")]
+    DeleteOutsideControl,
+
     #[error("{0} placed animation(s) still show this media")]
     MediaReferenced(usize),
 

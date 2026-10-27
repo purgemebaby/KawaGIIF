@@ -14,19 +14,20 @@ interface FontRowProps {
 }
 
 // Keep inside the backend's FONT_SCALE_MIN..=FONT_SCALE_MAX (commands.rs).
-const SCALE_OPTIONS = [
-	{ value: 0.9, label: t.settings.font.sizes.small },
-	{ value: 1, label: t.settings.font.sizes.default },
-	{ value: 1.15, label: t.settings.font.sizes.large },
-	{ value: 1.3, label: t.settings.font.sizes.larger },
-];
-
 function FontRow({ font, scale, onFontChange, onScaleChange }: FontRowProps) {
 	const [open, setOpen] = useState(false);
 	const [query, setQuery] = useState('');
 	const [fonts, setFonts] = useState<string[] | null>(null);
 	const rootRef = useRef<HTMLDivElement>(null);
 	const text = t.settings.font;
+
+	// built per render, so a language switch relabels them without a reload
+	const scaleOptions = [
+		{ value: 0.9, label: text.sizes.small },
+		{ value: 1, label: text.sizes.default },
+		{ value: 1.15, label: text.sizes.large },
+		{ value: 1.3, label: text.sizes.larger },
+	];
 
 	const close = () => {
 		setOpen(false);
@@ -131,7 +132,7 @@ function FontRow({ font, scale, onFontChange, onScaleChange }: FontRowProps) {
 					role="radiogroup"
 					aria-label={text.sizeLabel}
 				>
-					{SCALE_OPTIONS.map((option) => (
+					{scaleOptions.map((option) => (
 						<button
 							key={option.value}
 							type="button"

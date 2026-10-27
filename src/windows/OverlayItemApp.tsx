@@ -8,6 +8,7 @@ import { useMediaUrl } from '../hooks/useMediaUrl';
 import { useTauriEvent } from '../hooks/useTauriEvent';
 import { useDeleteShortcut } from '../hooks/useDeleteShortcut';
 import { useEditHandles } from '../hooks/useEditHandles';
+import { useHitShape } from '../hooks/useHitShape';
 import { usePlacedMedia } from '../hooks/usePlacedMedia';
 import { POP_BOUNCE, POP_SECONDS, useSwing } from '../hooks/useSwing';
 import GifCanvasPlayer from '../components/GifCanvasPlayer';
@@ -210,13 +211,33 @@ function OverlayItemApp() {
 
 	useDeleteShortcut(editing, removeSelf);
 
-	const { media, flipped, onCornerStart, onRotateStart } = useEditHandles({
+	const { media, flipped, onCornerStart, onRotateStart, rotateTo } =
+		useEditHandles({
+			editing,
+			frame,
+			rotation,
+			setRotation,
+			naturalRef,
+		});
+
+	useHitShape({
+		editMode: editMode && resolved && instanceId !== null,
 		editing,
 		frame,
+		media,
 		rotation,
-		setRotation,
-		naturalRef,
+		flipped,
+		carrying,
 	});
+
+	// the Control panel's rotation slider
+	useTauriEvent<ItemValueChanged<number>>(
+		'item-rotation-changed',
+		(payload) => {
+			if (payload.instance_id === instanceId) rotateTo(payload.value);
+		},
+		'self',
+	);
 
 	const select = () => {
 		if (!editMode || !instanceId) return;

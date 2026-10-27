@@ -217,7 +217,7 @@
 	--side-delay: 0.4s;
 }
 
-/* Each puff is a wobbly sketch ellipse, no longer a filled circle. */
+/* Each puff is a wobbly sketch ellipse. */
 .storage-smoke i {
 	--sketch-ink: var(--kg-fg-muted);
 	--sketch-paper: color-mix(in srgb, var(--kg-fg-muted) 35%, transparent);

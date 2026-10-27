@@ -183,11 +183,10 @@
 	line-height: 1;
 }
 
+/* portalled to <body> and placed by SortMenu, so no panel overflow can clip it */
 .sort-menu-list {
-	position: absolute;
+	position: fixed;
 	z-index: 30;
-	top: calc(100% + var(--kg-space-1));
-	right: 0;
 	min-width: 190px;
 	padding: var(--kg-space-1);
 	border: 1px solid var(--kg-border);
@@ -253,9 +252,17 @@
 	white-space: nowrap;
 }
 
-.tag-manager-count {
-	color: var(--kg-fg-faint);
-	font-size: var(--kg-text-xs);
+/* square icon-only buttons, so the tag name keeps the width */
+.tag-manager-icon-btn {
+	flex: none;
+	justify-content: center;
+	width: 32px;
+	height: 32px;
+	padding: 0;
+}
+
+.tag-manager-row > .kg-btn {
+	flex: none;
 }
 
 .tag-manager-input {

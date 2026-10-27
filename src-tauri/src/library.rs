@@ -4,12 +4,14 @@ use std::collections::{HashMap, HashSet};
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, MutexGuard, PoisonError};
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, State, WebviewWindow};
 use uuid::Uuid;
 
 use crate::config;
 use crate::error::{AppError, AppResult};
+use crate::media_compress;
 use crate::template::{self, EditorState};
+use crate::window_manager;
 
 
 
@@ -93,15 +95,11 @@ pub struct MediaItem {
     pub missing: bool,
 }
 impl MediaItem {
-    /// Copies `source` into the media folder and builds its `MediaItem`.
-    fn from_source(source: &Path) -> AppResult<Option<Self>> {
-        // if media type isn't supported, it will return nothing
-        let Some(media_type) = media_type_of(source) else { return Ok(None); };
-
-        let id = Uuid::new_v4();
-        Ok(Some(Self {
+    /// Builds the `MediaItem` of `source`, already copied into the media folder as `stored_file_name`.
+    fn from_source(source: &Path, id: Uuid, media_type: MediaType, stored_file_name: String) -> Self {
+        Self {
             id,
-            stored_file_name: copy_to_media(source, id, media_type)?,
+            stored_file_name,
             original_file_name: source
                 .file_stem().and_then(|n| n.to_str())
                 .unwrap_or("file")
@@ -111,7 +109,7 @@ impl MediaItem {
             tags: Vec::new(),
             source_path: Some(source_key(source)),
             missing: false,
-        }))
+        }
     }
 }
 
@@ -145,11 +143,98 @@ fn looks_like_svg(bytes: &[u8]) -> bool {
         .contains("<svg")
 }
 
-/** Copies `source` into the media folder as `<id>.<ext>` and returns the stored file name.*/
-fn copy_to_media(source: &Path, id: Uuid, media_type: MediaType) -> AppResult<String> {
+/** Copies `source` into the media folder as `<id>.<ext>` and checks the copy again, since the source may have changed
+ since it was checked. A refused copy is deleted. Returns the stored file name. */
+fn copy_checked(source: &Path, id: Uuid, media_type: MediaType) -> AppResult<Result<String, Refusal>> {
     let stored_file_name = format!("{id}.{}", media_type.extension());
-    std::fs::copy(source, LibraryIndex::media_dir().join(&stored_file_name))?;
-    Ok(stored_file_name)
+    let stored = LibraryIndex::media_dir().join(&stored_file_name);
+    std::fs::copy(source, &stored)?;
+    if let Err(refusal) = check_import(&stored, media_type) {
+        remove_media_file(&stored_file_name);
+        return Ok(Err(refusal));
+    }
+    Ok(Ok(stored_file_name))
+}
+
+/** Deletes one file of the media folder. A name that is not a bare file name is ignored, so a tampered index can't
+ reach outside the folder. */
+fn remove_media_file(stored_file_name: &str) {
+    if !is_bare_file_name(stored_file_name) { return; }
+    let _ = std::fs::remove_file(LibraryIndex::media_dir().join(stored_file_name));
+}
+
+/** A single plain file name: no folder, drive, `.` or `..`. */
+fn is_bare_file_name(name: &str) -> bool {
+    let path = Path::new(name);
+    path.components().count() == 1 && path.file_name() == Some(name.as_ref())
+}
+
+/** The name an import reports a refused file by. */
+fn display_name(source: &Path) -> String {
+    source.file_name().map_or_else(|| source.to_string_lossy().into_owned(), |n| n.to_string_lossy().into_owned())
+}
+
+
+
+// Import Limits
+const MAX_SIDE_PX: u32 = 16_384; // WebView2 refuses to draw a bigger image anyway
+const MAX_PIXELS: u64 = 100_000_000;
+const GIF_DECODED_BUDGET: u64 = 1536 * 1024 * 1024; // the overlay decodes every GIF frame to RGBA
+const MIB: u64 = 1024 * 1024;
+
+/** Why an import was turned away. */
+#[derive(Debug, PartialEq)]
+enum Refusal { Mismatch, TooLarge }
+
+fn max_bytes(media_type: MediaType) -> u64 {
+    match media_type {
+        MediaType::Mp4 => 1024 * MIB, MediaType::Gif => 300 * MIB, MediaType::Svg => 10 * MIB,
+        MediaType::Jpeg | MediaType::Png | MediaType::Webp => 100 * MIB,
+    }
+}
+
+/** Checks a file before it joins the library: its content must match `media_type`, and its size, dimensions and (for
+ a GIF) decoded frames must stay small enough not to run the overlay out of memory. Only headers are read. */
+fn check_import(path: &Path, media_type: MediaType) -> Result<(), Refusal> {
+    if sniff_type(path) != Some(media_type) { return Err(Refusal::Mismatch); }
+    let len = std::fs::metadata(path).map_err(|_| Refusal::Mismatch)?.len();
+    if len > max_bytes(media_type) { return Err(Refusal::TooLarge); }
+    match media_type {
+        MediaType::Gif => {
+            let (width, height, frames) = gif_shape(path).ok_or(Refusal::Mismatch)?;
+            fits_canvas(width, height)?;
+            if !gif_fits_budget(width, height, frames) { return Err(Refusal::TooLarge); }
+        }
+        MediaType::Png | MediaType::Jpeg | MediaType::Webp => {
+            let (width, height) = image::ImageReader::open(path).ok()
+                .and_then(|reader| reader.with_guessed_format().ok())
+                .and_then(|reader| reader.into_dimensions().ok())
+                .ok_or(Refusal::Mismatch)?;
+            fits_canvas(width, height)?;
+        }
+        MediaType::Mp4 | MediaType::Svg => {}
+    }
+    Ok(())
+}
+
+fn fits_canvas(width: u32, height: u32) -> Result<(), Refusal> {
+    let too_big = width.max(height) > MAX_SIDE_PX || u64::from(width) * u64::from(height) > MAX_PIXELS;
+    if too_big { Err(Refusal::TooLarge) } else { Ok(()) }
+}
+
+fn gif_fits_budget(width: u32, height: u32, frames: u64) -> bool {
+    (u64::from(width) * u64::from(height) * 4).saturating_mul(frames) <= GIF_DECODED_BUDGET
+}
+
+/** Width, height and frame count of a GIF, walking its frames without decoding their pixels. */
+fn gif_shape(path: &Path) -> Option<(u32, u32, u64)> {
+    let mut options = gif::DecodeOptions::new();
+    options.skip_frame_decoding(true);
+    let mut decoder = options.read_info(std::io::BufReader::new(std::fs::File::open(path).ok()?)).ok()?;
+    let (width, height) = (u32::from(decoder.width()), u32::from(decoder.height()));
+    let mut frames = 0;
+    while decoder.next_frame_info().ok()?.is_some() { frames += 1; }
+    Some((width, height, frames))
 }
 
 /** Lowercased absolute path, so the same file is recognised again (Windows paths ignore case).*/
@@ -272,11 +357,13 @@ pub struct TagCount {
     pub count: usize,
 }
 
-/** What an import did: the items added or replaced, and the file names whose content was rejected.*/
+/** What an import did: the items added or replaced, the file names whose content was rejected, and the ones too
+ big to show safely.*/
 #[derive(Serialize)]
 pub struct ImportResult {
     pub items: Vec<MediaItem>,
     pub rejected: Vec<String>,
+    pub too_large: Vec<String>,
 }
 
 
@@ -391,9 +478,11 @@ pub fn delete_tag(app: AppHandle, lib: State<LibraryState>, name: String) -> App
 /// Deletes media items (only our copy in `media/`, never the user's original) without leaving placed animations
 /// pointing at them. Saves the index and the template once for the whole batch. Returns how many were deleted.
 #[tauri::command]
-pub fn delete_media(app: AppHandle, lib: State<LibraryState>,
+pub fn delete_media(app: AppHandle, window: WebviewWindow, lib: State<LibraryState>,
     editor: State<EditorState>, ids: Vec<Uuid>, force: bool,
 ) -> AppResult<usize> {
+    // overlays only show media: deleting it is the control window's job
+    if window.label() != window_manager::CONTROL_LABEL { return Err(AppError::DeleteOutsideControl); }
     let ids: HashSet<Uuid> = ids.into_iter().collect();
     let references = template::count_references_to_media(&editor, &ids);
     if references > 0 && !force {
@@ -405,7 +494,7 @@ pub fn delete_media(app: AppHandle, lib: State<LibraryState>,
         std::mem::take(&mut index.items).into_iter().partition(|item| ids.contains(&item.id));
     index.items = kept;
     for item in &doomed {
-        let _ = std::fs::remove_file(LibraryIndex::media_dir().join(&item.stored_file_name));
+        remove_media_file(&item.stored_file_name);
     }
     index.save()?;
     drop(index);
@@ -457,29 +546,35 @@ pub fn import_media(app: AppHandle, lib: State<LibraryState>, paths: Vec<PathBuf
     let mut added: Vec<MediaItem> = Vec::with_capacity(paths.len());
     let mut replacements: Vec<(Uuid, String, MediaType)> = Vec::new();
     let mut rejected: Vec<String> = Vec::new();
+    let mut too_large: Vec<String> = Vec::new();
     let mut seen: HashSet<String> = HashSet::with_capacity(paths.len());
     for source in &paths {
         let key = source_key(source);
         if !seen.insert(key.clone()) { continue; }
+        // unsupported extensions skip silently
+        let Some(media_type) = media_type_of(source) else { continue; };
+        let existing = known.get(&key).copied();
+        if existing.is_some() && !replace_existing { continue; }
 
-        // Reject files whose content does not match their extension. Unsupported extensions skip silently.
-        if let Some(ext_type) = media_type_of(source) {
-            if sniff_type(source) != Some(ext_type) {
-                rejected.push(source.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| source.to_string_lossy().into_owned()));
-                continue;
-            }
-        }
-
-        let Some(&id) = known.get(&key) else {
-            if let Some(mut item) = MediaItem::from_source(source)? {
+        // checked on the source first, so a refused file is never copied, and again on the copy, which is what stays
+        let id = Uuid::new_v4();
+        let stored = match check_import(source, media_type) {
+            Ok(()) => copy_checked(source, id, media_type)?,
+            Err(refusal) => Err(refusal),
+        };
+        let stored_file_name = match stored {
+            Ok(name) => name,
+            Err(Refusal::Mismatch) => { rejected.push(display_name(source)); continue; }
+            Err(Refusal::TooLarge) => { too_large.push(display_name(source)); continue; }
+        };
+        match existing {
+            Some(existing_id) => replacements.push((existing_id, stored_file_name, media_type)),
+            None => {
+                let mut item = MediaItem::from_source(source, id, media_type, stored_file_name);
                 item.original_file_name = claim_unique_name(&item.original_file_name, &mut taken);
                 added.push(item);
             }
-            continue;
-        };
-        if !replace_existing { continue; }
-        let Some(media_type) = media_type_of(source) else { continue; };
-        replacements.push((id, copy_to_media(source, Uuid::new_v4(), media_type)?, media_type));
+        }
     }
 
     let mut index = lib.lock();
@@ -501,9 +596,23 @@ pub fn import_media(app: AppHandle, lib: State<LibraryState>, paths: Vec<PathBuf
     drop(index);
 
     // only once the index no longer points at them, so a failed save never leaves an item without its file
-    for name in stale { let _ = std::fs::remove_file(LibraryIndex::media_dir().join(name)); }
+    for name in stale { remove_media_file(&name); }
+    shrink_in_background(&changed);
     notify_library_changed(&app);
-    Ok(ImportResult { items: changed, rejected })
+    Ok(ImportResult { items: changed, rejected, too_large })
+}
+
+/** Shrinks the oversized still images just imported, off the main thread: a big PNG takes seconds to re-encode. The
+ file keeps its name, so the index needs no update. A file the UI is reading can't be replaced and simply stays. */
+fn shrink_in_background(items: &[MediaItem]) {
+    let files: Vec<(PathBuf, MediaType)> = items.iter()
+        .filter(|item| matches!(item.media_type, MediaType::Png | MediaType::Jpeg | MediaType::Webp))
+        .map(|item| (LibraryIndex::media_dir().join(&item.stored_file_name), item.media_type))
+        .collect();
+    if files.is_empty() { return; }
+    std::thread::spawn(move || {
+        for (path, media_type) in files { let _ = media_compress::shrink_still_image(&path, media_type); }
+    });
 }
 
 /// Changes the name shown for a media item. The file on disk is never renamed.
@@ -519,9 +628,11 @@ pub fn rename_media(app: AppHandle, lib: State<LibraryState>, id: Uuid, name: St
     Ok(())
 }
 
-/// Size of a media file in bytes.
+/// Size of each file in bytes, 0 for one that can't be read (the import refuses it later anyway).
 #[tauri::command]
-pub fn get_file_size(path: PathBuf) -> AppResult<u64> {Ok(std::fs::metadata(path)?.len())}
+pub fn get_file_sizes(paths: Vec<PathBuf>) -> Vec<u64> {
+    paths.iter().map(|path| std::fs::metadata(path).map_or(0, |meta| meta.len())).collect()
+}
 
 
 #[cfg(test)]
@@ -554,6 +665,47 @@ mod tests {
         assert_eq!(sniff_bytes(b"<svg xmlns=\"http://www.w3.org/2000/svg\"></svg>"), Some(MediaType::Svg));
         assert_eq!(sniff_bytes(b"\xEF\xBB\xBF  <svg></svg>"), Some(MediaType::Svg));
         assert_eq!(sniff_bytes(b"not a known file"), None);
+    }
+
+    #[test]
+    fn only_bare_file_names_are_deleted() {
+        assert!(is_bare_file_name("abc.png"));
+        assert!(!is_bare_file_name("../x.png"));
+        assert!(!is_bare_file_name("a/b.png"));
+        assert!(!is_bare_file_name("a\\b.png"));
+        assert!(!is_bare_file_name("C:\\x.png"));
+        assert!(!is_bare_file_name("C:x.png"));
+        assert!(!is_bare_file_name(".."));
+        assert!(!is_bare_file_name("."));
+        assert!(!is_bare_file_name(""));
+    }
+
+    #[test]
+    fn gif_budget_counts_every_rgba_frame() {
+        assert!(gif_fits_budget(500, 500, 1000)); // ~0.93 GiB
+        assert!(!gif_fits_budget(1000, 1000, 500)); // ~1.86 GiB
+        assert!(!gif_fits_budget(16_384, 16_384, u64::MAX)); // saturates instead of wrapping
+    }
+
+    #[test]
+    fn gif_shape_counts_frames_without_decoding() {
+        let path = std::env::temp_dir().join("kg_library_three_frames.gif");
+        {
+            let mut encoder = gif::Encoder::new(std::fs::File::create(&path).unwrap(), 4, 3, &[0, 0, 0, 255, 255, 255]).unwrap();
+            for _ in 0..3 { encoder.write_frame(&gif::Frame::from_indexed_pixels(4, 3, vec![1; 12], None)).unwrap(); }
+        }
+        let shape = gif_shape(&path);
+        let check = check_import(&path, MediaType::Gif);
+        let _ = std::fs::remove_file(&path);
+        assert_eq!(shape, Some((4, 3, 3)));
+        assert_eq!(check, Ok(()));
+    }
+
+    #[test]
+    fn canvas_limits_side_and_area() {
+        assert_eq!(fits_canvas(16_384, 6_000), Ok(()));
+        assert_eq!(fits_canvas(16_385, 10), Err(Refusal::TooLarge));
+        assert_eq!(fits_canvas(12_000, 9_000), Err(Refusal::TooLarge));
     }
 
     #[test]

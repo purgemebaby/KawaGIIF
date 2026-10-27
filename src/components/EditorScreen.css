@@ -243,6 +243,26 @@
 	height: min(var(--storage-body-h), 50vh);
 }
 
+/* The Import button rides at the end of the filter bar row. */
+.media-sidebar-toolbar {
+	display: flex;
+	align-items: center;
+	gap: var(--kg-space-2);
+	/* carries the gutters the compact bar adds itself */
+	margin: 0 var(--kg-space-3) var(--kg-space-2);
+}
+
+/* The bar fills the row's remaining width; the button keeps its own. */
+.media-sidebar-toolbar > .filter-bar {
+	flex: 1;
+	min-width: 0;
+	margin: 0;
+}
+
+.media-sidebar-toolbar > .kg-btn {
+	flex-shrink: 0;
+}
+
 .media-strip {
 	display: flex;
 	gap: var(--kg-space-2);

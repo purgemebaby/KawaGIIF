@@ -87,7 +87,7 @@ pub fn set_show_mascot(enabled: bool) -> AppResult<()> {
 #[tauri::command]
 pub fn set_language(app: AppHandle, language: String) -> AppResult<()> {
     if !config::LANGUAGES.contains(&language.as_str()) { return Err(AppError::UnsupportedLanguage(language)); }
-    config::update(|c| c.language = language.clone())?;
+    config::update(|c| c.language.clone_from(&language))?;
     Ok(tray::apply_language(&app, &language)?)
 }
 

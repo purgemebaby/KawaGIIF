@@ -94,13 +94,10 @@ function TagManager({
 											<>
 												<span
 													className="tag-manager-name"
-													title={tag.name}
+													title={`${tag.name} · ${t.tags.usedBy(tag.count)}`}
 													style={tagStyle(tag.name)}
 												>
 													{tag.name}
-												</span>
-												<span className="tag-manager-count">
-													{t.tags.usedBy(tag.count)}
 												</span>
 												<button
 													type="button"
@@ -117,20 +114,23 @@ function TagManager({
 												</button>
 												<button
 													type="button"
-													className="kg-btn kg-btn--ghost kg-btn--sm"
+													className="kg-btn kg-btn--ghost kg-btn--sm icon-hover tag-manager-icon-btn"
+													aria-label={t.tags.rename}
+													title={t.tags.rename}
 													onClick={() => startRename(tag.name)}
 												>
-													{t.tags.rename}
+													<SketchIcon name="pencil" />
 												</button>
 												<button
 													type="button"
-													className="kg-btn kg-btn--danger kg-btn--sm icon-hover"
+													className="kg-btn kg-btn--danger kg-btn--sm icon-hover tag-manager-icon-btn"
+													aria-label={t.common.delete}
+													title={t.common.delete}
 													onClick={() =>
 														setDeleting({ name: tag.name, count: tag.count })
 													}
 												>
 													<SketchIcon name="trash" />
-													{t.common.delete}
 												</button>
 											</>
 										)}

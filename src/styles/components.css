@@ -299,9 +299,34 @@
 }
 
 .kg-slider-label {
-	display: block;
+	display: flex;
+	align-items: center;
+	gap: var(--kg-space-1);
 	margin-bottom: var(--kg-space-1);
 	color: var(--kg-fg-muted);
+}
+
+/* Icon-only per-slider reset; the sketch strokes take their ink from --kg-fg. */
+.kg-slider-reset {
+	--kg-fg: var(--kg-fg-muted);
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 22px;
+	height: 22px;
+	margin-left: auto;
+	padding: 0;
+	border: none;
+	border-radius: var(--kg-radius-pill);
+	background: transparent;
+	cursor: pointer;
+	transition: background var(--kg-dur-fast) var(--kg-ease-out);
+}
+
+.kg-slider-reset:hover,
+.kg-slider-reset:focus-visible {
+	--kg-fg: var(--kg-accent);
+	background: var(--kg-accent-soft);
 }
 
 .kg-slider-track-wrap {
@@ -512,6 +537,28 @@
 
 .media-sidebar > .empty-state {
 	margin: 0 var(--kg-space-3);
+}
+
+/* Files from Explorer hover the window: the import area dims under a dashed frame that says where they go. */
+.kg-drop-zone {
+	position: relative;
+}
+
+.kg-drop-zone.is-dropping::after {
+	content: attr(data-drop-hint);
+	position: absolute;
+	inset: 0;
+	z-index: 10;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border: 3px dashed var(--kg-accent);
+	border-radius: inherit;
+	background: var(--kg-scrim);
+	color: var(--kg-fg);
+	font-family: var(--kg-font-display);
+	font-size: 30px;
+	pointer-events: none;
 }
 
 /* Shared neon recipe: a blurred halo under a sharp line, pink to purple stops. */

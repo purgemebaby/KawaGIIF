@@ -20,8 +20,8 @@ const OV_LABEL: &str = "OV-SLOT-";
 const KEEPER_INTERVAL: Duration = Duration::from_secs(2);
 const KEEPER_FULLSCREEN_INTERVAL: Duration = Duration::from_millis(250); // a borderless game that goes topmost buries the overlays within this
 const CARRY_TICK: Duration = Duration::from_millis(8); // about 120 moves per second while an overlay is carried
-const CONTROL_BASE: (f64, f64) = (960.0, 640.0);
-const MIN_CONTROL: (f64, f64) = CONTROL_BASE; // the opening size is also the smallest (a smaller monitor still caps it)
+const CONTROL_OPEN: (f64, f64) = (1120.0, 740.0); // `fit_control_to_monitor` shrinks it onto a smaller work area
+const MIN_CONTROL: (f64, f64) = (960.0, 640.0); // a smaller monitor still caps it
 /** (x, y, width, height, scale factor bits). */
 type MonitorKey = (i32, i32, u32, u32, u64);
 
@@ -252,7 +252,7 @@ pub fn create_control_window(app: &AppHandle) -> tauri::Result<WebviewWindow> {
     let window = WebviewWindowBuilder::new(app, CONTROL_LABEL, WebviewUrl::App("index.html".into()))
         .additional_browser_args(BROWSER_ARGS)
         .title("KawaGIIF")
-        .inner_size(CONTROL_BASE.0, CONTROL_BASE.1)
+        .inner_size(CONTROL_OPEN.0, CONTROL_OPEN.1)
         .center()
         .min_inner_size(MIN_CONTROL.0, MIN_CONTROL.1)
         .max_inner_size(MAX_CONTROL.0, MAX_CONTROL.1)
@@ -278,7 +278,7 @@ pub fn fit_control_to_monitor(window: &WebviewWindow) {
     let scale = monitor.scale_factor();
     // a drag fires dozens of `Moved` per second, and every new size limit makes tao re-apply the size
     let key = (area.position.x, area.position.y, area.size.width, area.size.height, scale.to_bits());
-    let mut fitted = FITTED_AREA.lock().unwrap_or_else(|e| e.into_inner());
+    let mut fitted = FITTED_AREA.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
     if *fitted == Some(key) { return; }
     *fitted = Some(key);
     drop(fitted);

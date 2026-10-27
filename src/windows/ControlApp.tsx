@@ -4,6 +4,7 @@ import { notifyError } from '../lib/notify';
 import { loadConfig } from '../lib/config';
 import { announceShowMascot } from '../lib/mascot';
 import { announceNavAnimations } from '../lib/navAnimations';
+import { onLanguageChanged } from '../lib/language';
 import { useTauriEvent } from '../hooks/useTauriEvent';
 import { useScreenTransitions } from '../hooks/useScreenTransitions';
 import { useZoomShortcuts } from '../hooks/useZoomShortcuts';
@@ -11,7 +12,7 @@ import { useErrorToast } from '../hooks/useErrorToast';
 import { LibraryProvider } from '../context/LibraryProvider';
 import { t } from '../i18n';
 import BrandBar from '../components/BrandBar';
-import { NAV_ITEMS, type Screen } from '../components/navItems';
+import { SCREENS, type Screen } from '../components/navItems';
 import HomeScreen from '../components/HomeScreen';
 import StorageScreen from '../components/StorageScreen';
 import EditorScreen from '../components/EditorScreen';
@@ -27,9 +28,7 @@ type PendingExit = { kind: 'navigate'; screen: Screen } | { kind: 'hide' };
 const devParams = import.meta.env.DEV
 	? new URLSearchParams(location.search)
 	: null;
-const DEV_SCREEN = NAV_ITEMS.find(
-	(item) => item.id === devParams?.get('screen'),
-)?.id;
+const DEV_SCREEN = SCREENS.find((id) => id === devParams?.get('screen'));
 
 let hasBooted = devParams?.get('boot') === '0';
 
@@ -59,6 +58,10 @@ function ScreenView({ id, quiet, booting, onNavigate }: ScreenViewProps) {
 function ControlApp() {
 	const [pendingExit, setPendingExit] = useState<PendingExit | null>(null);
 	const [booting, setBooting] = useState(!hasBooted);
+	// a language switch remounts the screens (keyed below), so every string is read again
+	const [language, setLanguage] = useState(() => document.documentElement.lang);
+
+	useEffect(() => onLanguageChanged(setLanguage), []);
 
 	// one request for the whole window
 	const configPromise = useMemo(loadConfig, []);
@@ -158,6 +161,7 @@ function ControlApp() {
 								inert={inert}
 							>
 								<ScreenView
+									key={`${id}:${language}`}
 									id={id}
 									quiet={quiet}
 									booting={booting}

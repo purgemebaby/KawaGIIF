@@ -668,6 +668,21 @@ pub fn set_item_playback_rate(app: AppHandle, state: State<EditorState>, instanc
     });
 }
 
+/// Wraps an angle in degrees into (-180, 180], the same wrap as `normalizeDeg` in overlayGeometry.ts.
+fn normalize_rotation(deg: f32) -> f32 {
+    // f32 `%` keeps the sign of its left side, like JS, which is what makes this wrap work
+    let wrapped = (((deg % 360.0) + 540.0) % 360.0) - 180.0;
+    if wrapped == -180.0 { 180.0 } else { wrapped }
+}
+
+/// Rotation set from the control panel, wrapped into (-180, 180]. The overlay answers the event by turning its media and
+/// resizing its window around it; `rotate_overlay` stores the same value again, which is harmless.
+#[tauri::command]
+pub fn set_item_rotation(app: AppHandle, state: State<EditorState>, instance_id: Uuid, rotation: f32) {
+    let rotation = normalize_rotation(rotation);
+    update_item(&app, &state, instance_id, "item-rotation-changed", rotation, |item| item.rotation = rotation);
+}
+
 /// Rotates the calling overlay's media. The overlay computes the window size that fits the rotated media and sends it
 /// along. `resize_keeping_centre` applies it, so the media turns about its centre, and `Resized` stores the size as usual.
 #[tauri::command]
@@ -813,6 +828,31 @@ pub fn fit_overlay_to_media(
     }
 }
 
+/** Where an overlay takes clicks: the turned media box and, while it is selected, the rotate handle (physical px). */
+#[derive(Deserialize)]
+pub struct OverlayShape {
+    polygon: Vec<(i32, i32)>,
+    circle: Option<(i32, i32, i32)>,
+}
+
+/// Clips the calling overlay to its media, so the transparent margin kept for the handles lets clicks through to the
+/// windows below while the editor is open. `None` gives the whole window back.
+#[tauri::command]
+pub fn set_overlay_shape(window: WebviewWindow, shape: Option<OverlayShape>) -> AppResult<()> {
+    #[cfg(windows)]
+    {
+        use windows::Win32::Foundation::POINT;
+        let hwnd = window.hwnd()?;
+        let (polygon, circle) = shape.map_or((Vec::new(), None), |shape| {
+            (shape.polygon.into_iter().map(|(x, y)| POINT { x, y }).collect(), shape.circle)
+        });
+        crate::native::windows::set_window_shape(hwnd, &polygon, circle);
+    }
+    #[cfg(not(windows))]
+    let _ = (window, shape);
+    Ok(())
+}
+
 #[tauri::command]
 pub fn nudge_overlay(window: WebviewWindow, dx: i32, dy: i32) -> AppResult<()> {
     let pos = window.outer_position()?;
@@ -838,5 +878,16 @@ mod tests {
         assert!(editing.should_sleep(2));
         let closed = editor_with(vec![Some(Uuid::new_v4()), None, None], false);
         assert!(closed.should_sleep(1)); // editor closed: every free slot sleeps
+    }
+
+    #[test]
+    fn rotation_wraps_into_minus_180_to_180() {
+        assert_eq!(normalize_rotation(0.0), 0.0);
+        assert_eq!(normalize_rotation(180.0), 180.0);
+        assert_eq!(normalize_rotation(-180.0), 180.0);
+        assert_eq!(normalize_rotation(270.0), -90.0);
+        assert_eq!(normalize_rotation(190.0), -170.0);
+        assert_eq!(normalize_rotation(-190.0), 170.0);
+        assert_eq!(normalize_rotation(540.0), 180.0);
     }
 }

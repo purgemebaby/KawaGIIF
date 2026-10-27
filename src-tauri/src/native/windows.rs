@@ -22,8 +22,9 @@ use windows::Win32::Graphics::Dwm::{
 };
 
 use windows::Win32::Graphics::Gdi::{
-    EnumFontFamiliesExW, GetDC, GetMonitorInfoW, MonitorFromPoint, MonitorFromWindow, ReleaseDC,
-    DEFAULT_CHARSET, LOGFONTW, MONITORINFO, MONITOR_DEFAULTTONEAREST, TEXTMETRICW,
+    CombineRgn, CreateEllipticRgn, CreatePolygonRgn, DeleteObject, EnumFontFamiliesExW, GetDC, GetMonitorInfoW,
+    MonitorFromPoint, MonitorFromWindow, ReleaseDC, SetWindowRgn,
+    DEFAULT_CHARSET, LOGFONTW, MONITORINFO, MONITOR_DEFAULTTONEAREST, RGN_OR, TEXTMETRICW, WINDING,
 };
 
 use windows::Win32::UI::HiDpi::GetDpiForWindow;
@@ -241,6 +242,29 @@ pub fn top_everything(hwnd: HWND) {
  */
 pub fn guard_non_client(hwnd: HWND, overhang: u32) {
     unsafe { let _ = SetWindowSubclass(hwnd, Some(non_client_guard), GUARD_SUBCLASS_ID, overhang as usize); }
+}
+
+/**
+ * Clips the window to `polygon` plus an optional `circle` (centre x, y and radius), in physical px from its top-left
+ * corner: clicks outside reach the windows below, and nothing outside is drawn. An empty `polygon` gives the whole
+ * window back.
+ */
+pub fn set_window_shape(hwnd: HWND, polygon: &[POINT], circle: Option<(i32, i32, i32)>) {
+    if polygon.is_empty() {
+        unsafe { SetWindowRgn(hwnd, None, true); }
+        return;
+    }
+    unsafe {
+        let region = CreatePolygonRgn(polygon, WINDING);
+        if region.is_invalid() { return; }
+        if let Some((x, y, r)) = circle {
+            let dot = CreateEllipticRgn(x - r, y - r, x + r, y + r);
+            CombineRgn(Some(region), Some(region), Some(dot), RGN_OR);
+            let _ = DeleteObject(dot.into());
+        }
+        // from here the system owns the region: it must not be deleted
+        SetWindowRgn(hwnd, Some(region), true);
+    }
 }
 
 /** Hooks `EVENT_SYSTEM_FOREGROUND` with `callback` and returns the hook handle (0 if Windows refused). */

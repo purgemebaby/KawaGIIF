@@ -84,10 +84,15 @@
 	display: none;
 }
 
+/* Never fewer than five cards a row: past that, as many 150 px columns as fit. */
 .media-grid {
+	--media-grid-gap: var(--kg-space-4);
 	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-	gap: var(--kg-space-5);
+	grid-template-columns: repeat(
+		auto-fill,
+		minmax(min(150px, calc((100% - 4 * var(--media-grid-gap)) / 5)), 1fr)
+	);
+	gap: var(--media-grid-gap);
 	padding: var(--kg-space-2);
 }
 
@@ -245,7 +250,7 @@
 .media-name {
 	margin: 0;
 	color: var(--polaroid-ink);
-	font-size: var(--kg-text-lg);
+	font-size: var(--kg-text-md);
 	font-weight: 600;
 	white-space: nowrap;
 	overflow: hidden;

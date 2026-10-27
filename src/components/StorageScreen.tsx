@@ -2,13 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { invoke } from '../lib/ipc';
 import { notifyError } from '../lib/notify';
 import { loadConfig } from '../lib/config';
-import {
-	fileNameOf,
-	formatBytes,
-	shortFileName,
-	type MediaItem,
-} from '../lib/media';
-import { useLibrary, type PendingImport } from '../context/LibraryProvider';
+import { shortFileName, type MediaItem } from '../lib/media';
+import { useLibrary } from '../context/LibraryProvider';
 import { useDeleteShortcut } from '../hooks/useDeleteShortcut';
 import { useEscape } from '../hooks/useDismiss';
 import {
@@ -23,6 +18,7 @@ import MediaFilterBar from './MediaFilterBar';
 import EmptyLibraryMascot from './mascot/EmptyLibraryMascot';
 import LibraryMascot from './mascot/LibraryMascot';
 import MediaGrid from './MediaGrid';
+import { useImportFlow } from './ImportDialogs';
 import BulkTagPopover from './tags/BulkTagPopover';
 import TagManager from './tags/TagManager';
 import Modal from './ui/Modal';
@@ -39,15 +35,14 @@ function StorageScreen() {
 	const {
 		items,
 		loading,
-		rejected,
-		importFiles,
-		confirmImport,
-		dismissRejected,
+		importNotices,
+		dismissImportNotices,
 		renameMedia,
 		updateTags,
 		updateTagsMany,
 		deleteMedia,
 	} = useLibrary();
+	const { startImport, dropping, dialogs } = useImportFlow();
 	const showMascot = useMascotShown();
 	const imports = useImportCount(items, loading);
 	const {
@@ -61,9 +56,6 @@ function StorageScreen() {
 	} = useMediaFilters(items);
 	const [deleting, setDeleting] = useState<DeleteRequest | null>(null);
 	const [confirmBeforeDelete, setConfirmBeforeDelete] = useState(true);
-	const [pendingImport, setPendingImport] = useState<PendingImport | null>(
-		null,
-	);
 	const [selecting, setSelecting] = useState(false);
 	const [bulkTags, setBulkTags] = useState(false);
 	const itemIds = useMemo(() => items.map((item) => item.id), [items]);
@@ -122,27 +114,17 @@ function StorageScreen() {
 
 	useEscape(selecting && !deleting, stopSelecting);
 
+	// Ctrl or Shift enters selection mode, like the Select button.
 	// In select mode a plain click adds or removes, like Ctrl+click outside it.
-	const onSelect = (id: string, modifiers: SelectModifiers) =>
+	const onSelect = (id: string, modifiers: SelectModifiers) => {
+		if ((modifiers.toggle || modifiers.range) && !selecting) {
+			setSelecting(true);
+		}
 		select(
 			id,
 			{ ...modifiers, toggle: modifiers.toggle || selecting },
 			filteredItems.map((item) => item.id),
 		);
-
-	// Skipping drops the files already in the library. Large files still ask next.
-	const answerReplace = async (request: PendingImport, replace: boolean) => {
-		const paths = replace
-			? request.paths
-			: request.paths.filter((path) => !request.reimports.includes(path));
-		const large = request.large.filter((f) => paths.includes(f.path));
-		const next = { paths, large, reimports: [], replaceExisting: replace };
-		if (large.length > 0) {
-			setPendingImport(next);
-			return;
-		}
-		setPendingImport(null);
-		if (paths.length > 0) await confirmImport(paths, replace);
 	};
 
 	const deletingName = (request: DeleteRequest) =>
@@ -217,7 +199,7 @@ function StorageScreen() {
 							<button
 								type="button"
 								className="kg-btn kg-btn--primary"
-								onClick={async () => setPendingImport(await importFiles())}
+								onClick={startImport}
 							>
 								{t.storage.import}
 							</button>
@@ -226,16 +208,19 @@ function StorageScreen() {
 				</div>
 			</div>
 
-			<section className="library-island">
+			<section
+				className={`library-island kg-drop-zone${dropping ? ' is-dropping' : ''}`}
+				data-drop-hint={t.storage.dropHint}
+			>
 				{showMascot && items.length > 0 && <LibraryMascot flashes={imports} />}
-				{rejected.length > 0 && (
+				{importNotices.length > 0 && (
 					<p className="storage-notice" role="status">
-						{t.storage.rejected(rejected)}
+						{importNotices.join(' ')}
 						<button
 							type="button"
 							className="kg-btn kg-btn--ghost kg-btn--sm"
 							aria-label={t.common.dismiss}
-							onClick={dismissRejected}
+							onClick={dismissImportNotices}
 						>
 							{t.common.dismiss}
 						</button>
@@ -293,51 +278,7 @@ function StorageScreen() {
 				/>
 			)}
 
-			{pendingImport && pendingImport.reimports.length > 0 && (
-				<Modal
-					title={t.storage.replaceImport.title}
-					confirmLabel={t.storage.replaceImport.confirm}
-					cancelLabel={t.storage.replaceImport.skip}
-					onCancel={() => answerReplace(pendingImport, false)}
-					onConfirm={() => answerReplace(pendingImport, true)}
-				>
-					<p className="modal-body">
-						{pendingImport.reimports
-							.map((path) => shortFileName(fileNameOf(path)))
-							.join(', ')}
-					</p>
-					<p className="modal-body">{t.storage.replaceImport.body}</p>
-				</Modal>
-			)}
-
-			{pendingImport && pendingImport.reimports.length === 0 && (
-				<Modal
-					title={t.storage.largeImport.title}
-					confirmLabel={t.storage.largeImport.confirm}
-					onCancel={() => setPendingImport(null)}
-					onConfirm={async () => {
-						const { paths, replaceExisting } = pendingImport;
-						setPendingImport(null);
-						await confirmImport(paths, replaceExisting);
-					}}
-				>
-					<p className="modal-body">
-						{t.storage.largeImport.body(
-							pendingImport.large
-								.map((f) =>
-									t.storage.largeImport.fileEntry(
-										fileNameOf(f.path),
-										formatBytes(f.bytes),
-									),
-								)
-								.join(', '),
-							formatBytes(
-								pendingImport.large.reduce((sum, f) => sum + f.bytes, 0),
-							),
-						)}
-					</p>
-				</Modal>
-			)}
+			{dialogs}
 
 			{deleting && (
 				<Modal

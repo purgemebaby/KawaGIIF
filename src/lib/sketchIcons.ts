@@ -313,6 +313,33 @@ export const SKETCH_ICONS = {
 			{ ellipse: [15.3, 11, 2, 2.4], fill: 'var(--kg-px-pink)' },
 		],
 	},
+	reset: {
+		base: [
+			{
+				// three quarters round, the gap sits at the top left
+				points: [
+					[13.9, 4.8],
+					[18.4, 8.4],
+					[19.1, 13.9],
+					[15.9, 18.4],
+					[10.1, 19.1],
+					[5.4, 15.6],
+					[4.9, 10.1],
+					[6.7, 6.7],
+				],
+			},
+			{
+				// the head, chasing the arc round clockwise
+				points: [
+					[7.9, 7.9],
+					[9, 4.4],
+					[5.5, 5.5],
+				],
+				closed: true,
+				fill: 'var(--kg-px-pink)',
+			},
+		],
+	},
 } satisfies Record<string, Record<string, readonly SketchShape[]>>;
 
 export type SketchIconName = keyof typeof SKETCH_ICONS;

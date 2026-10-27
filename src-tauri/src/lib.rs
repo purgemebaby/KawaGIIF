@@ -3,6 +3,7 @@ mod commands;
 mod config;
 mod error;
 mod library;
+mod media_compress;
 #[cfg(windows)]
 mod native;
 mod system_stats;
@@ -100,7 +101,7 @@ pub fn run() {
             library::delete_tag,
             library::delete_media,
             library::get_media_path,
-            library::get_file_size,
+            library::get_file_sizes,
             system_stats::get_system_stats,
             #[cfg(debug_assertions)]
             system_stats::debug_memory_breakdown,
@@ -118,7 +119,9 @@ pub fn run() {
             template::get_editor_status,
             template::set_item_opacity,
             template::set_item_playback_rate,
+            template::set_item_rotation,
             template::rotate_overlay,
+            template::set_overlay_shape,
             template::reset_placed_media,
             template::spawn_placed_media,
             template::count_placed_media,

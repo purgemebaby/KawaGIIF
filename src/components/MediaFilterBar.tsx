@@ -10,35 +10,36 @@ interface MediaFilterBarProps {
 	compact?: boolean;
 }
 
-const TYPE_OPTIONS: { value: MediaFilters['type']; label: string }[] = [
-	{ value: 'all', label: t.storage.types.all },
-	{ value: 'gif', label: t.storage.types.gif },
-	{ value: 'mp4', label: t.storage.types.mp4 },
-	{ value: 'jpeg', label: t.storage.types.jpeg },
-	{ value: 'png', label: t.storage.types.png },
-	{ value: 'webp', label: t.storage.types.webp },
-	{ value: 'svg', label: t.storage.types.svg },
-];
-
-const SORT_OPTIONS: { value: SortMode; label: string }[] = [
-	{ value: 'date-new', label: t.storage.sort.dateNew },
-	{ value: 'date-old', label: t.storage.sort.dateOld },
-	{ value: 'name-asc', label: t.storage.sort.nameAsc },
-	{ value: 'name-desc', label: t.storage.sort.nameDesc },
-];
-
 function MediaFilterBar({
 	filters,
 	onChange,
 	onOpenTags,
 	compact,
 }: MediaFilterBarProps) {
+	// built per render, so a language switch relabels them without a reload
+	const typeOptions: { value: MediaFilters['type']; label: string }[] = [
+		{ value: 'all', label: t.storage.types.all },
+		{ value: 'gif', label: t.storage.types.gif },
+		{ value: 'mp4', label: t.storage.types.mp4 },
+		{ value: 'jpeg', label: t.storage.types.jpeg },
+		{ value: 'png', label: t.storage.types.png },
+		{ value: 'webp', label: t.storage.types.webp },
+		{ value: 'svg', label: t.storage.types.svg },
+	];
+
+	const sortOptions: { value: SortMode; label: string }[] = [
+		{ value: 'date-new', label: t.storage.sort.dateNew },
+		{ value: 'date-old', label: t.storage.sort.dateOld },
+		{ value: 'name-asc', label: t.storage.sort.nameAsc },
+		{ value: 'name-desc', label: t.storage.sort.nameDesc },
+	];
+
 	return (
 		<div className={compact ? 'filter-bar filter-bar--compact' : 'filter-bar'}>
 			<div className="filter-row">
 				{!compact && (
 					<div className="filter-types">
-						{TYPE_OPTIONS.map((opt) => (
+						{typeOptions.map((opt) => (
 							<button
 								key={opt.value}
 								type="button"
@@ -65,7 +66,7 @@ function MediaFilterBar({
 
 				<SortMenu
 					value={filters.sort}
-					options={SORT_OPTIONS}
+					options={sortOptions}
 					label={t.storage.sort.label}
 					onChange={(sort) => onChange({ ...filters, sort })}
 				/>

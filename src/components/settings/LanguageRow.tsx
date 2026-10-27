@@ -1,6 +1,7 @@
 import { invoke } from '../../lib/ipc';
 import { notifyError } from '../../lib/notify';
-import { LANGUAGES, t } from '../../i18n';
+import { applyLanguage, LANGUAGES, t } from '../../i18n';
+import { announceLanguage } from '../../lib/language';
 import SettingsRowText from './SettingsRowText';
 
 interface LanguageRowProps {
@@ -10,7 +11,7 @@ interface LanguageRowProps {
 function LanguageRow({ language }: LanguageRowProps) {
 	const text = t.settings.language;
 
-	// Reloads the window: some modules read `t` at load time.
+	// Applies the language in place; ControlApp re-renders the screens with the new strings.
 	const switchTo = async (code: string) => {
 		if (code === language) return;
 		try {
@@ -19,7 +20,8 @@ function LanguageRow({ language }: LanguageRowProps) {
 			notifyError(e);
 			return;
 		}
-		window.location.reload();
+		applyLanguage(code);
+		announceLanguage(code);
 	};
 
 	return (

@@ -9,7 +9,8 @@ import {
 import { open } from '@tauri-apps/plugin-dialog';
 import { invoke } from '../lib/ipc';
 import { notifyError } from '../lib/notify';
-import type { MediaItem, TagCount } from '../lib/media';
+import { t } from '../i18n';
+import { MEDIA_EXTENSIONS, type MediaItem, type TagCount } from '../lib/media';
 import { useTauriEvent } from '../hooks/useTauriEvent';
 
 export interface PendingImport {
@@ -25,11 +26,17 @@ interface LibraryContextValue {
 	items: MediaItem[];
 	tags: TagCount[];
 	loading: boolean;
-	/** File names whose content did not match their extension during the last import. */
-	rejected: string[];
+	/** Ready-made messages about the files the last import refused. */
+	importNotices: string[];
 	importFiles: () => Promise<PendingImport | null>;
-	confirmImport: (paths: string[], replaceExisting: boolean) => Promise<void>;
-	dismissRejected: () => void;
+	/** Imports `paths` (from a drop) right away, or returns what must be asked first. */
+	prepareImport: (paths: string[]) => Promise<PendingImport | null>;
+	/** Imports `paths` and returns the notices about refused files (also kept in `importNotices`). */
+	confirmImport: (
+		paths: string[],
+		replaceExisting: boolean,
+	) => Promise<string[]>;
+	dismissImportNotices: () => void;
 	renameMedia: (id: string, name: string) => Promise<void>;
 	updateTags: (id: string, tags: string[]) => Promise<void>;
 	updateTagsMany: (
@@ -45,6 +52,7 @@ interface LibraryContextValue {
 interface ImportResult {
 	items: MediaItem[];
 	rejected: string[];
+	too_large: string[];
 }
 
 const LARGE_FILE_BYTES = 150 * 1024 * 1024;
@@ -55,7 +63,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
 	const [items, setItems] = useState<MediaItem[]>([]);
 	const [tags, setTags] = useState<TagCount[]>([]);
 	const [loading, setLoading] = useState(true);
-	const [rejected, setRejected] = useState<string[]>([]);
+	const [importNotices, setImportNotices] = useState<string[]>([]);
 
 	// `loading` only covers the first fetch: a refresh keeps the grid mounted so its cards can animate.
 	const refresh = useCallback(async () => {
@@ -81,62 +89,71 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
 
 	const confirmImport = useCallback(
 		async (paths: string[], replaceExisting: boolean) => {
-			setRejected([]);
+			setImportNotices([]);
 			try {
-				const { rejected } = await invoke<ImportResult>('import_media', {
+				const result = await invoke<ImportResult>('import_media', {
 					paths,
 					replaceExisting,
 				});
-				setRejected(rejected);
+				// ready-made messages: the Library shows them in its banner, the Editor as a toast
+				const notices = [
+					result.rejected.length > 0 ? t.storage.rejected(result.rejected) : '',
+					result.too_large.length > 0
+						? t.storage.tooLarge(result.too_large)
+						: '',
+				].filter(Boolean);
+				setImportNotices(notices);
 				await refresh();
+				return notices;
 			} catch (e) {
 				notifyError(e);
+				return [];
 			}
 		},
 		[refresh],
 	);
 
-	const dismissRejected = useCallback(() => setRejected([]), []);
+	const dismissImportNotices = useCallback(() => setImportNotices([]), []);
+
+	const prepareImport = useCallback(
+		async (paths: string[]): Promise<PendingImport | null> => {
+			try {
+				const [reimports, sizes] = await Promise.all([
+					invoke<string[]>('find_reimports', { paths }),
+					invoke<number[]>('get_file_sizes', { paths }),
+				]);
+				const large = paths
+					.map((path, i) => ({ path, bytes: sizes[i] ?? 0 }))
+					.filter((f) => f.bytes >= LARGE_FILE_BYTES);
+
+				if (large.length === 0 && reimports.length === 0) {
+					await confirmImport(paths, false);
+					return null;
+				}
+				return { paths, large, reimports, replaceExisting: false };
+			} catch (e) {
+				notifyError(e);
+				return null;
+			}
+		},
+		[confirmImport],
+	);
 
 	const importFiles = useCallback(async (): Promise<PendingImport | null> => {
 		try {
 			const selected = await open({
 				multiple: true,
-				filters: [
-					{
-						name: 'Media',
-						extensions: ['gif', 'mp4', 'jpg', 'jpeg', 'png', 'webp', 'svg'],
-					},
-				],
+				filters: [{ name: 'Media', extensions: MEDIA_EXTENSIONS }],
 			});
 			if (!selected) return null;
-			const paths = Array.isArray(selected) ? selected : [selected];
-
-			const reimports = await invoke<string[]>('find_reimports', { paths });
-			const sizes = await Promise.all(
-				paths.map(async (path) => {
-					try {
-						return {
-							path,
-							bytes: await invoke<number>('get_file_size', { path }),
-						};
-					} catch {
-						return { path, bytes: 0 };
-					}
-				}),
+			return await prepareImport(
+				Array.isArray(selected) ? selected : [selected],
 			);
-			const large = sizes.filter((f) => f.bytes >= LARGE_FILE_BYTES);
-
-			if (large.length === 0 && reimports.length === 0) {
-				await confirmImport(paths, false);
-				return null;
-			}
-			return { paths, large, reimports, replaceExisting: false };
 		} catch (e) {
 			notifyError(e);
 			return null;
 		}
-	}, [confirmImport]);
+	}, [prepareImport]);
 
 	// Runs a library command, showing the error toast instead of rejecting to the caller.
 	const invokeGuarded = useCallback(
@@ -189,10 +206,11 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
 				items,
 				tags,
 				loading,
-				rejected,
+				importNotices,
 				importFiles,
+				prepareImport,
 				confirmImport,
-				dismissRejected,
+				dismissImportNotices,
 				renameMedia,
 				updateTags,
 				updateTagsMany,

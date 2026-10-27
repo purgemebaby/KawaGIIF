@@ -1,6 +1,7 @@
 import { invoke } from '../lib/ipc';
 import { notifyError } from '../lib/notify';
 import { useLibrary } from '../context/LibraryProvider';
+import { useImportFlow } from './ImportDialogs';
 import { useMediaFilters } from '../hooks/useMediaFilters';
 import { t } from '../i18n';
 import MediaFilterBar from './MediaFilterBar';
@@ -23,6 +24,9 @@ function spawn(mediaId: string) {
 // `wrap` turns the strip into the scrolling grid of a panel sized taller than one row.
 function MediaSidebar({ wrap = false }: { wrap?: boolean }) {
 	const { items } = useLibrary();
+	const { startImport, dropping, dialogs } = useImportFlow({
+		toastNotices: true,
+	});
 	const {
 		filters,
 		setFilters,
@@ -65,13 +69,25 @@ function MediaSidebar({ wrap = false }: { wrap?: boolean }) {
 			};
 
 	return (
-		<div className="media-sidebar">
-			<MediaFilterBar
-				compact
-				filters={filters}
-				onChange={setFilters}
-				onOpenTags={openTags}
-			/>
+		<div
+			className={`media-sidebar kg-drop-zone${dropping ? ' is-dropping' : ''}`}
+			data-drop-hint={t.storage.dropHint}
+		>
+			<div className="media-sidebar-toolbar">
+				<MediaFilterBar
+					compact
+					filters={filters}
+					onChange={setFilters}
+					onOpenTags={openTags}
+				/>
+				<button
+					type="button"
+					className="kg-btn kg-btn--primary kg-btn--sm"
+					onClick={startImport}
+				>
+					{t.storage.import}
+				</button>
+			</div>
 
 			{items.length > 0 && filteredItems.length === 0 ? (
 				<p className="empty-state">{t.editor.sidebarNoMatches}</p>
@@ -108,6 +124,8 @@ function MediaSidebar({ wrap = false }: { wrap?: boolean }) {
 					onClose={closeTags}
 				/>
 			)}
+
+			{dialogs}
 		</div>
 	);
 }

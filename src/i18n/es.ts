@@ -42,10 +42,8 @@ export const es: Strings = {
 	},
 
 	home: {
-		minimizeToTray: 'Ocultar como icono',
+		minimizeToTray: 'Minimizar a la bandeja',
 		panic: {
-			description:
-				'¿Cansado de las animaciones? Ciérralas todas con un clic (conservarás la configuración)',
 			button: 'Quitar ventanas',
 		},
 	},
@@ -67,6 +65,11 @@ export const es: Strings = {
 		emptyFilteredHint: 'Prueba con otra búsqueda o limpia los filtros.',
 		rejected: (names: string[]) =>
 			`No se importó (el contenido no coincide con la extensión): ${names.join(', ')}`,
+		tooLarge: (names: string[]) =>
+			`No se importó (demasiado grande para mostrarse sin riesgo): ${names.join(', ')}`,
+		dropSkipped: (names: string[]) =>
+			`No se importó (no es un GIF, vídeo ni imagen): ${names.join(', ')}`,
+		dropHint: 'Suelta para importar',
 		search: 'Buscar por nombre…',
 		types: {
 			all: 'Todos',
@@ -198,7 +201,9 @@ export const es: Strings = {
 			'Selecciona una animación del escritorio para editar sus propiedades.',
 		opacity: 'Opacidad',
 		speed: 'Velocidad',
+		rotation: 'Rotación',
 		reset: 'Restablecer',
+		resetOne: (label: string) => `Restablecer ${label.toLowerCase()}`,
 		resetHint:
 			'Restablece el tamaño, el ángulo, la velocidad y la opacidad a como estaba la animación al colocarla. Su posición no cambia.',
 	},
