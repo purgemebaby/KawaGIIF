@@ -1,6 +1,6 @@
 [package]
 name = "kawagiif"
-version = "0.1.0"
+version = "0.1.1"
 description = "Animations, GIFs and videos always visible on top of the desktop"
 authors = ["Alberto"]
 license = "MIT"
