@@ -200,7 +200,9 @@ AI tools are very welcome. You can use them to write code, documentation or tran
 
 **Next (0.1.x)**
 
+Big features:
 - Add a "marketplace" to search directly images, GIFs... from many sources to download them and use it without leaving the app.
+- Memeboard: Shortcuts to spawn media files stored with defined speed, movement, effects, sound effects...
 
 **Settings and features**
 
