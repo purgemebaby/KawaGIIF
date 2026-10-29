@@ -265,11 +265,30 @@ export const es: Strings = {
 			hotkeyPlaceholder: 'Haz clic y pulsa las teclas',
 			hotkeyListening: 'Pulsa las teclas…',
 			hotkeyClear: 'Quitar atajo',
-			hotkeyHint: 'Usa Ctrl + AltGr (o Ctrl + Alt) con una tecla, o F13-F24 solas.',
-			hotkeyLimit: (max: number) => `Como mucho ${max} memes pueden tener atajo.`,
+			hotkeyHint:
+				'Usa Ctrl + AltGr (o Ctrl + Alt) con una tecla, o F13-F24 solas.',
+			hotkeyLimit: (max: number) =>
+				`Como mucho ${max} memes pueden tener atajo.`,
 			preview: 'Vista previa',
 			save: 'Guardar meme',
 			needsMedia: 'Elige antes una imagen o un sonido.',
+		},
+		behaviour: {
+			title: 'Comportamiento',
+			cooldown: 'Espera antes de poder repetirse',
+			refire: 'Si lo pulsas otra vez mientras suena',
+			refires: {
+				restart: 'Empieza de nuevo',
+				stack: 'Suena otro encima',
+				ignore: 'No hace nada',
+			},
+			jitter: 'Velocidad y tono aleatorios',
+			presets: 'Ajustes guardados',
+			noPresets:
+				'Guarda este aspecto y comportamiento para usarlo en otros memes.',
+			savePreset: 'Guardar como ajuste',
+			presetName: 'Nombre del ajuste',
+			deletePreset: (name: string) => `Borrar ajuste ${name}`,
 		},
 		animations: {
 			pop: 'Aparecer de golpe',

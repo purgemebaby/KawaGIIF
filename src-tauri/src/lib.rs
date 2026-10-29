@@ -58,7 +58,10 @@ pub fn run() {
 
     tauri::Builder::default()
         // first plugin on purpose: a second launch (autostart already running) only brings the window back
-        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| window_manager::show_control(app)))
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            // a Stream Deck button fires a meme through a second launch: no window for that
+            if !memeboard::fire_from_args(app, &args) { window_manager::show_control(app); }
+        }))
         .manage(EditorState::default())
         .manage(LibraryState::default())
         .manage(SysState::default())
@@ -94,6 +97,8 @@ pub fn run() {
             memeboard::stop_all_memes,
             memeboard::set_meme_max_concurrent,
             memeboard::meme_stage_idle,
+            memeboard::save_preset,
+            memeboard::delete_preset,
             meme_path::record_meme_path,
             commands::set_overlay_rect,
             commands::get_config,
@@ -184,6 +189,7 @@ pub fn run() {
             template::load_saved_template_on_boot(&handle.state::<EditorState>());
             app.global_shortcut().register(release_shortcut)?;
             memeboard::sync_hotkeys(handle);
+            memeboard::fire_from_args(handle, &std::env::args().collect::<Vec<_>>());
             tray::setup(handle)?;
             window_manager::spawn_topmost_keeper(handle);
             window_manager::watch_foreground_changes(handle);

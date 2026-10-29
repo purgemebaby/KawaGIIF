@@ -9,6 +9,7 @@ import {
 	defaultAnimation,
 	type Anchor,
 	type Meme,
+	type Preset,
 	type Side,
 } from '../../lib/memeboard';
 import { useLibrary } from '../../context/LibraryProvider';
@@ -19,11 +20,13 @@ import Slider from '../ui/Slider';
 import HotkeyField from './HotkeyField';
 import MemePreview from './MemePreview';
 import PathRecorder from './PathRecorder';
+import BehaviourPanel from './BehaviourPanel';
 
 interface MemeEditorProps {
 	meme: Meme;
 	isNew: boolean;
 	maxMemeMs: number;
+	presets: Preset[];
 	onClose: () => void;
 }
 
@@ -72,7 +75,13 @@ function MediaPicker({
 }
 
 /** The editor of one meme: what it shows and plays, how it moves, and its shortcut, with a live preview. */
-function MemeEditor({ meme, isNew, maxMemeMs, onClose }: MemeEditorProps) {
+function MemeEditor({
+	meme,
+	isNew,
+	maxMemeMs,
+	presets,
+	onClose,
+}: MemeEditorProps) {
 	const { items } = useLibrary();
 	const [draft, setDraft] = useState<Meme>(meme);
 	const [hotkeyOk, setHotkeyOk] = useState(true);
@@ -289,6 +298,12 @@ function MemeEditor({ meme, isNew, maxMemeMs, onClose }: MemeEditorProps) {
 								onValidity={setHotkeyOk}
 							/>
 						</div>
+
+						<BehaviourPanel
+							draft={draft}
+							presets={presets}
+							onChange={setDraft}
+						/>
 					</div>
 
 					<div className="meme-editor-side">

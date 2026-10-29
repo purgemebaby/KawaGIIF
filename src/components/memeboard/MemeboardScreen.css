@@ -240,7 +240,11 @@
 	border: 1.5px solid var(--kg-border);
 	border-radius: var(--kg-radius-sm);
 	background:
-		linear-gradient(135deg, color-mix(in srgb, var(--kg-accent) 12%, transparent), transparent),
+		linear-gradient(
+			135deg,
+			color-mix(in srgb, var(--kg-accent) 12%, transparent),
+			transparent
+		),
 		var(--kg-bg-input);
 }
 
@@ -403,4 +407,38 @@
 
 .podium-rest small {
 	color: var(--kg-fg-muted);
+}
+
+/* Behaviour block, folded by default */
+.meme-behaviour summary {
+	color: var(--kg-fg-muted);
+	font-size: var(--kg-text-sm);
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.meme-behaviour[open] {
+	gap: var(--kg-space-3);
+}
+
+.meme-preset {
+	display: inline-flex;
+	align-items: center;
+}
+
+.meme-preset-delete {
+	padding: 0 6px;
+	border: none;
+	background: transparent;
+	color: var(--kg-fg-faint);
+	font-size: var(--kg-text-md);
+	cursor: pointer;
+}
+
+.meme-preset-delete:hover {
+	color: var(--kg-danger);
+}
+
+.meme-preset-save {
+	align-self: flex-start;
 }

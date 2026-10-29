@@ -27,6 +27,8 @@ pub const MAX_MEME_MS: u32 = 10_000;
 pub const MAX_HOTKEYS: usize = 10;
 const DEFAULT_STILL_MS: u32 = 3_000;
 const MAX_NAME_CHARS: usize = 60;
+const MAX_COOLDOWN_MS: u32 = 60_000;
+const MAX_SPEED_JITTER: f32 = 0.5;
 /** Share of the free RAM a fire may leave in use; the rest stays for everything else. */
 const FREE_RAM_SHARE: f64 = 0.75;
 const DEFAULT_STOP_HOTKEY: &str = "Ctrl+Alt+Backspace";
@@ -74,6 +76,61 @@ pub enum Anchor {
     Fixed { x: f32, y: f32 },
 }
 
+/** What a second press does while the meme still plays. */
+#[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Debug, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum Refire {
+    /// The playing one stops and it starts over.
+    #[default]
+    Restart,
+    /// Another copy plays on top (while the concurrency limit allows).
+    Stack,
+    /// Nothing happens until it ends.
+    Ignore,
+}
+
+/** How a meme behaves when fired: how soon it may fire again, what a second press does, and how much each play
+ varies its speed (sound pitch and visual together). */
+#[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Debug, Default)]
+pub struct Behaviour {
+    #[serde(default)]
+    pub cooldown_ms: u32,
+    #[serde(default)]
+    pub refire: Refire,
+    /// Each play runs at a random speed within 1 ± this, 0..=MAX_SPEED_JITTER.
+    #[serde(default)]
+    pub speed_jitter: f32,
+}
+impl Behaviour {
+    fn sanitized(mut self) -> Self {
+        self.cooldown_ms = self.cooldown_ms.min(MAX_COOLDOWN_MS);
+        self.speed_jitter = finite_or(self.speed_jitter, 0.0).clamp(0.0, MAX_SPEED_JITTER);
+        self
+    }
+
+    /// A random speed for one play, from the bits of a fresh UUID (no rand crate needed for this).
+    fn pick_speed(self) -> f32 {
+        if self.speed_jitter <= 0.0 { return 1.0; }
+        let unit = (Uuid::new_v4().as_u128() >> 64) as f64 / u64::MAX as f64;
+        1.0 + self.speed_jitter * (unit as f32 * 2.0 - 1.0)
+    }
+}
+
+/** A saved look and behaviour, applied to memes from the editor. */
+#[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
+pub struct Preset {
+    pub id: Uuid,
+    pub name: String,
+    #[serde(default)]
+    pub animation: Animation,
+    #[serde(default)]
+    pub anchor: Anchor,
+    #[serde(default = "default_size")]
+    pub size: f32,
+    #[serde(default)]
+    pub behaviour: Behaviour,
+}
+
 fn default_size() -> f32 { 0.3 }
 fn default_volume() -> f32 { 1.0 }
 
@@ -101,6 +158,8 @@ pub struct Meme {
     #[serde(default)]
     pub hotkey: Option<String>,
     #[serde(default)]
+    pub behaviour: Behaviour,
+    #[serde(default)]
     pub fire_count: u32,
 }
 impl Meme {
@@ -110,6 +169,7 @@ impl Meme {
         self.size = finite_or(self.size, default_size()).clamp(0.05, 1.0);
         self.volume = finite_or(self.volume, default_volume()).clamp(0.0, 1.0);
         self.duration_ms = self.duration_ms.map(|ms| ms.clamp(100, MAX_MEME_MS));
+        self.behaviour = self.behaviour.sanitized();
         if let Anchor::Fixed { x, y } = &mut self.anchor {
             *x = finite_or(*x, 0.5).clamp(0.0, 1.0);
             *y = finite_or(*y, 0.5).clamp(0.0, 1.0);
@@ -248,10 +308,12 @@ pub struct MemeboardIndex {
     memes: Vec<Meme>,
     #[serde(default = "default_stop_hotkey")]
     stop_hotkey: String,
+    #[serde(default)]
+    presets: Vec<Preset>,
 }
 fn default_stop_hotkey() -> String { DEFAULT_STOP_HOTKEY.to_owned() }
 impl Default for MemeboardIndex {
-    fn default() -> Self { Self { memes: Vec::new(), stop_hotkey: default_stop_hotkey() } }
+    fn default() -> Self { Self { memes: Vec::new(), stop_hotkey: default_stop_hotkey(), presets: Vec::new() } }
 }
 impl MemeboardIndex {
     fn path() -> PathBuf { config::data_dir().join("memeboard.json") }
@@ -295,7 +357,7 @@ impl MemeboardIndex {
 
 
 /** A meme on screen: what it costs and when it ends. */
-struct Showing { instance: Uuid, bytes: u64, until: Instant }
+struct Showing { instance: Uuid, meme: Uuid, bytes: u64, until: Instant }
 
 /** The memeboard, the registered shortcuts (by `Shortcut::id`) and what is on screen. */
 pub struct MemeboardState(Mutex<Inner>);
@@ -307,6 +369,7 @@ struct Inner {
     conflicts: HashSet<Uuid>,
     stop_conflict: bool,
     showing: Vec<Showing>,
+    last_fired: HashMap<Uuid, Instant>,
 }
 impl Default for MemeboardState {
     fn default() -> Self {
@@ -318,6 +381,7 @@ impl Default for MemeboardState {
             conflicts: HashSet::new(),
             stop_conflict: false,
             showing: Vec::new(),
+            last_fired: HashMap::new(),
         }))
     }
 }
@@ -365,6 +429,40 @@ pub fn sync_hotkeys(app: &AppHandle) {
     notify_memeboard_changed(app);
 }
 
+/** The meme named by `--fire-meme <id|name>` (or `--fire-meme=<id|name>`) in `args`; names ignore case. */
+fn meme_from_args(index: &MemeboardIndex, args: &[String]) -> Option<Uuid> {
+    let wanted = args.iter().enumerate().find_map(|(i, arg)| {
+        if arg == "--fire-meme" { return args.get(i + 1).cloned(); }
+        arg.strip_prefix("--fire-meme=").map(str::to_owned)
+    })?;
+    let wanted = wanted.trim();
+    if let Ok(id) = Uuid::parse_str(wanted) {
+        if index.find(&id).is_some() { return Some(id); }
+    }
+    index.memes.iter().find(|m| m.name.eq_ignore_ascii_case(wanted)).map(|m| m.id)
+}
+
+/**
+ * Fires the meme a command line names (a Stream Deck button running `KawaGIIF.exe --fire-meme "name"`). A second
+ * launch hands its arguments to the running app through the single-instance plugin. Returns whether the arguments
+ * asked for a meme, so the caller doesn't bring the control window up for it.
+ */
+pub fn fire_from_args(app: &AppHandle, args: &[String]) -> bool {
+    let asked = args.iter().any(|a| a == "--fire-meme" || a.starts_with("--fire-meme="));
+    if !asked { return false; }
+    let found = meme_from_args(&app.state::<MemeboardState>().lock().index, args);
+    match found {
+        Some(id) => {
+            let handle = app.clone();
+            std::thread::spawn(move || {
+                if let Err(error) = fire(&handle, id) { let _ = handle.emit("meme-rejected", error.to_string()); }
+            });
+        }
+        None => { let _ = app.emit("meme-rejected", "no meme has that name"); }
+    }
+    true
+}
+
 /** The global shortcut handler's share: fires the meme of a pressed shortcut, or stops everything. */
 pub fn on_shortcut(app: &AppHandle, shortcut: &Shortcut, event: &ShortcutEvent) {
     if event.state != ShortcutState::Pressed { return; }
@@ -404,6 +502,8 @@ pub struct StageFire {
     pub meme: Meme,
     pub visual: Option<StageVisual>,
     pub duration_ms: u32,
+    /// Playback speed of the visual, matching the sound's (1 = as recorded).
+    pub speed: f32,
     pub cursor: (f64, f64),
 }
 
@@ -440,6 +540,31 @@ fn estimated_bytes(visual: Option<&MediaItem>, audio: Option<&MediaItem>, durati
     });
     let audio_bytes = audio.map_or(0, |_| PCM_BYTES_PER_MS * u64::from(duration_ms) * outputs.max(1));
     visual_bytes.saturating_add(audio_bytes)
+}
+
+/**
+ * Which memes on screen (indices into `showing`, oldest first) must go for meme `id` to fire, or `None` when it must
+ * not fire at all (`Refire::Ignore` while it still plays). `Restart` drops its own copies; then, with a limit of 1
+ * everything goes, else the oldest go until the new one fits under `max`.
+ */
+fn make_room(showing: &[Showing], id: Uuid, refire: Refire, max: usize) -> Option<Vec<usize>> {
+    let playing = |s: &Showing| s.meme == id;
+    if refire == Refire::Ignore && showing.iter().any(playing) { return None; }
+    let mut evict: Vec<usize> = if refire == Refire::Restart || max <= 1 {
+        showing.iter().enumerate().filter(|(_, s)| max <= 1 || playing(s)).map(|(i, _)| i).collect()
+    } else {
+        Vec::new()
+    };
+    let mut left = showing.len() - evict.len();
+    for index in 0..showing.len() {
+        if left < max { break; }
+        if !evict.contains(&index) {
+            evict.push(index);
+            left -= 1;
+        }
+    }
+    evict.sort_unstable();
+    Some(evict)
 }
 
 fn fits_in_memory(needed: u64, already_showing: u64, available: u64) -> bool {
@@ -479,19 +604,28 @@ pub fn fire(app: &AppHandle, id: Uuid) -> AppResult<()> {
     let max_concurrent = settings.meme_max_concurrent.clamp(1, config::MAX_MEME_CONCURRENCY) as usize;
 
     let instance = Uuid::new_v4();
-    let replace = max_concurrent == 1;
+    let speed = meme.behaviour.pick_speed();
+    // the sound is cut at `duration_ms` of its own time, which a faster play gets through sooner
+    let shown_ms = (duration_ms as f32 / speed).round() as u32;
     let evicted: Vec<Uuid> = {
         let state = app.state::<MemeboardState>();
         let mut inner = state.lock();
         let now = Instant::now();
+        let cooldown = Duration::from_millis(u64::from(meme.behaviour.cooldown_ms));
+        if inner.last_fired.get(&id).is_some_and(|at| now.duration_since(*at) < cooldown) { return Ok(()); }
         inner.showing.retain(|s| s.until > now);
-        // the oldest go first; nothing changes unless the new meme also fits in memory
-        let evict_count = if replace { inner.showing.len() } else { (inner.showing.len() + 1).saturating_sub(max_concurrent) };
-        let kept_bytes: u64 = inner.showing.iter().skip(evict_count).map(|s| s.bytes).sum();
+        let Some(evict) = make_room(&inner.showing, id, meme.behaviour.refire, max_concurrent) else { return Ok(()); };
+        // nothing changes unless the new meme also fits in memory
+        let kept_bytes: u64 = inner.showing.iter().enumerate()
+            .filter(|(i, _)| !evict.contains(i))
+            .map(|(_, s)| s.bytes)
+            .sum();
         if !fits_in_memory(bytes, kept_bytes, available_memory()) { return Err(AppError::MemeTooHeavy); }
-        let evicted: Vec<Uuid> = inner.showing.drain(..evict_count).map(|s| s.instance).collect();
-        let until = now + Duration::from_millis(u64::from(duration_ms));
-        inner.showing.push(Showing { instance, bytes, until });
+        let mut evicted = Vec::with_capacity(evict.len());
+        for index in evict.into_iter().rev() { evicted.push(inner.showing.remove(index).instance); }
+        let until = now + Duration::from_millis(u64::from(shown_ms));
+        inner.showing.push(Showing { instance, meme: id, bytes, until });
+        inner.last_fired.insert(id, now);
         if let Some(stored) = inner.index.memes.iter_mut().find(|m| m.id == id) { stored.fire_count += 1; }
         let _ = inner.index.save();
         evicted
@@ -501,7 +635,7 @@ pub fn fire(app: &AppHandle, id: Uuid) -> AppResult<()> {
     for old in &evicted { sound.stop(*old); }
     if let Some(file) = sound_file {
         let volume = meme.volume * settings.meme_volume;
-        sound.play(instance, Sound { path: media_path(file), volume, speed: 1.0, max: Duration::from_millis(u64::from(duration_ms)) })?;
+        sound.play(instance, Sound { path: media_path(file), volume, speed, max: Duration::from_millis(u64::from(duration_ms)) })?;
     }
 
     for old in &evicted { let _ = app.emit_to(window_manager::MEME_STAGE_LABEL, "meme-end", old); }
@@ -516,7 +650,8 @@ pub fn fire(app: &AppHandle, id: Uuid) -> AppResult<()> {
                 height: visual.info.height,
             }),
             meme,
-            duration_ms,
+            duration_ms: shown_ms,
+            speed,
             cursor,
         };
         let _ = app.emit_to(window_manager::MEME_STAGE_LABEL, "meme-fire", payload);
@@ -548,6 +683,7 @@ pub struct MemeboardView {
     pub memes: Vec<MemeView>,
     pub stop_hotkey: String,
     pub stop_conflict: bool,
+    pub presets: Vec<Preset>,
     pub max_hotkeys: usize,
     pub max_meme_ms: u32,
 }
@@ -562,6 +698,7 @@ pub fn list_memes(state: State<MemeboardState>) -> MemeboardView {
             .collect(),
         stop_hotkey: inner.index.stop_hotkey.clone(),
         stop_conflict: inner.stop_conflict,
+        presets: inner.index.presets.clone(),
         max_hotkeys: MAX_HOTKEYS,
         max_meme_ms: MAX_MEME_MS,
     }
@@ -582,6 +719,7 @@ pub fn new_meme(state: State<MemeboardState>, name: String) -> Meme {
         volume: default_volume(),
         duration_ms: None,
         hotkey: inner.index.free_default_hotkey(),
+        behaviour: Behaviour::default(),
         fire_count: 0,
     }.sanitized()
 }
@@ -647,6 +785,39 @@ pub fn set_stop_hotkey(app: AppHandle, state: State<MemeboardState>, hotkey: Str
     Ok(canonical)
 }
 
+/// Adds or replaces a preset (a saved look and behaviour). Returns it as saved.
+#[tauri::command]
+pub fn save_preset(app: AppHandle, state: State<MemeboardState>, preset: Preset) -> AppResult<Preset> {
+    let mut preset = preset;
+    if preset.id.is_nil() { preset.id = Uuid::new_v4(); }
+    preset.name = preset.name.split_whitespace().collect::<Vec<_>>().join(" ").chars().take(MAX_NAME_CHARS).collect();
+    if preset.name.is_empty() { return Err(AppError::EmptyName); }
+    // the same clamps as a meme's
+    preset.size = finite_or(preset.size, default_size()).clamp(0.05, 1.0);
+    preset.behaviour = preset.behaviour.sanitized();
+    {
+        let mut inner = state.lock();
+        match inner.index.presets.iter_mut().find(|p| p.id == preset.id) {
+            Some(stored) => *stored = preset.clone(),
+            None => inner.index.presets.push(preset.clone()),
+        }
+        inner.index.save()?;
+    }
+    notify_memeboard_changed(&app);
+    Ok(preset)
+}
+
+#[tauri::command]
+pub fn delete_preset(app: AppHandle, state: State<MemeboardState>, id: Uuid) -> AppResult<()> {
+    {
+        let mut inner = state.lock();
+        inner.index.presets.retain(|p| p.id != id);
+        inner.index.save()?;
+    }
+    notify_memeboard_changed(&app);
+    Ok(())
+}
+
 /// Fires a meme from the UI's test button.
 #[tauri::command]
 pub fn fire_meme(app: AppHandle, id: Uuid) -> AppResult<()> { fire(&app, id) }
@@ -682,7 +853,8 @@ mod tests {
         for (n, key) in hotkeys.iter().enumerate() {
             let mut meme = Meme {
                 id: Uuid::new_v4(), name: format!("m{n}"), visual: None, audio: None, animation: Animation::Pop,
-                anchor: Anchor::Cursor, size: 0.3, volume: 1.0, duration_ms: None, hotkey: None, fire_count: 0,
+                anchor: Anchor::Cursor, size: 0.3, volume: 1.0, duration_ms: None, hotkey: None,
+                behaviour: Behaviour::default(), fire_count: 0,
             };
             meme.hotkey = Some((*key).to_owned());
             index.memes.push(meme);
@@ -734,6 +906,17 @@ mod tests {
     }
 
     #[test]
+    fn command_line_names_a_meme_by_id_or_name() {
+        let index = index_with(&["F13", "F14"]);
+        let id = index.memes[1].id;
+        let args = |list: &[&str]| list.iter().map(|s| (*s).to_owned()).collect::<Vec<_>>();
+        assert_eq!(meme_from_args(&index, &args(&["kawagiif.exe", "--fire-meme", "M1"])), Some(id));
+        assert_eq!(meme_from_args(&index, &args(&["kawagiif.exe", &format!("--fire-meme={id}")])), Some(id));
+        assert_eq!(meme_from_args(&index, &args(&["kawagiif.exe", "--fire-meme", "nope"])), None);
+        assert_eq!(meme_from_args(&index, &args(&["kawagiif.exe"])), None);
+    }
+
+    #[test]
     fn default_hotkeys_fill_the_free_digits() {
         let index = index_with(&["Ctrl+Alt+Digit1", "Ctrl+Alt+Digit2"]);
         assert_eq!(index.free_default_hotkey(), Some("Ctrl+Alt+Digit3".into()));
@@ -764,6 +947,33 @@ mod tests {
         assert_eq!(meme_duration(&meme, Some(&still), None), DEFAULT_STILL_MS);
         let timed = Meme { duration_ms: Some(60_000), ..meme }.sanitized();
         assert_eq!(meme_duration(&timed, Some(&still), None), MAX_MEME_MS);
+    }
+
+    fn showing(memes: &[Uuid]) -> Vec<Showing> {
+        memes.iter().map(|&meme| Showing { instance: Uuid::new_v4(), meme, bytes: 0, until: Instant::now() }).collect()
+    }
+
+    #[test]
+    fn room_is_made_by_refire_mode_and_limit() {
+        let (a, b, c) = (Uuid::new_v4(), Uuid::new_v4(), Uuid::new_v4());
+        let screen = showing(&[a, b, a]);
+        assert_eq!(make_room(&screen, a, Refire::Ignore, 5), None);
+        assert_eq!(make_room(&screen, c, Refire::Ignore, 5), Some(vec![]));
+        assert_eq!(make_room(&screen, a, Refire::Restart, 5), Some(vec![0, 2]));
+        assert_eq!(make_room(&screen, a, Refire::Stack, 5), Some(vec![]));
+        // over the limit the oldest go
+        assert_eq!(make_room(&screen, c, Refire::Stack, 3), Some(vec![0]));
+        assert_eq!(make_room(&screen, c, Refire::Stack, 1), Some(vec![0, 1, 2]));
+        assert_eq!(make_room(&screen, b, Refire::Restart, 2), Some(vec![0, 1]));
+    }
+
+    #[test]
+    fn speed_jitter_stays_in_range() {
+        let behaviour = Behaviour { speed_jitter: 0.25, ..Behaviour::default() };
+        assert!((0..200).map(|_| behaviour.pick_speed()).all(|s| (0.75..=1.25).contains(&s)));
+        assert_eq!(Behaviour::default().pick_speed(), 1.0);
+        assert_eq!(Behaviour { speed_jitter: 9.0, cooldown_ms: 999_999, ..Behaviour::default() }.sanitized(),
+            Behaviour { speed_jitter: MAX_SPEED_JITTER, cooldown_ms: MAX_COOLDOWN_MS, refire: Refire::Restart });
     }
 
     #[test]

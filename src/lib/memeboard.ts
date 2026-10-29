@@ -29,6 +29,26 @@ export type Anchor =
 	| { kind: 'random' }
 	| { kind: 'fixed'; x: number; y: number };
 
+/** What a second press does while the meme still plays. */
+export type Refire = 'restart' | 'stack' | 'ignore';
+
+export interface Behaviour {
+	cooldown_ms: number;
+	refire: Refire;
+	/** Each play runs at a random speed within 1 ± this (0..0.5). */
+	speed_jitter: number;
+}
+
+/** A saved look and behaviour, applied to memes from the editor. */
+export interface Preset {
+	id: string;
+	name: string;
+	animation: Animation;
+	anchor: Anchor;
+	size: number;
+	behaviour: Behaviour;
+}
+
 export interface Meme {
 	id: string;
 	name: string;
@@ -43,6 +63,7 @@ export interface Meme {
 	duration_ms: number | null;
 	/** Canonical `Ctrl+Alt+Digit1` form, keys as `KeyboardEvent.code`. */
 	hotkey: string | null;
+	behaviour: Behaviour;
 	fire_count: number;
 }
 
@@ -54,6 +75,7 @@ export interface MemeboardView {
 	memes: MemeView[];
 	stop_hotkey: string;
 	stop_conflict: boolean;
+	presets: Preset[];
 	max_hotkeys: number;
 	max_meme_ms: number;
 }
@@ -74,6 +96,8 @@ export interface StageFire {
 	meme: Meme;
 	visual: StageVisual | null;
 	duration_ms: number;
+	/** Playback speed of the visual, matching the sound's. */
+	speed: number;
 	cursor: [number, number];
 }
 

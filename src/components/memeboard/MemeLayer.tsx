@@ -25,6 +25,8 @@ export interface MemeLayerProps {
 	stageH: number;
 	/** Starts over at the end instead of calling `onDone` (the editor preview). */
 	loop?: boolean;
+	/** Playback speed of the GIF or video (1 = as recorded), matching the sound. */
+	speed?: number;
 	onDone?: () => void;
 }
 
@@ -42,6 +44,7 @@ function MemeLayer({
 	stageW,
 	stageH,
 	loop = false,
+	speed = 1,
 	onDone,
 }: MemeLayerProps) {
 	const ref = useRef<HTMLDivElement>(null);
@@ -100,6 +103,9 @@ function MemeLayer({
 					loop
 					muted
 					playsInline
+					ref={(el) => {
+						if (el) el.playbackRate = speed;
+					}}
 					onLoadedMetadata={(e) =>
 						onNatural(e.currentTarget.videoWidth, e.currentTarget.videoHeight)
 					}
@@ -108,7 +114,7 @@ function MemeLayer({
 			{mediaType === 'gif' && (
 				<GifCanvasPlayer
 					src={url}
-					speedMultiplier={1}
+					speedMultiplier={speed}
 					className="meme-layer-media"
 					onNaturalSize={onNatural}
 				/>

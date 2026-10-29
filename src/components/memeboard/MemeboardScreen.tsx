@@ -204,6 +204,7 @@ function MemeboardScreen() {
 					meme={editing.meme}
 					isNew={editing.isNew}
 					maxMemeMs={view.max_meme_ms}
+					presets={view.presets}
 					onClose={() => setEditing(null)}
 				/>
 			)}
