@@ -1,0 +1,99 @@
+/* Audio items drawn as a cassette, label in the app's ink, reels spinning while the preview plays. */
+.cassette {
+	position: relative;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 100%;
+	height: 100%;
+	background: var(--kg-bg-input);
+}
+
+.cassette-svg {
+	width: 82%;
+	overflow: visible;
+}
+
+.cassette-shell {
+	fill: var(--kg-bg-raised);
+	stroke: var(--kg-fg);
+	stroke-width: 1.6;
+}
+
+.cassette-label {
+	fill: var(--kg-accent-soft);
+	stroke: var(--kg-fg);
+	stroke-width: 1;
+}
+
+.cassette-window {
+	fill: var(--kg-bg-input);
+	stroke: var(--kg-fg-muted);
+	stroke-width: 1;
+}
+
+.cassette-foot {
+	fill: none;
+	stroke: var(--kg-fg-muted);
+	stroke-width: 1.2;
+	stroke-linejoin: round;
+}
+
+.cassette-tape {
+	fill: color-mix(in srgb, var(--kg-fg) 70%, transparent);
+}
+
+.cassette-hub {
+	fill: var(--kg-bg-raised);
+	stroke: var(--kg-fg);
+	stroke-width: 1;
+}
+
+.cassette-tooth {
+	stroke: var(--kg-fg);
+	stroke-width: 1.2;
+	stroke-linecap: round;
+}
+
+/* origins are given in viewBox units */
+.cassette-reel {
+	transform-box: view-box;
+}
+
+.cassette.is-playing .cassette-reel {
+	animation: cassette-spin 1.4s linear infinite;
+}
+
+@keyframes cassette-spin {
+	to {
+		rotate: 360deg;
+	}
+}
+
+/* the name sits on the cassette's paper label, in SVG units so it scales with the drawing */
+.cassette-name {
+	display: block;
+	overflow: hidden;
+	color: var(--kg-fg);
+	font-size: 9px;
+	line-height: 16px;
+	text-align: center;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	pointer-events: none;
+}
+
+.cassette-duration {
+	position: absolute;
+	right: 8px;
+	bottom: 6px;
+	color: var(--kg-fg-muted);
+	font-size: var(--kg-text-xs);
+	font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.cassette.is-playing .cassette-reel {
+		animation: none;
+	}
+}

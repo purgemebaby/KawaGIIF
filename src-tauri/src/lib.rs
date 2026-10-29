@@ -1,9 +1,13 @@
 /* App entry point. Registers plugins, states and commands, creates the windows at startup and decides what closing and quitting do. */
+mod audio;
 mod commands;
 mod config;
 mod error;
 mod library;
 mod media_compress;
+mod media_probe;
+mod meme_path;
+mod memeboard;
 #[cfg(windows)]
 mod native;
 mod system_stats;
@@ -59,20 +63,38 @@ pub fn run() {
         .manage(LibraryState::default())
         .manage(SysState::default())
         .manage(UpdateState::default())
+        .manage(audio::AudioState::start())
+        .manage(memeboard::MemeboardState::default())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, None))
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(move |app, shortcut, event| {
-                    if *shortcut == release_shortcut && event.state == ShortcutState::Pressed {
-                        template::toggle_click_through_release(app);
+                    if *shortcut == release_shortcut {
+                        if event.state == ShortcutState::Pressed { template::toggle_click_through_release(app); }
+                    } else {
+                        memeboard::on_shortcut(app, shortcut, &event);
                     }
                 })
                 .build(),
         )
         .invoke_handler(tauri::generate_handler![
             commands::hide_control_window,
+            audio::list_audio_outputs,
+            audio::set_audio_output,
+            audio::set_meme_volume,
+            memeboard::list_memes,
+            memeboard::new_meme,
+            memeboard::check_hotkey,
+            memeboard::save_meme,
+            memeboard::delete_meme,
+            memeboard::set_stop_hotkey,
+            memeboard::fire_meme,
+            memeboard::stop_all_memes,
+            memeboard::set_meme_max_concurrent,
+            memeboard::meme_stage_idle,
+            meme_path::record_meme_path,
             commands::set_overlay_rect,
             commands::get_config,
             commands::set_launch_on_startup,
@@ -140,6 +162,7 @@ pub fn run() {
             let handle: &AppHandle = app.handle();
             let control: WebviewWindow = window_manager::create_control_window(handle)?;
             window_manager::create_overlay_pool(handle)?;
+            window_manager::create_meme_stage(handle)?;
 
             let control_for_close: WebviewWindow = control.clone();
             let app_for_events: AppHandle = handle.clone();
@@ -160,6 +183,7 @@ pub fn run() {
 
             template::load_saved_template_on_boot(&handle.state::<EditorState>());
             app.global_shortcut().register(release_shortcut)?;
+            memeboard::sync_hotkeys(handle);
             tray::setup(handle)?;
             window_manager::spawn_topmost_keeper(handle);
             window_manager::watch_foreground_changes(handle);

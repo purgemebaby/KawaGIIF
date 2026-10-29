@@ -737,6 +737,8 @@ fn spawn_box(app: &AppHandle, cursor: &PhysicalPosition<f64>) -> AppResult<(i32,
 /// and swings meanwhile (`Arrival::Carried`, ended by `pickup-ended`).
 #[tauri::command]
 pub fn spawn_placed_media(app: AppHandle, state: State<EditorState>, media_id: Uuid) -> AppResult<SpawnedOverlay> {
+    let is_audio = app.state::<LibraryState>().lock().find(&media_id).is_some_and(|item| item.media_type.is_audio());
+    if is_audio { return Err(AppError::AudioNotPlaceable); }
     let cursor = app.cursor_position()?;
     let (x, y, frame) = spawn_box(&app, &cursor)?;
     let grip_y = cursor.y.round() as i32 - y;

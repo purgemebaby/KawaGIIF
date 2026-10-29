@@ -2,10 +2,16 @@ import { t } from '../i18n';
 import type { SketchIconName } from '../lib/sketchIcons';
 
 // Menus
-export type Screen = 'home' | 'storage' | 'editor' | 'settings';
+export type Screen = 'home' | 'storage' | 'editor' | 'memeboard' | 'settings';
 
 /** The `Screen` values in nav order. */
-export const SCREENS: Screen[] = ['home', 'storage', 'editor', 'settings'];
+export const SCREENS: Screen[] = [
+	'home',
+	'storage',
+	'editor',
+	'memeboard',
+	'settings',
+];
 
 interface NavItem {
 	id: Screen;
@@ -20,6 +26,7 @@ function navItems(): NavItem[] {
 		{ id: 'home', label: t.nav.home },
 		{ id: 'storage', label: t.nav.storage, icon: 'folder' },
 		{ id: 'editor', label: t.nav.editor, icon: 'pencil' },
+		{ id: 'memeboard', label: t.nav.memeboard, icon: 'laugh' },
 		{ id: 'settings', label: t.nav.settings, icon: 'gear' },
 	];
 }

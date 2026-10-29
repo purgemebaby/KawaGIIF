@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
-import { isVideoType, type MediaItem } from '../lib/media';
+import { isAudioType, isVideoType, type MediaItem } from '../lib/media';
 import { useMediaUrl } from '../hooks/useMediaUrl';
+import CassetteThumb from './CassetteThumb';
 
 const PREVIEW_STEPS = 8;
 const PREVIEW_INTERVAL_MS = 700;
@@ -52,6 +53,17 @@ function MediaThumb({
 	};
 
 	useEffect(() => stopPreview, []);
+
+	if (isAudioType(item.media_type)) {
+		return (
+			<CassetteThumb
+				item={item}
+				url={url}
+				className={className}
+				preview={preview}
+			/>
+		);
+	}
 
 	if (!url) {
 		return (

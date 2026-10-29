@@ -25,6 +25,44 @@
 	gap: var(--kg-space-2);
 }
 
+/* Images & videos | Cassettes: index-card tabs over the filter bar. */
+.storage-tabs {
+	display: flex;
+	gap: var(--kg-space-2);
+	margin-bottom: var(--kg-space-3);
+	border-bottom: 1.5px solid var(--kg-border);
+}
+
+.storage-tab {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--kg-space-2);
+	margin-bottom: -1.5px;
+	padding: 6px 14px;
+	border: 1.5px solid transparent;
+	border-radius: var(--kg-radius-sm) var(--kg-radius-sm) 0 0;
+	background: transparent;
+	color: var(--kg-fg-muted);
+	font-family: inherit;
+	font-size: var(--kg-text-md);
+	cursor: pointer;
+	transition:
+		color var(--kg-dur-fast) var(--kg-ease-out),
+		background-color var(--kg-dur-fast) var(--kg-ease-out);
+}
+
+.storage-tab:hover {
+	color: var(--kg-fg);
+	background: var(--kg-accent-soft);
+}
+
+.storage-tab.active {
+	border-color: var(--kg-border);
+	border-bottom-color: var(--kg-island-bg);
+	background: var(--kg-island-bg);
+	color: var(--kg-fg);
+}
+
 .storage-selected-count {
 	color: var(--kg-fg-muted);
 	font-size: var(--kg-text-md);

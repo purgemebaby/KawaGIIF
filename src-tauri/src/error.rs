@@ -35,8 +35,35 @@ pub enum AppError {
     #[error("No update is waiting to be installed")]
     NoPendingUpdate,
 
+    #[error("Audio: {0}")]
+    Audio(String),
+
+    #[error("The audio thread has stopped")]
+    AudioStopped,
+
+    #[error("No meme with id {0}")]
+    MemeNotFound(Uuid),
+
+    #[error("This meme has neither a visual nor a sound in the library")]
+    MemeEmpty,
+
+    #[error("Not enough free memory to show this meme now")]
+    MemeTooHeavy,
+
+    #[error("Hotkey refused: {0:?}")]
+    HotkeyRefused(crate::memeboard::HotkeyRefusal),
+
+    #[error("Recording the path failed")]
+    RecordingFailed,
+
+    #[error("The meme stage window is missing")]
+    MissingStageWindow,
+
     #[error("No media with id {0}")]
     MediaNotFound(Uuid),
+
+    #[error("Sounds play in memes, they can't be placed on the desktop")]
+    AudioNotPlaceable,
 
     #[error("Media can only be deleted from the control window")]
     DeleteOutsideControl,

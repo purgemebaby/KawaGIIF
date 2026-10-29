@@ -28,7 +28,7 @@ const VP8X_ANIMATION: u8 = 0x02;
 /// Shrinks a still PNG/JPEG/WEBP in place when that saves space. Returns true if the file was rewritten.
 pub fn shrink_still_image(path: &Path, media_type: MediaType) -> AppResult<bool> {
     match media_type {
-        MediaType::Gif | MediaType::Mp4 | MediaType::Svg => return Ok(false),
+        MediaType::Gif | MediaType::Mp4 | MediaType::Svg | MediaType::Mp3 | MediaType::Wav | MediaType::Ogg => return Ok(false),
         // re-encoding an animated WEBP would flatten it to its first frame
         MediaType::Webp if webp_is_animated(path) => return Ok(false),
         _ => {}
@@ -97,7 +97,7 @@ fn encode_still(out: std::fs::File, media_type: MediaType, img: &DynamicImage) -
         MediaType::Jpeg => JpegEncoder::new_with_quality(out, JPEG_QUALITY).write_image(bytes, w, h, color),
         MediaType::Webp => WebPEncoder::new_lossless(out).write_image(bytes, w, h, color),
         // the early match in shrink_still_image already sent these back untouched
-        MediaType::Gif | MediaType::Mp4 | MediaType::Svg => Ok(()),
+        MediaType::Gif | MediaType::Mp4 | MediaType::Svg | MediaType::Mp3 | MediaType::Wav | MediaType::Ogg => Ok(()),
     }
 }
 

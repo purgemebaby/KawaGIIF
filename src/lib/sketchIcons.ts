@@ -340,6 +340,100 @@ export const SKETCH_ICONS = {
 			},
 		],
 	},
+	image: {
+		base: [
+			{
+				points: [
+					[4, 5],
+					[20, 5],
+					[20, 19],
+					[4, 19],
+				],
+				closed: true,
+				fill: 'var(--kg-px-sky)',
+			},
+			{
+				// a hill and its smaller neighbour
+				points: [
+					[4.5, 18.5],
+					[10, 11.5],
+					[14, 15.5],
+					[16, 13.5],
+					[19.5, 18.5],
+				],
+				closed: true,
+				fill: 'var(--kg-px-purple)',
+			},
+			{ ellipse: [15.5, 9, 1.7, 1.7], fill: 'var(--kg-px-sun)' },
+		],
+	},
+	laugh: {
+		base: [
+			{ ellipse: [12, 12, 8.5, 8.5], fill: 'var(--kg-px-sun)' },
+			{
+				// eyes squeezed shut: ^ ^
+				points: [
+					[7.5, 10.5],
+					[9, 8.8],
+					[10.5, 10.5],
+				],
+			},
+			{
+				points: [
+					[13.5, 10.5],
+					[15, 8.8],
+					[16.5, 10.5],
+				],
+			},
+			{
+				// the open mouth, wide
+				points: [
+					[7.5, 13],
+					[16.5, 13],
+					[14.5, 17],
+					[12, 17.8],
+					[9.5, 17],
+				],
+				closed: true,
+				fill: 'var(--kg-px-pink)',
+			},
+		],
+	},
+	cassette: {
+		base: [
+			{
+				points: [
+					[3.5, 6],
+					[20.5, 6],
+					[20.5, 18.5],
+					[3.5, 18.5],
+				],
+				closed: true,
+				fill: 'var(--kg-px-pink)',
+			},
+			{
+				// the paper label
+				points: [
+					[6, 8],
+					[18, 8],
+					[18, 10.5],
+					[6, 10.5],
+				],
+				closed: true,
+				fill: 'var(--kg-px-white)',
+			},
+			{ ellipse: [9, 14, 1.8, 1.8], fill: 'var(--kg-px-deep)' },
+			{ ellipse: [15, 14, 1.8, 1.8], fill: 'var(--kg-px-deep)' },
+			{
+				points: [
+					[7.5, 18.5],
+					[9, 16.5],
+					[15, 16.5],
+					[16.5, 18.5],
+				],
+			},
+		],
+	},
 } satisfies Record<string, Record<string, readonly SketchShape[]>>;
 
 export type SketchIconName = keyof typeof SKETCH_ICONS;

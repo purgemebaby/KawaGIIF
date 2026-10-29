@@ -2,7 +2,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { invoke } from '../lib/ipc';
 import { notifyError } from '../lib/notify';
 import { loadConfig } from '../lib/config';
-import { shortFileName, type MediaItem } from '../lib/media';
+import {
+	kindOf,
+	shortFileName,
+	type MediaItem,
+	type MediaKind,
+} from '../lib/media';
+import { usePersistentState } from '../hooks/usePersistentState';
 import { useLibrary } from '../context/LibraryProvider';
 import { useDeleteShortcut } from '../hooks/useDeleteShortcut';
 import { useEscape } from '../hooks/useDismiss';
@@ -31,6 +37,12 @@ interface DeleteRequest {
 	placed: number;
 }
 
+const kindCodec = {
+	parse: (raw: string): MediaKind | undefined =>
+		raw === 'visual' || raw === 'audio' ? raw : undefined,
+	format: (kind: MediaKind) => kind,
+};
+
 function StorageScreen() {
 	const {
 		items,
@@ -45,6 +57,15 @@ function StorageScreen() {
 	const { startImport, dropping, dialogs } = useImportFlow();
 	const showMascot = useMascotShown();
 	const imports = useImportCount(items, loading);
+	const [tab, setTab] = usePersistentState<MediaKind>(
+		'kawagiif.storage.tab',
+		'visual',
+		kindCodec,
+	);
+	const tabItems = useMemo(
+		() => items.filter((item) => kindOf(item.media_type) === tab),
+		[items, tab],
+	);
 	const {
 		filters,
 		setFilters,
@@ -53,12 +74,12 @@ function StorageScreen() {
 		openTags,
 		closeTags,
 		toggleTag,
-	} = useMediaFilters(items);
+	} = useMediaFilters(tabItems);
 	const [deleting, setDeleting] = useState<DeleteRequest | null>(null);
 	const [confirmBeforeDelete, setConfirmBeforeDelete] = useState(true);
 	const [selecting, setSelecting] = useState(false);
 	const [bulkTags, setBulkTags] = useState(false);
-	const itemIds = useMemo(() => items.map((item) => item.id), [items]);
+	const itemIds = useMemo(() => tabItems.map((item) => item.id), [tabItems]);
 	const { selectedIds, select, selectAll, clear } = useMediaSelection(itemIds);
 	const selectedItems = useMemo(
 		() => items.filter((item) => selectedIds.has(item.id)),
@@ -125,6 +146,14 @@ function StorageScreen() {
 			{ ...modifiers, toggle: modifiers.toggle || selecting },
 			filteredItems.map((item) => item.id),
 		);
+	};
+
+	// a type filter of the other tab would hide everything
+	const switchTab = (next: MediaKind) => {
+		if (next === tab) return;
+		setTab(next);
+		setFilters((prev) => ({ ...prev, type: 'all' }));
+		clear();
 	};
 
 	const deletingName = (request: DeleteRequest) =>
@@ -226,10 +255,26 @@ function StorageScreen() {
 						</button>
 					</p>
 				)}
+				<div className="storage-tabs" role="tablist">
+					{(['visual', 'audio'] as const).map((kind) => (
+						<button
+							key={kind}
+							type="button"
+							role="tab"
+							aria-selected={tab === kind}
+							className={tab === kind ? 'storage-tab active' : 'storage-tab'}
+							onClick={() => switchTab(kind)}
+						>
+							<SketchIcon name={kind === 'audio' ? 'cassette' : 'image'} />
+							{t.storage.tabs[kind]}
+						</button>
+					))}
+				</div>
 				<MediaFilterBar
 					filters={filters}
 					onChange={setFilters}
 					onOpenTags={openTags}
+					kind={tab}
 				/>
 
 				{loading ? (

@@ -1,4 +1,6 @@
+import { useMemo } from 'react';
 import { invoke } from '../lib/ipc';
+import { isAudioType } from '../lib/media';
 import { notifyError } from '../lib/notify';
 import { useLibrary } from '../context/LibraryProvider';
 import { useImportFlow } from './ImportDialogs';
@@ -23,7 +25,12 @@ function spawn(mediaId: string) {
 // Only a drag places the animation: the new overlay is carried under the cursor until the button is released.
 // `wrap` turns the strip into the scrolling grid of a panel sized taller than one row.
 function MediaSidebar({ wrap = false }: { wrap?: boolean }) {
-	const { items } = useLibrary();
+	const { items: libraryItems } = useLibrary();
+	// cassettes have nothing to show on the desktop
+	const items = useMemo(
+		() => libraryItems.filter((item) => !isAudioType(item.media_type)),
+		[libraryItems],
+	);
 	const { startImport, dropping, dialogs } = useImportFlow({
 		toastNotices: true,
 	});

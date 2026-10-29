@@ -24,6 +24,24 @@ pub const LANGUAGES: [&str; 2] = ["en", "es"];
 
 fn default_language() -> String { LANGUAGES[0].to_owned() }
 
+fn default_meme_volume() -> f32 { 0.8 }
+
+fn default_meme_concurrency() -> u32 { 1 }
+
+/** Upper bound of memes on screen at once, whatever the settings say. */
+pub const MAX_MEME_CONCURRENCY: u32 = 10;
+
+/** Where memeboard sounds go. A device is kept by its cpal id, which survives renames and reboots. */
+#[derive(Serialize, Deserialize, Clone, Default, PartialEq, Debug)]
+#[serde(tag = "mode", content = "device", rename_all = "snake_case")]
+pub enum AudioOutput {
+    #[default]
+    Default,
+    Device(String),
+    /// The default speakers and another device at once, e.g. a virtual cable that feeds a voice chat.
+    DefaultPlusDevice(String),
+}
+
 fn config_path() -> PathBuf { data_dir().join("config.toml") }
 
 /** The app data folder, `%LOCALAPPDATA%\KawaGIIF`. */
@@ -106,6 +124,15 @@ pub struct AppConfig {
     /// UI language of the app ("en" or "es").
     #[serde(default = "default_language")]
     pub language: String,
+    /// Output device(s) of memeboard sounds.
+    #[serde(default)]
+    pub audio_output: AudioOutput,
+    /// Master volume of memeboard sounds, 0..=1.
+    #[serde(default = "default_meme_volume")]
+    pub meme_volume: f32,
+    /// How many memes may play at once, 1..=MAX_MEME_CONCURRENCY. With 1 a new meme replaces the current one.
+    #[serde(default = "default_meme_concurrency")]
+    pub meme_max_concurrent: u32,
 }
 impl Default for AppConfig {
     fn default() -> Self {
@@ -121,6 +148,9 @@ impl Default for AppConfig {
             nav_animations: true,
             show_mascot: true,
             language: default_language(),
+            audio_output: AudioOutput::Default,
+            meme_volume: default_meme_volume(),
+            meme_max_concurrent: default_meme_concurrency(),
         }
     }
 }

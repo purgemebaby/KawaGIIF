@@ -17,6 +17,7 @@ import HomeScreen from '../components/HomeScreen';
 import StorageScreen from '../components/StorageScreen';
 import EditorScreen from '../components/EditorScreen';
 import SettingsScreen from '../components/SettingsScreen';
+import MemeboardScreen from '../components/memeboard/MemeboardScreen';
 import LoadingScreen from '../components/LoadingScreen';
 import Toast from '../components/ui/Toast';
 import Modal, { MODAL_ROOT_ID } from '../components/ui/Modal';
@@ -49,6 +50,7 @@ function ScreenView({ id, quiet, booting, onNavigate }: ScreenViewProps) {
 				)}
 				{id === 'storage' && <StorageScreen />}
 				{id === 'editor' && <EditorScreen />}
+				{id === 'memeboard' && <MemeboardScreen />}
 				{id === 'settings' && <SettingsScreen />}
 			</div>
 		</>

@@ -1,5 +1,5 @@
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import type { MediaItem } from '../lib/media';
+import { formatDuration, isAudioType, type MediaItem } from '../lib/media';
 import { prefersReducedMotion } from '../lib/navAnimations';
 import { useFlipGrid } from '../hooks/useFlipGrid';
 import type { SelectModifiers } from '../hooks/useMediaSelection';
@@ -240,6 +240,9 @@ function MediaGrid({
 						/>
 						<p className="media-meta">
 							{item.media_type.toUpperCase()} ·{' '}
+							{isAudioType(item.media_type) && item.duration_ms !== undefined
+								? `${formatDuration(item.duration_ms)} · `
+								: null}
 							{formatDate(item.imported_at_unix)}
 						</p>
 

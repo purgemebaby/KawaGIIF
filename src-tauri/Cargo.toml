@@ -37,6 +37,8 @@ image = { version = "0.25", default-features = false, features = ["png", "jpeg",
 gif = "0.14"
 # no default "zip" feature: updates ship as a signed .exe, and zip 4.x has open advisories
 tauri-plugin-updater = { version = "~2.12.0", default-features = false, features = ["rustls-tls", "system-proxy"] }
+symphonia = { version = "0.5", default-features = false, features = ["mp3", "wav", "pcm", "ogg", "vorbis"] }
+rodio = { version = "0.23", default-features = false, features = ["playback", "mp3", "wav", "vorbis", "mp4"] }
 
 [target.'cfg(windows)'.dependencies]
 webview2-com = "0.38"

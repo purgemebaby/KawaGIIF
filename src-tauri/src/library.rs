@@ -10,6 +10,7 @@ use uuid::Uuid;
 use crate::config;
 use crate::error::{AppError, AppResult};
 use crate::media_compress;
+use crate::media_probe::{self, AudioKind};
 use crate::template::{self, EditorState};
 use crate::window_manager;
 
@@ -54,13 +55,15 @@ pub enum MediaType {
     Gif, Mp4,
     Jpeg, Png,
     Webp, Svg,
+    Mp3, Wav, Ogg,
 }
 impl MediaType {
     fn from_extension(ext: &str) -> Option<Self> {
         match ext.to_ascii_lowercase().as_str() {
             "gif" => Some(Self::Gif), "mp4" => Some(Self::Mp4),
             "jpg" | "jpeg" => Some(Self::Jpeg), "png" => Some(Self::Png),
-            "webp" => Some(Self::Webp), "svg" => Some(Self::Svg), _ => None
+            "webp" => Some(Self::Webp), "svg" => Some(Self::Svg),
+            "mp3" => Some(Self::Mp3), "wav" => Some(Self::Wav), "ogg" => Some(Self::Ogg), _ => None
         }
     }
     fn extension(self) -> &'static str {
@@ -68,8 +71,35 @@ impl MediaType {
             Self::Gif => "gif", Self::Mp4 => "mp4",
             Self::Jpeg => "jpg", Self::Png => "png",
             Self::Webp => "webp", Self::Svg => "svg",
+            Self::Mp3 => "mp3", Self::Wav => "wav", Self::Ogg => "ogg",
         }
     }
+    fn audio_kind(self) -> Option<AudioKind> {
+        match self {
+            Self::Mp3 => Some(AudioKind::Mp3), Self::Wav => Some(AudioKind::Wav), Self::Ogg => Some(AudioKind::Ogg),
+            _ => None,
+        }
+    }
+    /// Sound only: never placed on the desktop, only played by the memeboard.
+    pub fn is_audio(self) -> bool { self.audio_kind().is_some() }
+}
+
+
+
+/** What the import learned from a file's codec: how long it lasts, how big it is and whether it has sound. Each fact
+ is only set for the types it applies to, and items imported before this existed have none. */
+#[derive(Serialize, Deserialize, Clone, Default, Debug, PartialEq)]
+pub struct MediaInfo {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub duration_ms: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub width: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub height: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub frame_count: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub has_audio: Option<bool>,
 }
 
 
@@ -93,10 +123,13 @@ pub struct MediaItem {
     // set by list_media when the file is gone from the media folder. Never stored as true
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub missing: bool,
+
+    #[serde(flatten)]
+    pub info: MediaInfo,
 }
 impl MediaItem {
     /// Builds the `MediaItem` of `source`, already copied into the media folder as `stored_file_name`.
-    fn from_source(source: &Path, id: Uuid, media_type: MediaType, stored_file_name: String) -> Self {
+    fn from_source(source: &Path, id: Uuid, media_type: MediaType, stored_file_name: String, info: MediaInfo) -> Self {
         Self {
             id,
             stored_file_name,
@@ -109,6 +142,7 @@ impl MediaItem {
             tags: Vec::new(),
             source_path: Some(source_key(source)),
             missing: false,
+            info,
         }
     }
 }
@@ -124,13 +158,17 @@ fn sniff_type(path: &Path) -> Option<MediaType> {
     sniff_bytes(&buf[..n])
 }
 
-/** Detects the media type from raw bytes: signatures for PNG/JPEG/GIF/WEBP/MP4, `<svg` for SVG.*/
+/** Detects the media type from raw bytes: signatures for PNG/JPEG/GIF/WEBP/MP4/WAV/OGG, an ID3 tag or MPEG frame
+ sync for MP3, `<svg` for SVG. Only a first guess: `check_import` then reads the codec itself.*/
 fn sniff_bytes(bytes: &[u8]) -> Option<MediaType> {
     if bytes.starts_with(&[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]) { return Some(MediaType::Png); }
     if bytes.starts_with(&[0xFF, 0xD8, 0xFF]) { return Some(MediaType::Jpeg); }
     if bytes.starts_with(b"GIF87a") || bytes.starts_with(b"GIF89a") { return Some(MediaType::Gif); }
     if bytes.starts_with(b"RIFF") && bytes.get(8..12) == Some(b"WEBP") { return Some(MediaType::Webp); }
     if bytes.get(4..8) == Some(b"ftyp") { return Some(MediaType::Mp4); }
+    if bytes.starts_with(b"RIFF") && bytes.get(8..12) == Some(b"WAVE") { return Some(MediaType::Wav); }
+    if bytes.starts_with(b"OggS") { return Some(MediaType::Ogg); }
+    if bytes.starts_with(b"ID3") || matches!(bytes, [0xFF, b, ..] if b & 0xE0 == 0xE0) { return Some(MediaType::Mp3); }
     looks_like_svg(bytes).then_some(MediaType::Svg)
 }
 
@@ -145,15 +183,17 @@ fn looks_like_svg(bytes: &[u8]) -> bool {
 
 /** Copies `source` into the media folder as `<id>.<ext>` and checks the copy again, since the source may have changed
  since it was checked. A refused copy is deleted. Returns the stored file name. */
-fn copy_checked(source: &Path, id: Uuid, media_type: MediaType) -> AppResult<Result<String, Refusal>> {
+fn copy_checked(source: &Path, id: Uuid, media_type: MediaType) -> AppResult<Result<(String, MediaInfo), Refusal>> {
     let stored_file_name = format!("{id}.{}", media_type.extension());
     let stored = LibraryIndex::media_dir().join(&stored_file_name);
     std::fs::copy(source, &stored)?;
-    if let Err(refusal) = check_import(&stored, media_type) {
-        remove_media_file(&stored_file_name);
-        return Ok(Err(refusal));
+    match check_import(&stored, media_type) {
+        Ok(info) => Ok(Ok((stored_file_name, info))),
+        Err(refusal) => {
+            remove_media_file(&stored_file_name);
+            Ok(Err(refusal))
+        }
     }
-    Ok(Ok(stored_file_name))
 }
 
 /** Deletes one file of the media folder. A name that is not a bare file name is ignored, so a tampered index can't
@@ -190,31 +230,59 @@ fn max_bytes(media_type: MediaType) -> u64 {
     match media_type {
         MediaType::Mp4 => 1024 * MIB, MediaType::Gif => 300 * MIB, MediaType::Svg => 10 * MIB,
         MediaType::Jpeg | MediaType::Png | MediaType::Webp => 100 * MIB,
+        MediaType::Mp3 | MediaType::Wav | MediaType::Ogg => 64 * MIB,
     }
 }
 
-/** Checks a file before it joins the library: its content must match `media_type`, and its size, dimensions and (for
- a GIF) decoded frames must stay small enough not to run the overlay out of memory. Only headers are read. */
-fn check_import(path: &Path, media_type: MediaType) -> Result<(), Refusal> {
+/** Checks a file before it joins the library: its magic bytes must match `media_type`, and so must its codec, read
+ through its real header (and, for GIF and audio, its first frame or packet). Its size, dimensions and (for a GIF)
+ decoded frames must stay small enough not to run the overlay out of memory. Returns what the codec told. */
+fn check_import(path: &Path, media_type: MediaType) -> Result<MediaInfo, Refusal> {
     if sniff_type(path) != Some(media_type) { return Err(Refusal::Mismatch); }
     let len = std::fs::metadata(path).map_err(|_| Refusal::Mismatch)?.len();
     if len > max_bytes(media_type) { return Err(Refusal::TooLarge); }
+    let mut info = MediaInfo::default();
     match media_type {
         MediaType::Gif => {
-            let (width, height, frames) = gif_shape(path).ok_or(Refusal::Mismatch)?;
-            fits_canvas(width, height)?;
-            if !gif_fits_budget(width, height, frames) { return Err(Refusal::TooLarge); }
+            let shape = gif_shape(path).ok_or(Refusal::Mismatch)?;
+            fits_canvas(shape.width, shape.height)?;
+            if !gif_fits_budget(shape.width, shape.height, shape.frames) { return Err(Refusal::TooLarge); }
+            if !gif_first_frame_decodes(path) { return Err(Refusal::Mismatch); }
+            info.width = Some(shape.width);
+            info.height = Some(shape.height);
+            info.frame_count = Some(u32::try_from(shape.frames).unwrap_or(u32::MAX));
+            info.duration_ms = Some(shape.duration_ms);
         }
         MediaType::Png | MediaType::Jpeg | MediaType::Webp => {
-            let (width, height) = image::ImageReader::open(path).ok()
-                .and_then(|reader| reader.with_guessed_format().ok())
-                .and_then(|reader| reader.into_dimensions().ok())
-                .ok_or(Refusal::Mismatch)?;
+            let (width, height) = still_image_dimensions(path).ok_or(Refusal::Mismatch)?;
             fits_canvas(width, height)?;
+            info.width = Some(width);
+            info.height = Some(height);
         }
-        MediaType::Mp4 | MediaType::Svg => {}
+        MediaType::Mp4 => {
+            let mp4 = media_probe::probe_mp4(path).ok_or(Refusal::Mismatch)?;
+            info.duration_ms = Some(mp4.duration_ms);
+            info.width = Some(mp4.width);
+            info.height = Some(mp4.height);
+            info.has_audio = Some(mp4.has_audio);
+        }
+        MediaType::Mp3 | MediaType::Wav | MediaType::Ogg => {
+            let kind = media_type.audio_kind().ok_or(Refusal::Mismatch)?;
+            let audio = media_probe::probe_audio(path, kind).ok_or(Refusal::Mismatch)?;
+            info.duration_ms = Some(audio.duration_ms);
+            info.has_audio = Some(true);
+        }
+        MediaType::Svg => {}
     }
-    Ok(())
+    Ok(info)
+}
+
+/** Width and height from the decoder of a PNG/JPEG/WEBP. Building the decoder parses and checks its header (for a
+ PNG, the IHDR chunk and its CRC), so a file that only carries the right signature fails here. */
+fn still_image_dimensions(path: &Path) -> Option<(u32, u32)> {
+    use image::ImageDecoder;
+    let decoder = image::ImageReader::open(path).ok()?.with_guessed_format().ok()?.into_decoder().ok()?;
+    Some(decoder.dimensions())
 }
 
 fn fits_canvas(width: u32, height: u32) -> Result<(), Refusal> {
@@ -226,15 +294,34 @@ fn gif_fits_budget(width: u32, height: u32, frames: u64) -> bool {
     (u64::from(width) * u64::from(height) * 4).saturating_mul(frames) <= GIF_DECODED_BUDGET
 }
 
-/** Width, height and frame count of a GIF, walking its frames without decoding their pixels. */
-fn gif_shape(path: &Path) -> Option<(u32, u32, u64)> {
+/** Size, frame count and loop length of a GIF. */
+#[derive(Debug, PartialEq)]
+struct GifShape { width: u32, height: u32, frames: u64, duration_ms: u32 }
+
+/** Walks the frames of a GIF without decoding their pixels. */
+fn gif_shape(path: &Path) -> Option<GifShape> {
     let mut options = gif::DecodeOptions::new();
     options.skip_frame_decoding(true);
     let mut decoder = options.read_info(std::io::BufReader::new(std::fs::File::open(path).ok()?)).ok()?;
     let (width, height) = (u32::from(decoder.width()), u32::from(decoder.height()));
     let mut frames = 0;
-    while decoder.next_frame_info().ok()?.is_some() { frames += 1; }
-    Some((width, height, frames))
+    let mut duration_ms: u32 = 0;
+    while let Some(frame) = decoder.next_frame_info().ok()? {
+        frames += 1;
+        // delays are in centiseconds
+        duration_ms = duration_ms.saturating_add(u32::from(frame.delay) * 10);
+    }
+    Some(GifShape { width, height, frames, duration_ms })
+}
+
+/** Whether the LZW data of the first frame decodes, kept as palette indices (1 byte per pixel). */
+fn gif_first_frame_decodes(path: &Path) -> bool {
+    let Ok(file) = std::fs::File::open(path) else { return false; };
+    let mut options = gif::DecodeOptions::new();
+    options.set_color_output(gif::ColorOutput::Indexed);
+    options.read_info(std::io::BufReader::new(file))
+        .and_then(|mut decoder| decoder.read_next_frame().map(|frame| frame.is_some()))
+        .unwrap_or(false)
 }
 
 /** Lowercased absolute path, so the same file is recognised again (Windows paths ignore case).*/
@@ -258,7 +345,7 @@ fn claim_unique_name(name: &str, taken: &mut HashSet<String>) -> String {
 
 /** Strips a trailing known extension from a legacy display name (case-insensitive). `None` otherwise. */
 fn strip_known_extension(name: &str) -> Option<&str> {
-    const EXTS: [&str; 7] = ["gif", "mp4", "jpg", "jpeg", "png", "webp", "svg"];
+    const EXTS: [&str; 10] = ["gif", "mp4", "jpg", "jpeg", "png", "webp", "svg", "mp3", "wav", "ogg"];
     let lower = name.to_lowercase();
     EXTS.iter().find_map(|ext| {
         lower.strip_suffix(&format!(".{ext}")).map(|stem| &name[..stem.len()])
@@ -266,6 +353,9 @@ fn strip_known_extension(name: &str) -> Option<&str> {
 }
 
 
+
+/** The media folder, `%LOCALAPPDATA%KawaGIIFmedia`. */
+pub fn media_dir() -> PathBuf { LibraryIndex::media_dir() }
 
 /** The on-disk catalogue of `MediaItem`s, saved as `library_index.json`. */
 #[derive(Serialize, Deserialize, Default)]
@@ -544,7 +634,7 @@ pub fn import_media(app: AppHandle, lib: State<LibraryState>, paths: Vec<PathBuf
     };
 
     let mut added: Vec<MediaItem> = Vec::with_capacity(paths.len());
-    let mut replacements: Vec<(Uuid, String, MediaType)> = Vec::new();
+    let mut replacements: Vec<(Uuid, String, MediaType, MediaInfo)> = Vec::new();
     let mut rejected: Vec<String> = Vec::new();
     let mut too_large: Vec<String> = Vec::new();
     let mut seen: HashSet<String> = HashSet::with_capacity(paths.len());
@@ -559,18 +649,18 @@ pub fn import_media(app: AppHandle, lib: State<LibraryState>, paths: Vec<PathBuf
         // checked on the source first, so a refused file is never copied, and again on the copy, which is what stays
         let id = Uuid::new_v4();
         let stored = match check_import(source, media_type) {
-            Ok(()) => copy_checked(source, id, media_type)?,
+            Ok(_) => copy_checked(source, id, media_type)?,
             Err(refusal) => Err(refusal),
         };
-        let stored_file_name = match stored {
-            Ok(name) => name,
+        let (stored_file_name, info) = match stored {
+            Ok(stored) => stored,
             Err(Refusal::Mismatch) => { rejected.push(display_name(source)); continue; }
             Err(Refusal::TooLarge) => { too_large.push(display_name(source)); continue; }
         };
         match existing {
-            Some(existing_id) => replacements.push((existing_id, stored_file_name, media_type)),
+            Some(existing_id) => replacements.push((existing_id, stored_file_name, media_type, info)),
             None => {
-                let mut item = MediaItem::from_source(source, id, media_type, stored_file_name);
+                let mut item = MediaItem::from_source(source, id, media_type, stored_file_name, info);
                 item.original_file_name = claim_unique_name(&item.original_file_name, &mut taken);
                 added.push(item);
             }
@@ -580,7 +670,7 @@ pub fn import_media(app: AppHandle, lib: State<LibraryState>, paths: Vec<PathBuf
     let mut index = lib.lock();
     let mut changed: Vec<MediaItem> = Vec::with_capacity(added.len() + replacements.len());
     let mut stale: Vec<String> = Vec::with_capacity(replacements.len());
-    for (id, stored_file_name, media_type) in replacements {
+    for (id, stored_file_name, media_type, info) in replacements {
         // the item may have been deleted meanwhile: drop the fresh copy then
         let Ok(item) = index.find_mut(&id) else {
             stale.push(stored_file_name);
@@ -588,6 +678,7 @@ pub fn import_media(app: AppHandle, lib: State<LibraryState>, paths: Vec<PathBuf
         };
         stale.push(std::mem::replace(&mut item.stored_file_name, stored_file_name));
         item.media_type = media_type;
+        item.info = info;
         changed.push(item.clone());
     }
     changed.extend(added.iter().cloned());
@@ -664,6 +755,10 @@ mod tests {
         assert_eq!(sniff_bytes(b"\x00\x00\x00\x18ftypisom"), Some(MediaType::Mp4));
         assert_eq!(sniff_bytes(b"<svg xmlns=\"http://www.w3.org/2000/svg\"></svg>"), Some(MediaType::Svg));
         assert_eq!(sniff_bytes(b"\xEF\xBB\xBF  <svg></svg>"), Some(MediaType::Svg));
+        assert_eq!(sniff_bytes(b"RIFF\x00\x00\x00\x00WAVEfmt "), Some(MediaType::Wav));
+        assert_eq!(sniff_bytes(b"OggS\x00\x02"), Some(MediaType::Ogg));
+        assert_eq!(sniff_bytes(b"ID3\x04\x00"), Some(MediaType::Mp3));
+        assert_eq!(sniff_bytes(&[0xFF, 0xFB, 0x90, 0x64]), Some(MediaType::Mp3));
         assert_eq!(sniff_bytes(b"not a known file"), None);
     }
 
@@ -697,8 +792,8 @@ mod tests {
         let shape = gif_shape(&path);
         let check = check_import(&path, MediaType::Gif);
         let _ = std::fs::remove_file(&path);
-        assert_eq!(shape, Some((4, 3, 3)));
-        assert_eq!(check, Ok(()));
+        assert_eq!(shape, Some(GifShape { width: 4, height: 3, frames: 3, duration_ms: 0 }));
+        assert_eq!(check.map(|info| info.frame_count), Ok(Some(3)));
     }
 
     #[test]
@@ -706,6 +801,19 @@ mod tests {
         assert_eq!(fits_canvas(16_384, 6_000), Ok(()));
         assert_eq!(fits_canvas(16_385, 10), Err(Refusal::TooLarge));
         assert_eq!(fits_canvas(12_000, 9_000), Err(Refusal::TooLarge));
+    }
+
+    #[test]
+    fn png_signature_over_a_corrupt_header_is_refused() {
+        let path = std::env::temp_dir().join("kg_library_corrupt_ihdr.png");
+        let mut bytes = vec![0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
+        bytes.extend_from_slice(&[0, 0, 0, 13]);
+        bytes.extend_from_slice(b"IHDR");
+        bytes.extend_from_slice(&[0xAB; 17]); // garbage fields and a wrong CRC
+        std::fs::write(&path, bytes).unwrap();
+        let check = check_import(&path, MediaType::Png);
+        let _ = std::fs::remove_file(&path);
+        assert_eq!(check, Err(Refusal::Mismatch));
     }
 
     #[test]

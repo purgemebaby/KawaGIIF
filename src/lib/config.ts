@@ -1,5 +1,11 @@
 import { invoke } from './ipc';
 
+/** Where memeboard sounds go: a device id, or the default speakers plus one. */
+export type AudioOutput =
+	| { mode: 'default' }
+	| { mode: 'device'; device: string }
+	| { mode: 'default_plus_device'; device: string };
+
 // Mirror of config.rs AppConfig.
 export interface AppConfig {
 	launch_on_startup: boolean;
@@ -13,6 +19,9 @@ export interface AppConfig {
 	nav_animations: boolean;
 	show_mascot: boolean;
 	language: string;
+	audio_output: AudioOutput;
+	meme_volume: number;
+	meme_max_concurrent: number;
 }
 
 export function loadConfig(): Promise<AppConfig> {

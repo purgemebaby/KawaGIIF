@@ -1,4 +1,4 @@
-export type SectorId = 'storage' | 'editor' | 'settings';
+export type SectorId = 'storage' | 'editor' | 'memeboard' | 'settings';
 
 interface Sector {
 	id: SectorId;
@@ -14,14 +14,15 @@ export const RING_SIZE = 420;
 export const RING_OUTER = 190;
 export const RING_INNER = 80;
 
-const SECTOR_SPAN_DEG = 120;
+const SECTOR_SPAN_DEG = 90;
 const SECTOR_GAP_DEG = 3;
 
 // Screen degrees, clockwise from +x (y down).
 const CENTRES: Record<SectorId, number> = {
-	storage: 330,
-	editor: 90,
-	settings: 210,
+	storage: 315,
+	memeboard: 45,
+	editor: 135,
+	settings: 225,
 };
 
 function sectorOf(id: SectorId): Sector {

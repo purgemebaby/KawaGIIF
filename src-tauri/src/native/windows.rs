@@ -28,18 +28,18 @@ use windows::Win32::Graphics::Gdi::{
 };
 
 use windows::Win32::UI::HiDpi::GetDpiForWindow;
-use windows::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_LBUTTON, VK_RBUTTON};
+use windows::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_ESCAPE, VK_LBUTTON, VK_RBUTTON};
 use windows::Win32::UI::Shell::{
     DefSubclassProc, RemoveWindowSubclass, SetWindowSubclass, SHQueryUserNotificationState, QUNS_RUNNING_D3D_FULL_SCREEN,
 };
 
 use windows::Win32::UI::WindowsAndMessaging::{
-    GetClassNameW, GetCursorPos, GetForegroundWindow, GetSystemMetrics, GetWindowRect, GetWindowLongPtrW, GetWindowThreadProcessId, SetClassLongPtrW, SetWindowLongPtrW, SetWindowPos, SM_SWAPBUTTON,
+    GetClassNameW, GetCursorPos, ShowWindow, SW_SHOWNOACTIVATE, GetForegroundWindow, GetSystemMetrics, GetWindowRect, GetWindowLongPtrW, GetWindowThreadProcessId, SetClassLongPtrW, SetWindowLongPtrW, SetWindowPos, SM_SWAPBUTTON,
     EVENT_SYSTEM_FOREGROUND, GCLP_HBRBACKGROUND, GWL_EXSTYLE, GWL_STYLE,
     HWND_TOPMOST, SET_WINDOW_POS_FLAGS,
     SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER,
     WINDOW_LONG_PTR_INDEX, WINEVENT_OUTOFCONTEXT, WINEVENT_SKIPOWNPROCESS, WM_MOVING, WM_NCACTIVATE, WM_NCCALCSIZE, WM_NCDESTROY, WM_NCPAINT, WS_BORDER, WS_CAPTION, WS_DLGFRAME, WS_SYSMENU, WS_THICKFRAME,
-    WS_EX_APPWINDOW, WS_EX_CLIENTEDGE, WS_EX_DLGMODALFRAME, WS_EX_LAYERED, WS_EX_STATICEDGE, WS_EX_TOOLWINDOW, WS_EX_WINDOWEDGE,
+    WS_EX_APPWINDOW, WS_EX_CLIENTEDGE, WS_EX_DLGMODALFRAME, WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_STATICEDGE, WS_EX_TOOLWINDOW, WS_EX_WINDOWEDGE,
 };
 #[cfg(debug_assertions)]
 use windows::Win32::UI::WindowsAndMessaging::WS_EX_TRANSPARENT;
@@ -231,6 +231,20 @@ pub fn force_borderless(hwnd: HWND) {
     set_window_pos(hwnd, None, SWP_NOZORDER | SWP_FRAMECHANGED);
 }
 
+/**
+ * Keeps the window from ever taking the foreground (`WS_EX_NOACTIVATE`): showing it over a game must not pull focus
+ * away, which would drop keyboard input or minimize an exclusive-fullscreen game.
+ */
+pub fn force_no_activate(hwnd: HWND) {
+    let ex: isize = get_style(hwnd, GWL_EXSTYLE);
+    set_style(hwnd, GWL_EXSTYLE, ex | WS_EX_NOACTIVATE.0 as isize);
+}
+
+/** Shows the window without activating it, where tao's `show` would. */
+pub fn show_no_activate(hwnd: HWND) {
+    unsafe { let _ = ShowWindow(hwnd, SW_SHOWNOACTIVATE); }
+}
+
 pub fn top_everything(hwnd: HWND) {
     set_window_pos(hwnd, Some(HWND_TOPMOST), SET_WINDOW_POS_FLAGS(0));
 }
@@ -349,6 +363,11 @@ pub fn foreground_fullscreen() -> Fullscreen {
 }
 
 /** Whether the primary mouse button is held right now, anywhere on screen (respects swapped buttons). */
+/** Whether Escape is held right now, whatever window has focus. */
+pub fn escape_down() -> bool {
+    unsafe { GetAsyncKeyState(i32::from(VK_ESCAPE.0)) < 0 }
+}
+
 pub fn primary_button_down() -> bool {
     let button = if unsafe { GetSystemMetrics(SM_SWAPBUTTON) } != 0 { VK_RBUTTON } else { VK_LBUTTON };
     let state: i16 = unsafe { GetAsyncKeyState(i32::from(button.0)) };
