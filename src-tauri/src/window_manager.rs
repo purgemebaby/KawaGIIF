@@ -364,7 +364,8 @@ fn reapply_stage_style(window: &WebviewWindow) {
 pub fn create_meme_stage(app: &AppHandle) -> tauri::Result<()> {
     let window = WebviewWindowBuilder::new(app, MEME_STAGE_LABEL, WebviewUrl::App("meme-stage.html".into()))
         .additional_browser_args(BROWSER_ARGS)
-        .title("")
+        // the name OBS lists it by, for a Window Capture of the memes
+        .title("KawaGIIF memes")
         .position(0.0, 0.0)
         .inner_size(200.0, 200.0)
         .decorations(false)

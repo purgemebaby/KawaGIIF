@@ -61,6 +61,12 @@ KawaGIIF lets you drop any GIF, image or looping video straight onto your screen
 - Move, resize, nudge and rotate each one, and set its opacity and playback speed.
 - Save the layout or discard the changes.
 
+**Memeboard**
+
+- Pair an image, GIF or video with an MP3/WAV/OGG sound, pick how it moves (pop, DVD bounce, shake, fall, cross the screen, or a path you record) and give it a global shortcut: `Ctrl+AltGr+1` … `0` by default, up to 10.
+- Send the sound to a virtual cable to play memes in a voice chat. `Ctrl+AltGr+Backspace` stops everything.
+- `KawaGIIF.exe --fire-meme "name"` plays one from a Stream Deck. To show memes on stream, add the **KawaGIIF memes** window as a Window Capture source in OBS.
+
 **On the desktop**
 
 - Click-through outside the editor. `Ctrl+Alt+Esc` (or `AltGr+Esc`) makes every overlay clickable. Press it again to go back to click-through.
@@ -98,6 +104,8 @@ KawaGIIF lets you drop any GIF, image or looping video straight onto your screen
 | `Delete` / `Backspace`                   | Editor                   | Remove the selected animation        |
 | Arrow keys (`Shift` for 10 px)           | Editor, overlay selected | Nudge the animation by 1 px          |
 | `Ctrl` + `+` / `-` / `0`, `Ctrl` + wheel | Control panel            | Zoom the interface in, out, or reset |
+| `Ctrl` + `AltGr` + `1` … `0`            | Anywhere                 | Play the meme with that shortcut     |
+| `Ctrl` + `AltGr` + `Backspace`          | Anywhere                 | Stop every meme                      |
 
 ## Compatibility
 
@@ -114,7 +122,8 @@ KawaGIIF lets you drop any GIF, image or looping video straight onto your screen
 ## Known issues
 
 - No overlays over exclusive-fullscreen games. In that mode the game takes over the screen and Windows stops compositing other windows, so nothing can be drawn on top without injecting code into the game, which anti-cheat systems flag. Set the game to _borderless_ or _windowed fullscreen_ instead.
-- KawaGIIF is a pure viewer and videos play muted, by design.
+- Placed animations play muted, by design. Only memes make sound.
+- Over exclusive-fullscreen games memes only play their sound, for the same reason as above.
 - SmartScreen warns on first install until the app builds up reputation or gets a code-signing certificate.
 - Windows 10 is not tested yet, so reports are welcome.
 

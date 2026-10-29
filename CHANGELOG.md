@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Memeboard**, a new section on the home ring. A meme pairs an image, GIF or video with a sound, an animation (pop, still, DVD bounce, bounce, shake, cross the screen, fall, or a path you record with the mouse) and a global shortcut.
+  - Up to 10 shortcuts, `Ctrl+AltGr+1` … `Ctrl+AltGr+0` by default. Windows and common app shortcuts are refused, and one already taken by another app is flagged instead of failing silently. `Ctrl+AltGr+Backspace` stops everything.
+  - A meme lasts as long as its sound (a video uses its own), 10 s at most; the visual loops until the sound ends.
+  - Sounds can go to another output, such as a virtual cable (VB-Cable) to play them in a voice chat, or to the speakers and that device at once.
+  - 1 meme at a time by default, up to 10 in the settings; a meme that wouldn't fit in the free memory is not played.
+  - Cooldown, what pressing again does (restart, stack, ignore), random speed and pitch, and presets to reuse a look and behaviour.
+  - A podium of the most played memes.
+  - `KawaGIIF.exe --fire-meme "name"` plays a meme from a Stream Deck or a script.
+- MP3, WAV and OGG files in the Library, shown as cassettes in their own tab.
+
+### Changed
+
+- Imports now read each file's real codec (audio track and first packet, image header, first GIF frame, MP4 tracks) instead of trusting its first bytes, so a renamed or corrupt file is refused.
+
 ## [0.1.2] - 2026-10-28
 
 ### Fixed

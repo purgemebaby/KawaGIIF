@@ -218,6 +218,12 @@ from the any-foreground hook (a click on the control window raises it).
 | `click-through-changed`      | `template::toggle_click_through_release`         | each overlay | (not consumed yet)                                   |
 | `update-available`           | `updater::check_in_background`                   | all          | Home (update card)                                   |
 | `overlays-skipped`           | `template::show_saved_overlays`                 | control      | boot notice for saved items left out                 |
+| `memeboard-changed`          | `memeboard::notify_memeboard_changed`            | all          | `useMemeboard` → `refresh`                           |
+| `meme-rejected`              | `memeboard::on_shortcut`, `fire_from_args`       | all          | `MemeboardScreen` (toast with the reason)            |
+| `meme-fire`                  | `memeboard::fire` (`StageFire`)                  | MEME-STAGE   | `MemeStageApp` (`"self"`) → adds a layer             |
+| `meme-end`                   | `memeboard::fire` (evicted instance id)          | MEME-STAGE   | `MemeStageApp` (`"self"`) → drops that layer         |
+| `meme-clear`                 | `memeboard::stop_all`                            | MEME-STAGE   | `MemeStageApp` (`"self"`) → empties the stage        |
+| `path-recording`             | `meme_path::record` (`countdown` n / `recording` / `done`) | MEME-STAGE | `MemeStageApp` (`"self"`) → recording veil |
 
 `emit` broadcasts to every window. For per-overlay events Rust uses `emit_to`
 **and** React listens with `listenToSelf` (`getCurrentWebviewWindow().listen`).
@@ -271,6 +277,35 @@ media file is gone or no slot was free); its payload is
 | `get_file_size` | `path: PathBuf` | `AppResult<u64>` |
 
 `MediaItem.original_file_name` is the editable display name (kept under that name to avoid a migration). `MediaItem.source_path` is the canonicalized, lowercased path of the imported file (`Option`, absent in old indexes), used to detect a re-import.
+
+**audio.rs**
+| Command | Args | Returns |
+|---|---|---|
+| `list_audio_outputs` | — | `AppResult<Vec<AudioDevice>>` (`{ id, name, is_default }`; `id` is the cpal `DeviceId`, stable across reboots) |
+| `set_audio_output` | `output: AudioOutput` (`{mode:"default"}`, `{mode:"device",device}`, `{mode:"default_plus_device",device}`) | `AppResult<()>` (saved; the audio thread reopens its devices on the next sound) |
+| `set_meme_volume` | `volume: f32` (clamped 0..=1) | `AppResult<()>` |
+
+**memeboard.rs**
+| Command | Args | Returns |
+|---|---|---|
+| `list_memes` | — | `MemeboardView` (`memes` with `hotkey_conflict`, `stop_hotkey`, `stop_conflict`, `presets`, `max_hotkeys` = 10, `max_meme_ms` = 10 000) |
+| `new_meme` | `name: String` | `Meme` (not saved; first free default hotkey `Ctrl+Alt+Digit1..0`, shown as Ctrl+AltGr+N) |
+| `check_hotkey` | `hotkey: String, meme_id: Option<Uuid>` (none = the Stop all shortcut) | `Option<HotkeyRefusal>` (`invalid`, `needs_modifier`, `reserved`, `duplicate`, `limit`) |
+| `save_meme` | `meme: Meme` | `AppResult<Meme>` (sanitized, hotkey canonicalized; keeps the stored `fire_count`; re-registers every hotkey) |
+| `delete_meme` | `id: Uuid` | `AppResult<()>` |
+| `set_stop_hotkey` | `hotkey: String` | `AppResult<String>` (canonical form) |
+| `save_preset` / `delete_preset` | `preset: Preset` (nil id = new) / `id: Uuid` | `AppResult<Preset>` / `AppResult<()>` |
+| `fire_meme` | `id: Uuid` | `AppResult<()>` (`MemeEmpty`, `MemeTooHeavy` when it doesn't fit in 75 % of the free RAM) |
+| `stop_all_memes` | — | `()` |
+| `set_meme_max_concurrent` | `count: u32` (1..=10) | `AppResult<()>` |
+| `meme_stage_idle` | — | `()` (the stage has no layer left: hides it unless a sound-only meme still counts as playing) |
+
+**meme_path.rs**
+| Command | Args | Returns |
+|---|---|---|
+| `record_meme_path` | — | `AppResult<Vec<PathPoint>>` (3-2-1 countdown, ~60 Hz cursor samples until a click, Esc or 10 s, thinned with Visvalingam-Whyatt; empty = cancelled) |
+
+Memes live in `%LOCALAPPDATA%\KawaGIIF\memeboard.json`. A meme lasts as long as its sound (an MP4's own track, decoded by the audio thread so it follows the output device), else its `duration_ms` or one GIF loop, never more than 10 s; a faster random speed shortens it. `KawaGIIF.exe --fire-meme <id|name>` fires one from outside (a second launch passes its args through the single-instance plugin).
 
 **template.rs**
 | Command | Args | Returns |
