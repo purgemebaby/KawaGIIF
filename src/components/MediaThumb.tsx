@@ -12,6 +12,8 @@ interface MediaThumbProps {
 	className?: string;
 	/** Videos scrub through frames while hovered. */
 	preview?: boolean;
+	/** Cassettes get a play / pause button (they never play on hover). */
+	playable?: boolean;
 	/** The loading placeholder shows the media type label. */
 	placeholderLabel?: boolean;
 	alt?: string;
@@ -23,6 +25,7 @@ function MediaThumb({
 	item,
 	className = '',
 	preview = false,
+	playable = false,
 	placeholderLabel = false,
 	alt = '',
 }: MediaThumbProps) {
@@ -60,7 +63,7 @@ function MediaThumb({
 				item={item}
 				url={url}
 				className={className}
-				preview={preview}
+				playable={playable}
 			/>
 		);
 	}

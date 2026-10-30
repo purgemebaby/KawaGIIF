@@ -199,7 +199,12 @@ function MediaGrid({
 					onClick={(e) => onCardClick(e, item.id)}
 				>
 					<div className="polaroid-photo">
-						<MediaThumb item={item} preview alt={item.original_file_name} />
+						<MediaThumb
+							item={item}
+							preview
+							playable
+							alt={item.original_file_name}
+						/>
 
 						{item.missing && (
 							<span

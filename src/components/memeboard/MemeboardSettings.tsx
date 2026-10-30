@@ -7,6 +7,7 @@ import SettingsRowText from '../settings/SettingsRowText';
 import SettingsSection from '../settings/SettingsSection';
 import SketchIcon from '../ui/SketchIcon';
 import Slider from '../ui/Slider';
+import InfoTip from '../ui/InfoTip';
 import HotkeyField from './HotkeyField';
 
 interface AudioDevice {
@@ -67,10 +68,19 @@ function MemeboardSettings({ stopHotkey }: { stopHotkey: string }) {
 			title={settings.section}
 			icon={<SketchIcon name="cassette" size={32} />}
 		>
-			<label className="settings-row settings-row-number">
-				<SettingsRowText text={settings.output} />
+			<div className="settings-row settings-row-number">
+				<span className="settings-row-text">
+					<strong className="settings-row-title">
+						{settings.output.label}
+						<InfoTip
+							text={settings.output.hint}
+							label={t.memeboard.infoLabel}
+						/>
+					</strong>
+				</span>
 				<select
 					className="filter-search"
+					aria-label={settings.output.label}
 					value={encodeOutput(output)}
 					onChange={(e) => changeOutput(decodeOutput(e.target.value))}
 				>
@@ -86,20 +96,22 @@ function MemeboardSettings({ stopHotkey }: { stopHotkey: string }) {
 						</option>
 					))}
 				</select>
-			</label>
+			</div>
 
-			<Slider
-				label={settings.volume.label}
-				min={0}
-				max={1}
-				step={0.01}
-				value={volume}
-				format={(v) => `${Math.round(v * 100)} %`}
-				onChange={(v) => {
-					setVolume(v);
-					invoke('set_meme_volume', { volume: v }).catch(notifyError);
-				}}
-			/>
+			<div className="settings-row settings-row-slider">
+				<Slider
+					label={settings.volume.label}
+					min={0}
+					max={1}
+					step={0.01}
+					value={volume}
+					format={(v) => `${Math.round(v * 100)} %`}
+					onChange={(v) => {
+						setVolume(v);
+						invoke('set_meme_volume', { volume: v }).catch(notifyError);
+					}}
+				/>
+			</div>
 
 			<label className="settings-row settings-row-number">
 				<SettingsRowText text={settings.concurrent} />

@@ -1,4 +1,10 @@
-import type { Anchor, Animation, PathPoint } from './memeboard';
+import {
+	POP_IN_MS,
+	POP_OUT_MS,
+	type Anchor,
+	type Animation,
+	type PathPoint,
+} from './memeboard';
 
 /** Where a meme's visual is at one instant: its top-left corner in stage px, plus scale, rotation, opacity and hue. */
 export interface Pose {
@@ -21,8 +27,8 @@ export interface PoseContext {
 	duration: number;
 }
 
-const ENTER_MS = 280;
-const EXIT_MS = 220;
+// at full intensity: px sideways, px up and down, degrees
+const SHAKE_MAX: [number, number, number] = [10, 6, 4];
 const DVD_SPEED = 0.28; // of the stage's shorter side per second
 const DVD_HUE_STEP = 67;
 
@@ -74,8 +80,11 @@ export function poseAt(
 	// keep the visual on screen where the animation stays put
 	const cx = clamp(ctx.cx, w / 2, Math.max(w / 2, stageW - w / 2));
 	const cy = clamp(ctx.cy, h / 2, Math.max(h / 2, stageH - h / 2));
-	const enter = clamp(t / ENTER_MS, 0, 1);
-	const exit = clamp((duration - t) / EXIT_MS, 0, 1);
+	// only Pop has its own timings; the rest fade in and out with the defaults
+	const enterMs = animation.kind === 'pop' ? animation.enter_ms : POP_IN_MS;
+	const exitMs = animation.kind === 'pop' ? animation.exit_ms : POP_OUT_MS;
+	const enter = clamp(t / enterMs, 0, 1);
+	const exit = clamp((duration - t) / exitMs, 0, 1);
 	const base: Pose = {
 		x: cx - w / 2,
 		y: cy - h / 2,
@@ -100,7 +109,8 @@ export function poseAt(
 			const travel = (speed * t) / 1000;
 			const [x, hitsX] = pingPong(cx - w / 2 + travel, stageW - w);
 			const [y, hitsY] = pingPong(cy - h / 2 + travel, stageH - h);
-			return { ...base, x, y, hue: ((hitsX + hitsY) * DVD_HUE_STEP) % 360 };
+			const hue = animation.colors ? ((hitsX + hitsY) * DVD_HUE_STEP) % 360 : 0;
+			return { ...base, x, y, hue };
 		}
 		case 'bounce': {
 			const amp = 0.12 * stageH;
@@ -108,13 +118,15 @@ export function poseAt(
 			const squash = 1 - 0.08 * (1 - hop);
 			return { ...base, y: base.y - hop * amp, scale: squash };
 		}
-		case 'shake':
+		case 'shake': {
+			const [dx, dy, deg] = SHAKE_MAX.map((max) => max * animation.intensity);
 			return {
 				...base,
-				x: base.x + Math.sin(t * 0.09) * 14,
-				y: base.y + Math.cos(t * 0.13) * 9,
-				rotate: Math.sin(t * 0.07) * 7,
+				x: base.x + Math.sin(t * 0.05) * dx,
+				y: base.y + Math.cos(t * 0.065) * dy,
+				rotate: Math.sin(t * 0.04) * deg,
 			};
+		}
 		case 'cross': {
 			const horizontal =
 				animation.from === 'left' || animation.from === 'right';

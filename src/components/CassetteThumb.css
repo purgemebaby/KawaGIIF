@@ -97,3 +97,29 @@
 		animation: none;
 	}
 }
+
+/* Play / pause, bottom-left so the duration keeps the other corner. */
+.cassette-play {
+	position: absolute;
+	left: 6px;
+	bottom: 4px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 26px;
+	height: 26px;
+	padding: 0;
+	border: 1.5px solid var(--kg-border-strong);
+	border-radius: var(--kg-radius-sm);
+	background: var(--kg-bg-raised);
+	color: var(--kg-fg);
+	font-size: 12px;
+	line-height: 1;
+	cursor: pointer;
+}
+
+.cassette-play:hover,
+.cassette-play:focus-visible {
+	border-color: var(--kg-accent);
+	background: var(--kg-accent-soft);
+}

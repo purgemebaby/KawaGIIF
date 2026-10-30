@@ -13,10 +13,10 @@ export interface PathPoint {
 
 export type Animation =
 	| { kind: 'static' }
-	| { kind: 'pop' }
-	| { kind: 'dvd_bounce' }
+	| { kind: 'pop'; enter_ms: number; exit_ms: number }
+	| { kind: 'dvd_bounce'; colors: boolean }
 	| { kind: 'bounce' }
-	| { kind: 'shake' }
+	| { kind: 'shake'; intensity: number }
 	| { kind: 'cross'; from: Side }
 	| { kind: 'fall' }
 	| { kind: 'path'; points: PathPoint[] };
@@ -112,6 +112,12 @@ export const ANIMATION_KINDS: AnimationKind[] = [
 	'path',
 ];
 
+// Defaults and ranges of the animation options; memeboard.rs clamps to the same.
+export const POP_IN_MS = 280;
+export const POP_OUT_MS = 220;
+export const POP_MS_RANGE: [number, number] = [80, 1500];
+export const SHAKE_INTENSITY = 0.25;
+
 /** The animation of a kind with its default options. */
 export function defaultAnimation(kind: AnimationKind): Animation {
 	switch (kind) {
@@ -119,6 +125,12 @@ export function defaultAnimation(kind: AnimationKind): Animation {
 			return { kind, from: 'left' };
 		case 'path':
 			return { kind, points: [] };
+		case 'pop':
+			return { kind, enter_ms: POP_IN_MS, exit_ms: POP_OUT_MS };
+		case 'dvd_bounce':
+			return { kind, colors: true };
+		case 'shake':
+			return { kind, intensity: SHAKE_INTENSITY };
 		default:
 			return { kind };
 	}

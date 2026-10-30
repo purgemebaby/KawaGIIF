@@ -16,8 +16,28 @@
 	}
 }
 
-.memeboard-note {
-	margin-top: var(--kg-space-4);
+.memeboard-island {
+	position: relative;
+}
+
+/* the note about games sits in the box corner, out of the way */
+.memeboard-info {
+	position: absolute;
+	top: var(--kg-space-3);
+	right: var(--kg-space-3);
+	z-index: 2;
+}
+
+/* a slider in a settings card gets the same air as the other rows, and the full width */
+.settings-row-slider .kg-slider {
+	flex: 1 1 100%;
+	margin-bottom: 0;
+}
+
+.settings-row-title {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--kg-space-1);
 }
 
 /* Meme cards */
@@ -202,6 +222,7 @@
 }
 
 .meme-picker-tile {
+	position: relative;
 	flex: none;
 	width: 76px;
 	height: 76px;
@@ -216,7 +237,7 @@
 	cursor: pointer;
 }
 
-.meme-picker-tile:disabled {
+.meme-picker-tile[aria-disabled='true'] {
 	cursor: not-allowed;
 }
 
@@ -309,7 +330,7 @@
 	font-size: var(--kg-text-xs);
 }
 
-/* Podium */
+/* Podium: hand-drawn steps that grow from the floor, each meme floating over its own */
 .podium {
 	display: flex;
 	flex-direction: column;
@@ -323,10 +344,11 @@
 
 .podium-steps {
 	display: grid;
-	grid-template-columns: repeat(3, minmax(0, 160px));
+	grid-template-columns: repeat(3, minmax(0, 150px));
 	justify-content: center;
 	align-items: end;
-	gap: var(--kg-space-3);
+	gap: var(--kg-space-2);
+	min-height: 300px;
 	padding-top: var(--kg-space-4);
 }
 
@@ -334,60 +356,137 @@
 	display: flex;
 	flex-direction: column;
 	align-items: center;
-	gap: 4px;
+	gap: var(--kg-space-2);
 	min-width: 0;
-	text-align: center;
 }
 
-.podium-thumb {
+.podium-float {
 	display: flex;
-	align-items: center;
 	justify-content: center;
-	width: 88px;
-	height: 88px;
-	overflow: hidden;
-	border: 2px solid var(--kg-border);
-	border-radius: 50%;
-	background: var(--kg-bg-input);
+	width: 100%;
 }
 
-.podium-step--1 .podium-thumb {
-	width: 108px;
-	height: 108px;
-	border-color: var(--kg-px-sun, #ffd23f);
+/* no frame or circle: the meme itself, contained, on a transparent background */
+.podium-visual {
+	display: flex;
+	align-items: flex-end;
+	justify-content: center;
+	width: 96px;
+	height: 96px;
 }
 
-.podium-thumb img,
-.podium-thumb video {
+.podium-step--1 .podium-visual {
+	width: 120px;
+	height: 120px;
+}
+
+.podium-visual img,
+.podium-visual video,
+.podium-visual canvas {
 	width: 100%;
 	height: 100%;
-	object-fit: cover;
+	object-fit: contain;
+	background: transparent;
 }
 
-.podium-name {
-	max-width: 100%;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
+.podium-visual .cassette {
+	background: transparent;
+}
+
+.podium-visual.is-bobbing {
+	animation: podium-bob 2.4s ease-in-out infinite;
+}
+
+.podium-step--2 .podium-visual.is-bobbing {
+	animation-delay: -0.8s;
+}
+
+.podium-step--3 .podium-visual.is-bobbing {
+	animation-delay: -1.6s;
+}
+
+@keyframes podium-bob {
+	50% {
+		transform: translateY(-5px);
+	}
 }
 
 .podium-block {
+	position: relative;
 	display: flex;
-	align-items: flex-start;
+	align-items: center;
 	justify-content: center;
 	width: 100%;
-	padding-top: var(--kg-space-2);
-	border: 1.5px solid var(--kg-border-strong);
-	border-bottom: none;
-	border-radius: var(--kg-radius-sm) var(--kg-radius-sm) 0 0;
-	background: color-mix(in srgb, var(--kg-accent) 22%, var(--kg-bg-raised));
+	overflow: hidden;
+	--sketch-width: 2px;
+}
+
+.podium-block-frame {
+	position: absolute;
+	/* room for the wobble, which the block clips while it grows */
+	inset: 2px;
+	width: calc(100% - 4px);
+	height: calc(100% - 4px);
+}
+
+.podium-step--1 .podium-block-frame {
+	--sketch-paper: color-mix(
+		in srgb,
+		var(--kg-px-sun, #ffd23f) 55%,
+		var(--kg-bg-raised)
+	);
+}
+
+.podium-step--2 .podium-block-frame {
+	--sketch-paper: color-mix(in srgb, var(--kg-accent) 45%, var(--kg-bg-raised));
+}
+
+.podium-step--3 .podium-block-frame {
+	--sketch-paper: color-mix(
+		in srgb,
+		var(--kg-px-pink, #ff7bd0) 40%,
+		var(--kg-bg-raised)
+	);
+}
+
+/* the place, small on the top edge; the plays, big in the middle */
+.podium-place {
+	position: absolute;
+	top: 6px;
+	left: 50%;
+	translate: -50% 0;
+	color: var(--kg-fg-muted);
 	font-family: var(--kg-font-heading);
-	font-size: 28px;
+	font-size: var(--kg-text-sm);
 	font-weight: 700;
 }
 
-.podium-step--1 .podium-block {
-	background: color-mix(in srgb, var(--kg-accent) 40%, var(--kg-bg-raised));
+.podium-plays {
+	position: relative;
+	padding: 0 var(--kg-space-1);
+	color: var(--kg-fg);
+	font-family: var(--kg-font-heading);
+	font-size: var(--kg-text-md);
+	font-weight: 700;
+	text-align: center;
+}
+
+.podium-step--1 .podium-plays {
+	font-size: var(--kg-text-heading);
+}
+
+.podium-floor {
+	display: block;
+	width: min(100%, 480px);
+	height: 6px;
+	margin: calc(var(--kg-space-5) * -1) auto 0;
+	--sketch-paper: var(--kg-fg-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.podium-visual.is-bobbing {
+		animation: none;
+	}
 }
 
 .podium-rest {
@@ -409,36 +508,64 @@
 	color: var(--kg-fg-muted);
 }
 
-/* Behaviour block, folded by default */
-.meme-behaviour summary {
+/* Fields of the editor: one gap between all of them, sliders included */
+.meme-editor-fields .kg-slider,
+.meme-subfield .kg-slider,
+.meme-option .kg-slider {
+	margin-bottom: 0;
+}
+
+.meme-editor-side-title {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+
+.meme-check {
+	flex-direction: row;
+	align-items: center;
+	gap: var(--kg-space-2);
+	font-size: var(--kg-text-sm);
+	cursor: pointer;
+}
+
+/* Saved styles, one row over the editor */
+.meme-styles {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--kg-space-2);
+	margin-bottom: var(--kg-space-4);
+}
+
+.meme-styles select,
+.meme-styles input {
+	flex: 1 1 220px;
+	max-width: 360px;
+}
+
+/* What the shortcut does: each option a label, its control and one line saying why */
+.meme-behaviour {
+	display: flex;
+	flex-direction: column;
+	gap: var(--kg-space-4);
+	padding-top: var(--kg-space-4);
+	border-top: 1px solid var(--kg-border);
+}
+
+.meme-behaviour-title {
+	margin: 0;
+	font-size: var(--kg-text-md);
+	font-weight: 600;
+}
+
+.meme-option {
+	display: flex;
+	flex-direction: column;
+	gap: var(--kg-space-2);
+}
+
+.meme-option-label {
 	color: var(--kg-fg-muted);
 	font-size: var(--kg-text-sm);
-	font-weight: 600;
-	cursor: pointer;
-}
-
-.meme-behaviour[open] {
-	gap: var(--kg-space-3);
-}
-
-.meme-preset {
-	display: inline-flex;
-	align-items: center;
-}
-
-.meme-preset-delete {
-	padding: 0 6px;
-	border: none;
-	background: transparent;
-	color: var(--kg-fg-faint);
-	font-size: var(--kg-text-md);
-	cursor: pointer;
-}
-
-.meme-preset-delete:hover {
-	color: var(--kg-danger);
-}
-
-.meme-preset-save {
-	align-self: flex-start;
 }

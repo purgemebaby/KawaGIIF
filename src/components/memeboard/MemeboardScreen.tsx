@@ -15,6 +15,7 @@ import WaveText from '../brand/WaveText';
 import MemeEditor from './MemeEditor';
 import MemeboardSettings from './MemeboardSettings';
 import Podium from './Podium';
+import InfoTip from '../ui/InfoTip';
 import './MemeboardScreen.css';
 
 type Tab = 'memes' | 'podium';
@@ -153,6 +154,11 @@ function MemeboardScreen() {
 
 			<div className="memeboard-layout">
 				<section className="library-island memeboard-island">
+					<InfoTip
+						className="memeboard-info"
+						text={memeboard.gameNote}
+						label={memeboard.infoLabel}
+					/>
 					<div className="storage-tabs" role="tablist">
 						{(['memes', 'podium'] as const).map((id) => (
 							<button
@@ -191,7 +197,6 @@ function MemeboardScreen() {
 							))}
 						</div>
 					)}
-					<p className="meme-field-note memeboard-note">{memeboard.gameNote}</p>
 				</section>
 
 				<aside className="memeboard-aside">

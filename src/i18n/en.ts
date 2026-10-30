@@ -55,6 +55,8 @@ export const en = {
 	},
 
 	storage: {
+		play: 'Play',
+		pause: 'Pause',
 		title: 'Library',
 		import: 'Import files',
 		empty: "No files match the filters ┐('~`;)┌",
@@ -265,21 +267,40 @@ export const en = {
 			needsMedia: 'Pick an image or a sound first.',
 		},
 		behaviour: {
-			title: 'Behaviour',
-			cooldown: 'Wait before it can play again',
-			refire: 'Pressing it again while it plays',
+			title: 'When you press the shortcut',
+			cooldown: 'Minimum time between plays',
+			cooldownHint: "So it can't be spammed.",
+			noWait: 'No wait',
+			refire: 'If you press it while it plays',
 			refires: {
-				restart: 'Starts over',
-				stack: 'Plays another on top',
-				ignore: 'Does nothing',
+				restart: 'Start over',
+				stack: 'Add another on top',
+				ignore: 'Ignore the press',
 			},
-			jitter: 'Random speed and pitch',
-			presets: 'Presets',
-			noPresets: 'Save this look and behaviour to reuse it on other memes.',
-			savePreset: 'Save as preset',
-			presetName: 'Preset name',
-			deletePreset: (name: string) => `Delete preset ${name}`,
+			pitch: 'Change the pitch on each play',
+			pitchHint:
+				"Each play goes a bit faster or slower so it doesn't sound the same.",
+			pitches: {
+				off: 'Off',
+				low: 'A little',
+				high: 'A lot',
+			},
 		},
+		styles: {
+			load: 'Load a saved style…',
+			none: 'No saved styles yet',
+			saveCurrent: 'Save style',
+			name: 'Style name',
+			save: 'Save',
+			delete: 'Delete this style',
+		},
+		options: {
+			popIn: 'Pop in time',
+			popOut: 'Pop out time',
+			intensity: 'Intensity',
+			dvdColors: 'Change colour on each bounce',
+		},
+		infoLabel: 'More info',
 		animations: {
 			pop: 'Pop',
 			static: 'Still',
@@ -334,7 +355,7 @@ export const en = {
 			volume: { label: 'Meme volume' },
 			concurrent: {
 				label: 'Memes at once',
-				hint: 'With 1, a new meme replaces the one playing. Up to 10, if the memory allows.',
+				hint: 'Up to 10, if the memory allows it.',
 			},
 			stopHotkey: {
 				label: 'Stop all shortcut',

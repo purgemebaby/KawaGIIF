@@ -367,6 +367,21 @@ export const SKETCH_ICONS = {
 			{ ellipse: [15.5, 9, 1.7, 1.7], fill: 'var(--kg-px-sun)' },
 		],
 	},
+	info: {
+		base: [
+			{ ellipse: [12, 12, 8.5, 8.5], fill: 'var(--kg-px-sky)' },
+			{ ellipse: [12, 7.8, 1.1, 1.1], fill: 'var(--kg-px-deep)' },
+			{
+				// the stem of the i, with a little foot
+				points: [
+					[11, 11],
+					[12.3, 10.8],
+					[12.2, 16.8],
+					[13.6, 16.9],
+				],
+			},
+		],
+	},
 	laugh: {
 		base: [
 			{ ellipse: [12, 12, 8.5, 8.5], fill: 'var(--kg-px-sun)' },

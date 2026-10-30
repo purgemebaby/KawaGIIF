@@ -8,9 +8,10 @@ import {
 	SECTORS,
 	annularSectorPath,
 	directionOf,
+	freeHalfWidth,
 	outerArcPath,
 } from '../../lib/radial';
-import type { KeyboardEvent } from 'react';
+import { useLayoutEffect, useRef, type KeyboardEvent } from 'react';
 
 interface RadialMenuProps {
 	onSelect: (id: Screen) => void;
@@ -20,15 +21,51 @@ const LABEL_RADIUS = 145;
 // ring units: the 24-unit icon drawn at 2x
 const ICON_SIZE = 48;
 // small sideways nudges so each icon sits optically centred over its label
-const ICON_NUDGE: Partial<Record<Screen, number>> = {
-	settings: 8,
-	storage: -8,
-};
+const ICON_NUDGE: Partial<Record<Screen, number>> = {};
 const CENTRE = RING_SIZE / 2;
+// room left between a label and its sector edge, viewBox units
+const LABEL_MARGIN = 10;
+// must match the translateY of .radial-label (RadialMenu.css)
+const LABEL_DROP = 0.9;
 
 function RadialMenu({ onSelect }: RadialMenuProps) {
 	// read per render, so a language switch relabels the ring without a reload
 	const tiles = homeTiles();
+	const svgRef = useRef<SVGSVGElement>(null);
+	const labelRefs = useRef(new Map<string, SVGTextElement>());
+	const labelKey = tiles.map((tile) => tile.label).join('|');
+
+	// Measured in viewBox units, so the window size never matters; the label text, font and font scale do, so it
+	// runs again when the labels change, once the font has loaded, and on resize (a font-scale change reflows it).
+	useLayoutEffect(() => {
+		const measure = () => {
+			for (const sector of SECTORS) {
+				const text = labelRefs.current.get(sector.id);
+				if (!text) continue;
+				text.style.fontSize = '';
+				const length = text.getComputedTextLength();
+				const size = parseFloat(getComputedStyle(text).fontSize) || 0;
+				const dir = directionOf(sector.id);
+				const half = freeHalfWidth(
+					sector.id,
+					dir.x * LABEL_RADIUS,
+					dir.y * LABEL_RADIUS + size * LABEL_DROP,
+				);
+				const room = Math.max(0, 2 * (half - LABEL_MARGIN));
+				// shrunk straight on the element: React never sets this style, so a re-render can't undo it
+				if (length > room && length > 0) {
+					text.style.fontSize = `calc(var(--radial-label-size) * ${(room / length).toFixed(3)})`;
+				}
+			}
+		};
+		measure();
+		document.fonts?.ready.then(measure).catch(() => {});
+		const svg = svgRef.current;
+		if (!svg) return;
+		const observer = new ResizeObserver(measure);
+		observer.observe(svg);
+		return () => observer.disconnect();
+	}, [labelKey]);
 
 	const onKeyDown = (event: KeyboardEvent, id: Screen) => {
 		if (event.key !== 'Enter' && event.key !== ' ') return;
@@ -38,6 +75,7 @@ function RadialMenu({ onSelect }: RadialMenuProps) {
 
 	return (
 		<svg
+			ref={svgRef}
 			className="radial-menu"
 			viewBox={`0 0 ${RING_SIZE} ${RING_SIZE}`}
 			role="group"
@@ -106,7 +144,15 @@ function RadialMenu({ onSelect }: RadialMenuProps) {
 									y={-ICON_SIZE - 4}
 								/>
 							)}
-							<text className="radial-label">{tile.label}</text>
+							<text
+								className="radial-label"
+								ref={(el) => {
+									if (el) labelRefs.current.set(sector.id, el);
+									else labelRefs.current.delete(sector.id);
+								}}
+							>
+								{tile.label}
+							</text>
 						</g>
 					</g>
 				);

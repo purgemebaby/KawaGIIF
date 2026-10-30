@@ -1,140 +1,56 @@
-import { useState } from 'react';
 import { t } from '../../i18n';
-import { invoke } from '../../lib/ipc';
-import { notifyError } from '../../lib/notify';
-import type { Meme, Preset, Refire } from '../../lib/memeboard';
+import type { Behaviour, Meme, Refire } from '../../lib/memeboard';
 import Slider from '../ui/Slider';
 
 interface BehaviourPanelProps {
-	draft: Meme;
-	presets: Preset[];
-	onChange: (meme: Meme) => void;
+	behaviour: Behaviour;
+	onChange: (behaviour: Meme['behaviour']) => void;
 }
 
 const REFIRES: Refire[] = ['restart', 'stack', 'ignore'];
 const MAX_COOLDOWN_MS = 30_000;
+/** The pitch choices and the `speed_jitter` each one stands for. */
+const PITCHES = [
+	['off', 0],
+	['low', 0.12],
+	['high', 0.3],
+] as const;
 
-/** Cooldown, second-press rule and random speed, plus presets that copy a look and behaviour between memes. */
-function BehaviourPanel({ draft, presets, onChange }: BehaviourPanelProps) {
-	const [naming, setNaming] = useState(false);
-	const [presetName, setPresetName] = useState('');
-	const behaviour = draft.behaviour;
+/** The pitch choice closest to a stored jitter, so values saved before the choices existed still show one. */
+function pitchOf(jitter: number) {
+	return PITCHES.reduce((best, p) =>
+		Math.abs(p[1] - jitter) < Math.abs(best[1] - jitter) ? p : best,
+	)[0];
+}
+
+/** What pressing the shortcut does: a minimum wait, what a second press does, and a varying pitch. */
+function BehaviourPanel({ behaviour, onChange }: BehaviourPanelProps) {
 	const text = t.memeboard.behaviour;
-
-	const setBehaviour = (patch: Partial<Meme['behaviour']>) =>
-		onChange({ ...draft, behaviour: { ...behaviour, ...patch } });
-
-	const apply = (preset: Preset) =>
-		onChange({
-			...draft,
-			animation: preset.animation,
-			anchor: preset.anchor,
-			size: preset.size,
-			behaviour: preset.behaviour,
-		});
-
-	const savePreset = async () => {
-		const name = presetName.trim();
-		if (!name) return;
-		const preset: Preset = {
-			// a nil id asks Rust for a new one
-			id: '00000000-0000-0000-0000-000000000000',
-			name,
-			animation: draft.animation,
-			anchor: draft.anchor,
-			size: draft.size,
-			behaviour,
-		};
-		try {
-			await invoke('save_preset', { preset });
-			setNaming(false);
-			setPresetName('');
-		} catch (e) {
-			notifyError(e);
-		}
-	};
+	const set = (patch: Partial<Behaviour>) =>
+		onChange({ ...behaviour, ...patch });
+	const pitch = pitchOf(behaviour.speed_jitter);
 
 	return (
-		<details className="meme-field meme-behaviour">
-			<summary>{text.title}</summary>
+		<section className="meme-behaviour">
+			<h4 className="meme-behaviour-title">{text.title}</h4>
 
-			<div className="meme-subfield">
-				<small>{text.presets}</small>
-				{presets.length === 0 ? (
-					<small className="meme-field-note">{text.noPresets}</small>
-				) : (
-					<div className="filter-types">
-						{presets.map((preset) => (
-							<span key={preset.id} className="meme-preset">
-								<button
-									type="button"
-									className="filter-type"
-									onClick={() => apply(preset)}
-								>
-									{preset.name}
-								</button>
-								<button
-									type="button"
-									className="meme-preset-delete"
-									aria-label={text.deletePreset(preset.name)}
-									title={text.deletePreset(preset.name)}
-									onClick={() =>
-										invoke('delete_preset', { id: preset.id }).catch(
-											notifyError,
-										)
-									}
-								>
-									×
-								</button>
-							</span>
-						))}
-					</div>
-				)}
-				{naming ? (
-					<div className="hotkey-field-row">
-						<input
-							className="filter-search"
-							autoFocus
-							placeholder={text.presetName}
-							value={presetName}
-							maxLength={60}
-							onChange={(e) => setPresetName(e.target.value)}
-							onKeyDown={(e) => {
-								if (e.key === 'Enter') savePreset();
-							}}
-						/>
-						<button
-							type="button"
-							className="kg-btn kg-btn--primary kg-btn--sm"
-							disabled={!presetName.trim()}
-							onClick={savePreset}
-						>
-							{t.memeboard.editor.save}
-						</button>
-					</div>
-				) : (
-					<button
-						type="button"
-						className="kg-btn kg-btn--secondary kg-btn--sm meme-preset-save"
-						onClick={() => setNaming(true)}
-					>
-						{text.savePreset}
-					</button>
-				)}
+			<div className="meme-option">
+				<Slider
+					label={text.cooldown}
+					min={0}
+					max={MAX_COOLDOWN_MS}
+					step={250}
+					value={behaviour.cooldown_ms}
+					format={(ms) =>
+						ms === 0 ? text.noWait : `${(ms / 1000).toFixed(1)} s`
+					}
+					onChange={(cooldown_ms) => set({ cooldown_ms })}
+				/>
+				<small className="meme-field-note">{text.cooldownHint}</small>
 			</div>
 
-			<Slider
-				label={text.cooldown}
-				min={0}
-				max={MAX_COOLDOWN_MS}
-				step={250}
-				value={behaviour.cooldown_ms}
-				format={(ms) => (ms === 0 ? '—' : `${(ms / 1000).toFixed(1)} s`)}
-				onChange={(cooldown_ms) => setBehaviour({ cooldown_ms })}
-			/>
-
-			<div className="meme-subfield">
-				<small>{text.refire}</small>
+			<div className="meme-option">
+				<span className="meme-option-label">{text.refire}</span>
 				<div className="filter-types">
 					{REFIRES.map((refire) => (
 						<button
@@ -145,7 +61,8 @@ function BehaviourPanel({ draft, presets, onChange }: BehaviourPanelProps) {
 									? 'filter-type active'
 									: 'filter-type'
 							}
-							onClick={() => setBehaviour({ refire })}
+							aria-pressed={behaviour.refire === refire}
+							onClick={() => set({ refire })}
 						>
 							{text.refires[refire]}
 						</button>
@@ -153,16 +70,24 @@ function BehaviourPanel({ draft, presets, onChange }: BehaviourPanelProps) {
 				</div>
 			</div>
 
-			<Slider
-				label={text.jitter}
-				min={0}
-				max={0.5}
-				step={0.01}
-				value={behaviour.speed_jitter}
-				format={(v) => (v === 0 ? '—' : `± ${Math.round(v * 100)} %`)}
-				onChange={(speed_jitter) => setBehaviour({ speed_jitter })}
-			/>
-		</details>
+			<div className="meme-option">
+				<span className="meme-option-label">{text.pitch}</span>
+				<div className="filter-types">
+					{PITCHES.map(([id, jitter]) => (
+						<button
+							key={id}
+							type="button"
+							className={pitch === id ? 'filter-type active' : 'filter-type'}
+							aria-pressed={pitch === id}
+							onClick={() => set({ speed_jitter: jitter })}
+						>
+							{text.pitches[id]}
+						</button>
+					))}
+				</div>
+				<small className="meme-field-note">{text.pitchHint}</small>
+			</div>
+		</section>
 	);
 }
 

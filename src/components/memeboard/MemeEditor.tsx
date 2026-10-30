@@ -6,6 +6,7 @@ import { notifyError } from '../../lib/notify';
 import { isAudioType, isVideoType, type MediaItem } from '../../lib/media';
 import {
 	ANIMATION_KINDS,
+	POP_MS_RANGE,
 	defaultAnimation,
 	type Anchor,
 	type Meme,
@@ -21,6 +22,8 @@ import HotkeyField from './HotkeyField';
 import MemePreview from './MemePreview';
 import PathRecorder from './PathRecorder';
 import BehaviourPanel from './BehaviourPanel';
+import StyleRow from './StyleRow';
+import InfoTip from '../ui/InfoTip';
 
 interface MemeEditorProps {
 	meme: Meme;
@@ -59,16 +62,28 @@ function MediaPicker({
 				{t.memeboard.editor.none}
 			</button>
 			{items.map((item) => (
-				<button
+				<div
 					key={item.id}
-					type="button"
+					role="button"
+					tabIndex={disabled ? -1 : 0}
+					aria-pressed={selected === item.id}
+					aria-disabled={disabled}
 					className={`meme-picker-tile${selected === item.id ? ' active' : ''}`}
 					title={item.original_file_name}
-					disabled={disabled}
-					onClick={() => onSelect(item.id)}
+					onClick={() => !disabled && onSelect(item.id)}
+					onKeyDown={(e) => {
+						if (disabled || (e.key !== 'Enter' && e.key !== ' ')) return;
+						e.preventDefault();
+						onSelect(item.id);
+					}}
 				>
-					<MediaThumb item={item} preview alt={item.original_file_name} />
-				</button>
+					<MediaThumb
+						item={item}
+						preview
+						playable={!disabled && selected === item.id}
+						alt={item.original_file_name}
+					/>
+				</div>
 			))}
 		</div>
 	);
@@ -145,6 +160,8 @@ function MemeEditor({
 					{isNew ? editor.titleNew : editor.titleEdit}
 				</h3>
 
+				<StyleRow draft={draft} presets={presets} onChange={setDraft} />
+
 				<div className="meme-editor-body">
 					<div className="meme-editor-fields">
 						<label className="meme-field">
@@ -219,6 +236,59 @@ function MemeEditor({
 										))}
 									</div>
 								</div>
+							)}
+							{anim.kind === 'pop' && (
+								<div className="meme-subfield">
+									<Slider
+										label={t.memeboard.options.popIn}
+										min={POP_MS_RANGE[0]}
+										max={POP_MS_RANGE[1]}
+										step={20}
+										value={anim.enter_ms}
+										format={(ms) => `${ms} ms`}
+										onChange={(enter_ms) =>
+											set('animation', { ...anim, enter_ms })
+										}
+									/>
+									<Slider
+										label={t.memeboard.options.popOut}
+										min={POP_MS_RANGE[0]}
+										max={POP_MS_RANGE[1]}
+										step={20}
+										value={anim.exit_ms}
+										format={(ms) => `${ms} ms`}
+										onChange={(exit_ms) =>
+											set('animation', { ...anim, exit_ms })
+										}
+									/>
+								</div>
+							)}
+							{anim.kind === 'shake' && (
+								<div className="meme-subfield">
+									<Slider
+										label={t.memeboard.options.intensity}
+										min={0.05}
+										max={1}
+										step={0.05}
+										value={anim.intensity}
+										format={(v) => `${Math.round(v * 100)} %`}
+										onChange={(intensity) =>
+											set('animation', { ...anim, intensity })
+										}
+									/>
+								</div>
+							)}
+							{anim.kind === 'dvd_bounce' && (
+								<label className="meme-subfield meme-check">
+									<input
+										type="checkbox"
+										checked={anim.colors}
+										onChange={(e) =>
+											set('animation', { ...anim, colors: e.target.checked })
+										}
+									/>
+									{t.memeboard.options.dvdColors}
+								</label>
 							)}
 							{anim.kind === 'path' && (
 								<PathRecorder
@@ -300,14 +370,19 @@ function MemeEditor({
 						</div>
 
 						<BehaviourPanel
-							draft={draft}
-							presets={presets}
-							onChange={setDraft}
+							behaviour={draft.behaviour}
+							onChange={(behaviour) => set('behaviour', behaviour)}
 						/>
 					</div>
 
 					<div className="meme-editor-side">
-						<span className="meme-editor-side-title">{editor.preview}</span>
+						<span className="meme-editor-side-title">
+							{editor.preview}
+							<InfoTip
+								text={t.memeboard.gameNote}
+								label={t.memeboard.infoLabel}
+							/>
+						</span>
 						<MemePreview
 							visual={visual}
 							animation={draft.animation}
@@ -315,7 +390,6 @@ function MemeEditor({
 							size={draft.size}
 							durationMs={durationMs}
 						/>
-						<small className="meme-field-note">{t.memeboard.gameNote}</small>
 					</div>
 				</div>
 

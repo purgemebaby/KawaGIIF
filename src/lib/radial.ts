@@ -125,3 +125,32 @@ export function sectorPolygon(
 		...sampleArc(cx, cy, rInner, endDeg, startDeg, points - outerCount),
 	];
 }
+
+/** Whether a point (relative to the ring centre) lies inside a sector's slice of the ring. */
+function insideSector(sector: Sector, x: number, y: number): boolean {
+	const r = Math.hypot(x, y);
+	if (r < RING_INNER || r > RING_OUTER) return false;
+	const deg = ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
+	const start = ((sector.startDeg % 360) + 360) % 360;
+	const end = start + (sector.endDeg - sector.startDeg);
+	return (
+		(deg >= start && deg <= end) || (deg + 360 >= start && deg + 360 <= end)
+	);
+}
+
+/**
+ * How far a horizontal label centred at (x, y) (relative to the ring centre, viewBox units) can reach to each side
+ * before leaving its sector. Walks outwards a unit at a time: cheap, and right for any sector count.
+ */
+export function freeHalfWidth(id: SectorId, x: number, y: number): number {
+	const sector = sectorOf(id);
+	let half = 0;
+	while (
+		half < RING_OUTER &&
+		insideSector(sector, x - half - 1, y) &&
+		insideSector(sector, x + half + 1, y)
+	) {
+		half += 1;
+	}
+	return half;
+}

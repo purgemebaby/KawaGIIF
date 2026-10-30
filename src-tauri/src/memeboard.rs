@@ -50,20 +50,42 @@ pub enum Side { Left, Right, Top, Bottom }
 pub struct PathPoint { pub t: u32, pub x: f32, pub y: f32 }
 
 /** How the visual moves while the meme lasts. The stage turns each one into keyframes. */
-#[derive(Serialize, Deserialize, Clone, PartialEq, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Animation {
     Static,
-    #[default]
-    Pop,
-    /// Bounces off the screen edges like the old DVD screensaver.
-    DvdBounce,
+    /// Grows in and shrinks out, each in its own time.
+    Pop {
+        #[serde(default = "default_pop_in")]
+        enter_ms: u32,
+        #[serde(default = "default_pop_out")]
+        exit_ms: u32,
+    },
+    /// Bounces off the screen edges like the old DVD screensaver, changing colour on each bounce if `colors`.
+    DvdBounce {
+        #[serde(default = "default_true")]
+        colors: bool,
+    },
     Bounce,
-    Shake,
+    /// Trembles in place; `intensity` 0..=1 scales how far.
+    Shake {
+        #[serde(default = "default_shake")]
+        intensity: f32,
+    },
     Cross { from: Side },
     Fall,
     Path { points: Vec<PathPoint> },
 }
+
+impl Default for Animation {
+    fn default() -> Self { Self::Pop { enter_ms: default_pop_in(), exit_ms: default_pop_out() } }
+}
+
+const POP_MS: std::ops::RangeInclusive<u32> = 80..=1500;
+fn default_pop_in() -> u32 { 280 }
+fn default_pop_out() -> u32 { 220 }
+fn default_true() -> bool { true }
+fn default_shake() -> f32 { 0.25 }
 
 /** Where the visual appears. `Fixed` is a fraction (0..=1) of the monitor. */
 #[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Debug, Default)]
@@ -173,6 +195,14 @@ impl Meme {
         if let Anchor::Fixed { x, y } = &mut self.anchor {
             *x = finite_or(*x, 0.5).clamp(0.0, 1.0);
             *y = finite_or(*y, 0.5).clamp(0.0, 1.0);
+        }
+        match &mut self.animation {
+            Animation::Pop { enter_ms, exit_ms } => {
+                *enter_ms = (*enter_ms).clamp(*POP_MS.start(), *POP_MS.end());
+                *exit_ms = (*exit_ms).clamp(*POP_MS.start(), *POP_MS.end());
+            }
+            Animation::Shake { intensity } => *intensity = finite_or(*intensity, default_shake()).clamp(0.0, 1.0),
+            _ => {}
         }
         if let Animation::Path { points } = &mut self.animation {
             points.retain(|p| p.t <= MAX_MEME_MS && p.x.is_finite() && p.y.is_finite());
@@ -852,7 +882,7 @@ mod tests {
         let mut index = MemeboardIndex::default();
         for (n, key) in hotkeys.iter().enumerate() {
             let mut meme = Meme {
-                id: Uuid::new_v4(), name: format!("m{n}"), visual: None, audio: None, animation: Animation::Pop,
+                id: Uuid::new_v4(), name: format!("m{n}"), visual: None, audio: None, animation: Animation::default(),
                 anchor: Anchor::Cursor, size: 0.3, volume: 1.0, duration_ms: None, hotkey: None,
                 behaviour: Behaviour::default(), fire_count: 0,
             };
@@ -914,6 +944,16 @@ mod tests {
         assert_eq!(meme_from_args(&index, &args(&["kawagiif.exe", &format!("--fire-meme={id}")])), Some(id));
         assert_eq!(meme_from_args(&index, &args(&["kawagiif.exe", "--fire-meme", "nope"])), None);
         assert_eq!(meme_from_args(&index, &args(&["kawagiif.exe"])), None);
+    }
+
+    #[test]
+    fn animations_saved_without_options_load_with_defaults() {
+        let load = |json: &str| serde_json::from_str::<Animation>(json).unwrap();
+        assert_eq!(load(r#"{"kind":"shake"}"#), Animation::Shake { intensity: 0.25 });
+        assert_eq!(load(r#"{"kind":"pop"}"#), Animation::Pop { enter_ms: 280, exit_ms: 220 });
+        assert_eq!(load(r#"{"kind":"dvd_bounce"}"#), Animation::DvdBounce { colors: true });
+        let meme = Meme { animation: Animation::Pop { enter_ms: 5, exit_ms: 99_999 }, ..index_with(&["F13"]).memes.remove(0) };
+        assert_eq!(meme.sanitized().animation, Animation::Pop { enter_ms: 80, exit_ms: 1500 });
     }
 
     #[test]

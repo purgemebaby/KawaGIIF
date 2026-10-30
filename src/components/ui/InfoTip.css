@@ -1,0 +1,45 @@
+/* ⓘ button and its note, which opens below and to the left so it stays inside a panel's right edge. */
+.info-tip {
+	position: relative;
+	display: inline-flex;
+}
+
+.info-tip-button {
+	--kg-fg: var(--kg-fg-muted);
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+	padding: 0;
+	border: none;
+	border-radius: 50%;
+	background: transparent;
+	cursor: help;
+}
+
+.info-tip-button:hover,
+.info-tip-button:focus-visible {
+	--kg-fg: var(--kg-accent);
+	background: var(--kg-accent-soft);
+}
+
+.info-tip-bubble {
+	position: absolute;
+	top: calc(100% + 6px);
+	right: 0;
+	z-index: 20;
+	width: max-content;
+	max-width: 280px;
+	padding: var(--kg-space-2) var(--kg-space-3);
+	border: 1px solid var(--kg-border);
+	border-radius: var(--kg-radius-sm);
+	background: var(--kg-bg-raised);
+	box-shadow: var(--kg-shadow-2);
+	color: var(--kg-fg);
+	font-size: var(--kg-text-sm);
+	font-weight: 400;
+	line-height: 1.45;
+	white-space: normal;
+	animation: kg-fade-in var(--kg-dur-fast) var(--kg-ease-out);
+}

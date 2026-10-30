@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
+import { t } from '../i18n';
+import { claimPreview, releasePreview } from '../lib/audioPreview';
 import { formatDuration, type MediaItem } from '../lib/media';
 import './CassetteThumb.css';
 
@@ -8,8 +10,8 @@ interface CassetteThumbProps {
 	item: MediaItem;
 	url: string | null;
 	className?: string;
-	/** Plays the sound while hovered, spinning the reels. */
-	preview?: boolean;
+	/** Shows a play / pause button. Hovering never plays. */
+	playable?: boolean;
 }
 
 /** One reel: hub, six teeth and the tape wound round it. */
@@ -38,35 +40,46 @@ function CassetteThumb({
 	item,
 	url,
 	className = '',
-	preview = false,
+	playable = false,
 }: CassetteThumbProps) {
 	const audioRef = useRef<HTMLAudioElement>(null);
 	const [playing, setPlaying] = useState(false);
 
-	const start = () => {
+	const pause = () => {
+		const audio = audioRef.current;
+		if (audio) {
+			audio.pause();
+			releasePreview(audio);
+		}
+		setPlaying(false);
+	};
+
+	const toggle = (e: React.MouseEvent) => {
+		// the cassette sits inside a selectable card or tile
+		e.stopPropagation();
+		e.preventDefault();
 		const audio = audioRef.current;
 		if (!audio) return;
+		if (playing) {
+			pause();
+			return;
+		}
+		claimPreview(audio, () => setPlaying(false));
 		audio.volume = PREVIEW_VOLUME;
-		audio.currentTime = 0;
 		audio
 			.play()
 			.then(() => setPlaying(true))
 			.catch(() => setPlaying(false));
 	};
 
-	const stop = () => {
-		audioRef.current?.pause();
-		setPlaying(false);
-	};
-
-	useEffect(() => stop, []);
+	// leaving the card (or the tile losing its selection) stops the sound
+	useEffect(() => {
+		if (!playable) pause();
+	}, [playable]);
+	useEffect(() => pause, []);
 
 	return (
-		<div
-			className={`cassette${playing ? ' is-playing' : ''} ${className}`}
-			onMouseEnter={preview && url ? start : undefined}
-			onMouseLeave={preview && url ? stop : undefined}
-		>
+		<div className={`cassette${playing ? ' is-playing' : ''} ${className}`}>
 			<svg viewBox="0 0 120 80" className="cassette-svg" aria-hidden="true">
 				<rect
 					className="cassette-shell"
@@ -104,7 +117,18 @@ function CassetteThumb({
 					{formatDuration(item.duration_ms)}
 				</span>
 			)}
-			{url && <audio ref={audioRef} src={url} preload="none" onEnded={stop} />}
+			{playable && url && (
+				<button
+					type="button"
+					className="cassette-play"
+					aria-label={playing ? t.storage.pause : t.storage.play}
+					title={playing ? t.storage.pause : t.storage.play}
+					onClick={toggle}
+				>
+					{playing ? '⏸' : '▶'}
+				</button>
+			)}
+			{url && <audio ref={audioRef} src={url} preload="none" onEnded={pause} />}
 		</div>
 	);
 }

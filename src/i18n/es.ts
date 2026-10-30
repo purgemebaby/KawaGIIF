@@ -57,6 +57,8 @@ export const es: Strings = {
 	},
 
 	storage: {
+		play: 'Reproducir',
+		pause: 'Pausa',
 		title: 'Biblioteca',
 		import: 'Importar archivos',
 		empty: "Ningún archivo coincide con los filtros ┐('~`;)┌",
@@ -274,22 +276,40 @@ export const es: Strings = {
 			needsMedia: 'Elige antes una imagen o un sonido.',
 		},
 		behaviour: {
-			title: 'Comportamiento',
-			cooldown: 'Espera antes de poder repetirse',
-			refire: 'Si lo pulsas otra vez mientras suena',
+			title: 'Al pulsar el atajo',
+			cooldown: 'Tiempo mínimo entre usos',
+			cooldownHint: 'Para que no se pueda spamear.',
+			noWait: 'Sin espera',
+			refire: 'Si lo pulsas mientras suena',
 			refires: {
 				restart: 'Empieza de nuevo',
-				stack: 'Suena otro encima',
-				ignore: 'No hace nada',
+				stack: 'Suma otro encima',
+				ignore: 'Ignora la pulsación',
 			},
-			jitter: 'Velocidad y tono aleatorios',
-			presets: 'Ajustes guardados',
-			noPresets:
-				'Guarda este aspecto y comportamiento para usarlo en otros memes.',
-			savePreset: 'Guardar como ajuste',
-			presetName: 'Nombre del ajuste',
-			deletePreset: (name: string) => `Borrar ajuste ${name}`,
+			pitch: 'Variar el tono en cada uso',
+			pitchHint:
+				'Cada vez suena un poco más rápido o más lento para que no sea siempre igual.',
+			pitches: {
+				off: 'No',
+				low: 'Un poco',
+				high: 'Mucho',
+			},
 		},
+		styles: {
+			load: 'Cargar un estilo guardado…',
+			none: 'Aún no hay estilos guardados',
+			saveCurrent: 'Guardar estilo',
+			name: 'Nombre del estilo',
+			save: 'Guardar',
+			delete: 'Borrar este estilo',
+		},
+		options: {
+			popIn: 'Tiempo de entrada',
+			popOut: 'Tiempo de salida',
+			intensity: 'Intensidad',
+			dvdColors: 'Cambiar de color en cada rebote',
+		},
+		infoLabel: 'Más información',
 		animations: {
 			pop: 'Aparecer de golpe',
 			static: 'Estático',
@@ -344,7 +364,7 @@ export const es: Strings = {
 			volume: { label: 'Volumen de los memes' },
 			concurrent: {
 				label: 'Memes a la vez',
-				hint: 'Con 1, un meme nuevo sustituye al que suena. Hasta 10, si la memoria lo permite.',
+				hint: 'Hasta 10, si la memoria lo permite.',
 			},
 			stopHotkey: {
 				label: 'Atajo de Parar todo',
