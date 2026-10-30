@@ -43,6 +43,34 @@ const MOCK_CONFIG = {
 	language: 'en',
 };
 
+/** A meme for the browser preview, shaped like memeboard.rs `MemeView`. */
+function mockMeme(
+	id: string,
+	name: string,
+	visual: string,
+	hotkey: string | null,
+	fireCount: number,
+) {
+	return {
+		id,
+		name,
+		visual,
+		audio: null,
+		animation: { kind: 'pop', enter_ms: 280, exit_ms: 220 },
+		anchor: { kind: 'cursor' },
+		size: 0.3,
+		volume: 1,
+		duration_ms: null,
+		motion_speed: 1,
+		playback_speed: 1,
+		monitor: { kind: 'cursor' },
+		hotkey,
+		behaviour: { cooldown_ms: 0, refire: 'restart', speed_jitter: 0 },
+		fire_count: fireCount,
+		hotkey_conflict: false,
+	};
+}
+
 const MOCK_RESPONSES: Record<string, unknown> = {
 	list_media: MOCK_MEDIA,
 	list_all_tags: MOCK_TAGS,
@@ -72,6 +100,27 @@ const MOCK_RESPONSES: Record<string, unknown> = {
 	},
 	get_available_update: new URLSearchParams(location.search).get('update'),
 	install_update: null,
+	list_memes: {
+		memes: [
+			mockMeme('mm1', 'Victory dance', 'm1', 'Ctrl+Alt+Digit1', 8),
+			mockMeme('mm2', 'Bonk', 'm2', 'Ctrl+Alt+Digit2', 5),
+			mockMeme('mm3', 'Sad violin', 'm3', null, 2),
+		],
+		stop_hotkey: 'Ctrl+Alt+Backspace',
+		stop_conflict: false,
+		presets: [],
+		max_hotkeys: 10,
+		max_meme_ms: 10_000,
+	},
+	list_monitors: [
+		{ name: '\\\\.\\DISPLAY1', width: 1920, height: 1080, primary: true },
+		{ name: '\\\\.\\DISPLAY2', width: 2560, height: 1440, primary: false },
+	],
+	list_audio_outputs: [
+		{ id: 'speakers', name: 'Speakers', is_default: true },
+		{ id: 'cable', name: 'CABLE Input (VB-Audio)', is_default: false },
+	],
+	check_hotkey: null,
 };
 
 // Mocks that compute a value from their args, mirroring the Rust clamping.
