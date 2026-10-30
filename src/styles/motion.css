@@ -296,6 +296,10 @@
 	animation: none;
 }
 
+:root[data-nav-animations='off'] .radial-icon {
+	transition: none;
+}
+
 /* the button hatch still fills with nav animations off, just without the fade */
 :root[data-nav-animations='off'] .kg-btn--secondary::before,
 :root[data-nav-animations='off'] .kg-btn--danger::before {

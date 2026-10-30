@@ -1,6 +1,7 @@
 import {
 	invoke as tauriInvoke,
 	convertFileSrc as tauriConvertFileSrc,
+	type InvokeOptions,
 } from '@tauri-apps/api/core';
 import { listen as tauriListen, type UnlistenFn } from '@tauri-apps/api/event';
 import { ZOOM_MAX, ZOOM_MIN } from './zoom';
@@ -121,6 +122,7 @@ const MOCK_RESPONSES: Record<string, unknown> = {
 		{ id: 'cable', name: 'CABLE Input (VB-Audio)', is_default: false },
 	],
 	check_hotkey: null,
+	get_media_dirs: { media: 'C:/mock/media', thumbs: 'C:/mock/thumbs' },
 };
 
 // Mocks that compute a value from their args, mirroring the Rust clamping.
@@ -134,11 +136,14 @@ const MOCK_HANDLERS: Record<
 	},
 };
 
+/** Calls a Rust command. `args` is JSON, or raw bytes for a command that reads the request body (with `options.headers`). */
 export async function invoke<T>(
 	command: string,
-	args?: Record<string, unknown>,
+	args?: Record<string, unknown> | Uint8Array,
+	options?: InvokeOptions,
 ): Promise<T> {
-	if (IS_TAURI) return tauriInvoke<T>(command, args);
+	if (IS_TAURI) return tauriInvoke<T>(command, args, options);
+	if (args instanceof Uint8Array) return null as T;
 
 	if (command in MOCK_HANDLERS) {
 		return MOCK_HANDLERS[command](args) as T;

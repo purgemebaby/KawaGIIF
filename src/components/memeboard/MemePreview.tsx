@@ -10,7 +10,7 @@ import { notifyError } from '../../lib/notify';
 import type { MediaItem } from '../../lib/media';
 import type { Anchor, Animation, PathPoint } from '../../lib/memeboard';
 import { seedOf, sketchStroke } from '../../lib/sketch';
-import { useMediaUrl } from '../../hooks/useMediaUrl';
+import { useMediaFiles } from '../../hooks/useMediaFiles';
 import MemeLayer from './MemeLayer';
 
 interface MemePreviewProps {
@@ -48,7 +48,7 @@ function MemePreview({
 	const [box, setBox] = useState<[number, number]>([0, 0]);
 	const [stroke, setStroke] = useState<PathPoint[] | null>(null);
 	const startRef = useRef(0);
-	const url = useMediaUrl(visual?.id);
+	const { url } = useMediaFiles(visual);
 
 	useLayoutEffect(() => {
 		const el = boxRef.current;

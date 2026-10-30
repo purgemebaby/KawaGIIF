@@ -56,6 +56,9 @@ pub enum AppError {
     #[error("The meme stage window is missing")]
     MissingStageWindow,
 
+    #[error("That thumbnail could not be made or is not a small WEBP")]
+    BadThumbnail,
+
     #[error("No media with id {0}")]
     MediaNotFound(Uuid),
 

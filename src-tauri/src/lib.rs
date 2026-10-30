@@ -6,6 +6,7 @@ mod error;
 mod library;
 mod media_compress;
 mod media_probe;
+mod media_thumbs;
 mod meme_path;
 mod memeboard;
 #[cfg(windows)]
@@ -130,6 +131,8 @@ pub fn run() {
             library::delete_tag,
             library::delete_media,
             library::get_media_path,
+            media_thumbs::get_media_dirs,
+            media_thumbs::save_video_thumb,
             library::get_file_sizes,
             system_stats::get_system_stats,
             #[cfg(debug_assertions)]
@@ -189,6 +192,7 @@ pub fn run() {
             control.open_devtools();
 
             template::load_saved_template_on_boot(&handle.state::<EditorState>());
+            library::thumbnail_library_on_boot(&handle.state::<LibraryState>());
             app.global_shortcut().register(release_shortcut)?;
             memeboard::sync_hotkeys(handle);
             memeboard::fire_from_args(handle, &std::env::args().collect::<Vec<_>>());

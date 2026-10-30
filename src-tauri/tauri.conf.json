@@ -34,6 +34,7 @@
         "enable": true,
         "scope": [
           "$LOCALDATA/KawaGIIF/media/**",
+          "$LOCALDATA/KawaGIIF/thumbs/**",
           "$LOCALDATA/KawaGIIF/loading-indicator-*"
         ]
       }

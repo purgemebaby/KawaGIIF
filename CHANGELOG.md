@@ -20,6 +20,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- The Library, the editor's Storage panel and the meme pickers show small thumbnails instead of the original files: GIFs and animated WEBPs move only under the pointer, and videos show a poster until hovered. With a large library this cuts the app's memory use a lot.
+- The home ring shows only big icons; hovering a sector lights its neon edge, the icon steps inwards and the name flickers on along the edge.
 - Imports now read each file's real codec (audio track and first packet, image header, first GIF frame, MP4 tracks) instead of trusting its first bytes, so a renamed or corrupt file is refused.
 
 ## [0.1.2] - 2026-10-28

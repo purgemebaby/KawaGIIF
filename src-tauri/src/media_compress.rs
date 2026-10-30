@@ -64,7 +64,7 @@ fn replace_when_smaller(tmp: &Path, path: &Path, media_type: MediaType,
 
 
 /** Decodes `path` with its EXIF orientation applied: the re-encode drops the EXIF, so the pixels must already stand upright. */
-fn decode_upright(path: &Path) -> Option<DynamicImage> {
+pub(crate) fn decode_upright(path: &Path) -> Option<DynamicImage> {
     let mut decoder = ImageReader::open(path).ok()?.with_guessed_format().ok()?.into_decoder().ok()?;
     let orientation = decoder.orientation().ok()?;
     let mut img = DynamicImage::from_decoder(decoder).ok()?;

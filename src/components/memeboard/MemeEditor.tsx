@@ -132,7 +132,7 @@ function MediaPicker({
 					>
 						<MediaThumb
 							item={item}
-							still={!chosen}
+							motion={chosen ? 'always' : 'hover'}
 							playable={!disabled && chosen}
 							alt={item.original_file_name}
 						/>

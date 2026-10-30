@@ -88,7 +88,7 @@ function Podium({ memes, byId }: PodiumProps) {
 			(meme.visual && byId.get(meme.visual)) ||
 			(meme.audio && byId.get(meme.audio));
 		return item ? (
-			<MediaThumb item={item} alt={meme.name} />
+			<MediaThumb item={item} motion="always" alt={meme.name} />
 		) : (
 			<SketchIcon name="laugh" size={56} />
 		);

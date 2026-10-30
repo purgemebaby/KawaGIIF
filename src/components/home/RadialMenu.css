@@ -112,6 +112,18 @@
 	}
 }
 
+/* Icons: big and centred at rest; on hover they step inwards and shrink, leaving the outer band to the name. */
+.radial-icon {
+	transform-box: fill-box;
+	transform-origin: center;
+	transition: transform var(--kg-dur-med) var(--kg-ease-pop);
+}
+
+.radial-sector:hover .radial-icon,
+.radial-sector:focus-visible .radial-icon {
+	transform: translate(var(--radial-in-x), var(--radial-in-y)) scale(0.8);
+}
+
 /* the icon ignores clicks like the label, so the whole sector stays the button */
 .radial-sector .sketch-icon {
 	pointer-events: none;

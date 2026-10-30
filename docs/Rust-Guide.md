@@ -272,8 +272,12 @@ media file is gone or no slot was free); its payload is
 | `rename_tag` | `from: String, to: String` | `AppResult<usize>` |
 | `delete_tag` | `name: String` | `AppResult<usize>` |
 | `delete_media` | `ids: Vec<Uuid>, force: bool` | `AppResult<usize>` (files deleted) |
-| `get_media_path` | `id: Uuid` | `AppResult<String>` |
+| `get_media_path` | `id: Uuid` | `AppResult<String>` (the overlays use it; tiles build URLs from `get_media_dirs`) |
+| `get_media_dirs` (media_thumbs.rs) | — | `MediaDirs` (`{ media, thumbs }`: the library and thumbnail folders) |
+| `save_video_thumb` (media_thumbs.rs) | raw body: a WEBP poster (≤ 512 KB, longest side ≤ 320 px); header `media-id` | `AppResult<()>` (MP4 items only) |
 | `get_file_size` | `path: PathBuf` | `AppResult<u64>` |
+
+Thumbnails live in `thumbs/<stored stem>.webp` (longest side 320 px, lossless WEBP; a GIF or animated WEBP shows its first frame). Rust makes them for PNG/JPEG/WEBP/GIF after an import and, at startup, for any item missing one (pruning the orphans); the frontend draws MP4 posters and sends them with `save_video_thumb`. SVG and audio have none. They go with their media file on delete and re-import.
 
 `MediaItem.original_file_name` is the editable display name (kept under that name to avoid a migration). `MediaItem.source_path` is the canonicalized, lowercased path of the imported file (`Option`, absent in old indexes), used to detect a re-import.
 

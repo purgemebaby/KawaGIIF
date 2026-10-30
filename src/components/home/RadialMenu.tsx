@@ -11,17 +11,18 @@ import {
 	labelArcPath,
 	outerArcPath,
 } from '../../lib/radial';
-import type { KeyboardEvent } from 'react';
+import type { CSSProperties, KeyboardEvent } from 'react';
 
 interface RadialMenuProps {
 	onSelect: (id: Screen) => void;
 }
 
-// ring units: the 24-unit icon drawn at 2x
-const ICON_SIZE = 48;
+// ring units: the 24-unit icon drawn at 2.67x
+const ICON_SIZE = 64;
 const CENTRE = RING_SIZE / 2;
-// the icon sits a little inside the middle of the ring, leaving the outer band to the label
-const ICON_RADIUS = 125;
+// the icon sits in the middle of the band; on hover it steps this far towards the centre and shrinks, making room
+const ICON_RADIUS = (RING_INNER + RING_OUTER) / 2;
+const ICON_INWARD = 18;
 // the label runs along the inside of the neon line, where the glow lights it up
 const LABEL_RADIUS = RING_OUTER - 20;
 
@@ -48,6 +49,11 @@ const SHAPES = SECTORS.map((sector) => {
 		labelArc: labelArcPath(sector.id, CENTRE, CENTRE, LABEL_RADIUS),
 		iconX: CENTRE + dir.x * ICON_RADIUS - ICON_SIZE / 2,
 		iconY: CENTRE + dir.y * ICON_RADIUS - ICON_SIZE / 2,
+		// read by .radial-icon on hover (RadialMenu.css)
+		inward: {
+			'--radial-in-x': `${(-dir.x * ICON_INWARD).toFixed(2)}px`,
+			'--radial-in-y': `${(-dir.y * ICON_INWARD).toFixed(2)}px`,
+		} as CSSProperties,
 	};
 });
 
@@ -106,12 +112,14 @@ function RadialMenu({ onSelect }: RadialMenuProps) {
 							<path className="kg-neon-line radial-glow-line" d={s.arc} />
 						</g>
 						{tile.icon && (
-							<SketchIcon
-								name={tile.icon}
-								size={ICON_SIZE}
-								x={s.iconX}
-								y={s.iconY}
-							/>
+							<g className="radial-icon" style={s.inward}>
+								<SketchIcon
+									name={tile.icon}
+									size={ICON_SIZE}
+									x={s.iconX}
+									y={s.iconY}
+								/>
+							</g>
 						)}
 						<text className="radial-label" aria-hidden="true">
 							<textPath href={`#radial-label-arc-${s.id}`} startOffset="50%">

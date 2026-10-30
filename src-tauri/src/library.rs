@@ -11,6 +11,7 @@ use crate::config;
 use crate::error::{AppError, AppResult};
 use crate::media_compress;
 use crate::media_probe::{self, AudioKind};
+use crate::media_thumbs;
 use crate::template::{self, EditorState};
 use crate::window_manager;
 
@@ -585,6 +586,7 @@ pub fn delete_media(app: AppHandle, window: WebviewWindow, lib: State<LibrarySta
     index.items = kept;
     for item in &doomed {
         remove_media_file(&item.stored_file_name);
+        media_thumbs::remove_thumb(&item.stored_file_name);
     }
     index.save()?;
     drop(index);
@@ -687,23 +689,37 @@ pub fn import_media(app: AppHandle, lib: State<LibraryState>, paths: Vec<PathBuf
     drop(index);
 
     // only once the index no longer points at them, so a failed save never leaves an item without its file
-    for name in stale { remove_media_file(&name); }
-    shrink_in_background(&changed);
+    for name in stale {
+        remove_media_file(&name);
+        media_thumbs::remove_thumb(&name);
+    }
+    process_in_background(&changed);
     notify_library_changed(&app);
     Ok(ImportResult { items: changed, rejected, too_large })
 }
 
-/** Shrinks the oversized still images just imported, off the main thread: a big PNG takes seconds to re-encode. The
- file keeps its name, so the index needs no update. A file the UI is reading can't be replaced and simply stays. */
-fn shrink_in_background(items: &[MediaItem]) {
-    let files: Vec<(PathBuf, MediaType)> = items.iter()
-        .filter(|item| matches!(item.media_type, MediaType::Png | MediaType::Jpeg | MediaType::Webp))
-        .map(|item| (LibraryIndex::media_dir().join(&item.stored_file_name), item.media_type))
-        .collect();
-    if files.is_empty() { return; }
+/** After an import, off the main thread: shrinks the oversized still images (a big PNG takes seconds to re-encode),
+ then makes their thumbnails from the shrunk file. A shrunk file keeps its name, so the index needs no update; a file
+ the UI is reading can't be replaced and simply stays. */
+fn process_in_background(items: &[MediaItem]) {
+    if items.is_empty() { return; }
+    let media_dir = LibraryIndex::media_dir();
+    let files: Vec<(String, MediaType)> = items.iter().map(|item| (item.stored_file_name.clone(), item.media_type)).collect();
     std::thread::spawn(move || {
-        for (path, media_type) in files { let _ = media_compress::shrink_still_image(&path, media_type); }
+        for (name, media_type) in &files {
+            if matches!(media_type, MediaType::Png | MediaType::Jpeg | MediaType::Webp) {
+                let _ = media_compress::shrink_still_image(&media_dir.join(name), *media_type);
+            }
+        }
+        media_thumbs::make_missing(&media_dir, &files, false);
     });
+}
+
+/** At startup: makes the thumbnails an older library lacks and drops those of files no longer in it. */
+pub fn thumbnail_library_on_boot(library: &LibraryState) {
+    let files: Vec<(String, MediaType)> =
+        library.lock().items.iter().map(|item| (item.stored_file_name.clone(), item.media_type)).collect();
+    std::thread::spawn(move || media_thumbs::make_missing(&LibraryIndex::media_dir(), &files, true));
 }
 
 /// Changes the name shown for a media item. The file on disk is never renamed.
