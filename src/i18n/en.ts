@@ -261,7 +261,7 @@ export const en = {
 			playbackSpeed: 'Playback speed',
 			time: 'Time',
 			timeInfo:
-				'How long the meme lasts, 10 s at most. By default as long as its sound; a longer time repeats it.',
+				'How long the meme lasts, 10 s at most. By default as long as its sound. A longer time repeats it.',
 			volume: 'Volume',
 			heightAt: 'Height',
 			widthAt: 'Position',

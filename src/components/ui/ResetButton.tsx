@@ -12,12 +12,10 @@ function ResetButton({ label, onReset, className }: ResetButtonProps) {
 	return (
 		<button
 			type="button"
-			className={
-				className ? `kg-reset icon-hover ${className}` : 'kg-reset icon-hover'
-			}
+			className={className ? `kg-reset ${className}` : 'kg-reset'}
 			aria-label={label}
 			title={label}
-			// never steals focus, and inside a <label> the click never reaches the wrapped input
+			// never steals focus from the field it resets
 			onMouseDown={(e) => e.preventDefault()}
 			onClick={(e) => {
 				e.preventDefault();

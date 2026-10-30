@@ -269,7 +269,7 @@ export const es: Strings = {
 			playbackSpeed: 'Velocidad de reproducción',
 			time: 'Tiempo',
 			timeInfo:
-				'Cuánto dura el meme, 10 s como máximo. Por defecto lo que dure su sonido; un tiempo mayor lo repite.',
+				'Cuánto dura el meme, 10 s como máximo. Por defecto lo que dure su sonido. Un tiempo mayor lo repite.',
 			volume: 'Volumen',
 			heightAt: 'Altura',
 			widthAt: 'Posición',

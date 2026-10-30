@@ -1,4 +1,10 @@
-import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import {
+	useEffect,
+	useId,
+	useState,
+	type CSSProperties,
+	type ReactNode,
+} from 'react';
 import ResetButton from './ResetButton';
 
 interface SliderProps {
@@ -31,6 +37,7 @@ function Slider({
 }: SliderProps) {
 	const ratio = max === min ? 0 : (value - min) / (max - min);
 	const [dragging, setDragging] = useState(false);
+	const inputId = useId();
 	// --ratio sizes the fill and places the bubble (components.css)
 	const ratioStyle = { '--ratio': ratio } as CSSProperties;
 
@@ -47,9 +54,10 @@ function Slider({
 	}, [dragging]);
 
 	return (
-		<label className="kg-slider" data-dragging={dragging || undefined}>
-			<span className="kg-slider-label">
-				{label}
+		// a div, not a <label>: a label hands its hover and clicks to the first control inside, which would be the reset
+		<div className="kg-slider" data-dragging={dragging || undefined}>
+			<div className="kg-slider-label">
+				<label htmlFor={inputId}>{label}</label>
 				{info}
 				{onReset && (
 					<ResetButton
@@ -58,12 +66,13 @@ function Slider({
 						className="kg-slider-reset"
 					/>
 				)}
-			</span>
+			</div>
 			<span className="kg-slider-track-wrap" style={ratioStyle}>
 				<span className="kg-slider-track" aria-hidden="true">
 					<span className="kg-slider-fill" />
 				</span>
 				<input
+					id={inputId}
 					type="range"
 					min={min}
 					max={max}
@@ -76,7 +85,7 @@ function Slider({
 					{format(value)}
 				</output>
 			</span>
-		</label>
+		</div>
 	);
 }
 
