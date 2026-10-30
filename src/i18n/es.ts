@@ -262,7 +262,6 @@ export const es: Strings = {
 			options: 'Opciones de la animación',
 			playback: 'Reproducción',
 			monitor: 'Monitor',
-			monitorCursor: 'Donde esté el cursor',
 			monitorName: (name: string, w: number, h: number) =>
 				`${name} (${w}×${h})`,
 			size: 'Tamaño',

@@ -16,35 +16,13 @@ import SettingsMascot from './mascot/SettingsMascot';
 import RamGauge from './settings/RamGauge';
 import SettingsRowText from './settings/SettingsRowText';
 import SettingsSection from './settings/SettingsSection';
+import SettingsToggle from './settings/SettingsToggle';
 import ZoomRow from './settings/ZoomRow';
 import SketchIcon from './ui/SketchIcon';
 import './SettingsScreen.css';
 
 // must match window_manager::MAX_POOL in Rust
 const MAX_POOL = 20;
-
-interface SettingsToggleProps {
-	checked: boolean;
-	text: { label: string; hint: string };
-	onChange: (checked: boolean) => void;
-}
-
-function SettingsToggle({ checked, text, onChange }: SettingsToggleProps) {
-	return (
-		<label className="settings-row settings-row-toggle">
-			<SettingsRowText text={text} />
-			<span className="settings-switch">
-				<input
-					type="checkbox"
-					role="switch"
-					checked={checked}
-					onChange={(e) => onChange(e.target.checked)}
-				/>
-				<span className="settings-switch-track" aria-hidden="true" />
-			</span>
-		</label>
-	);
-}
 
 // Static icons (no `icon-hover` ancestor here), drawn at 32 px.
 const SECTION_ICON_SIZE = 32;

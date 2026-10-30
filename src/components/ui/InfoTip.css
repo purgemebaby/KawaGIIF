@@ -26,7 +26,7 @@
 
 .info-tip-bubble {
 	position: fixed;
-	z-index: 60;
+	z-index: 110; /* above .modal-backdrop (100), so a tip inside a modal shows on top of it */
 	width: max-content;
 	max-width: min(280px, calc(100vw - 16px));
 	padding: var(--kg-space-2) var(--kg-space-3);

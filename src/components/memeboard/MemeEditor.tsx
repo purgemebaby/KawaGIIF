@@ -18,6 +18,7 @@ import {
 import { useLibrary } from '../../context/LibraryProvider';
 import { useEscape } from '../../hooks/useDismiss';
 import MediaThumb from '../MediaThumb';
+import SettingsToggle from '../settings/SettingsToggle';
 import ChoiceChips from '../ui/ChoiceChips';
 import InfoTip from '../ui/InfoTip';
 import { MODAL_ROOT_ID } from '../ui/Modal';
@@ -48,7 +49,13 @@ const SIDES: readonly Side[] = ['left', 'right', 'top', 'bottom'];
 const ANCHORS: readonly Anchor['kind'][] = ['cursor', 'center', 'random'];
 const DEFAULT_STILL_MS = 3000;
 const MIN_TIME_MS = 500;
-const FALLBACK_MONITOR = { width: 1920, height: 1080 };
+// until list_monitors answers (or in the browser preview): no name, so nothing gets pinned to it
+const FALLBACK_MONITOR: MonitorInfo = {
+	name: '',
+	width: 1920,
+	height: 1080,
+	primary: true,
+};
 /** Animations that follow the "Appears at" anchor; the others place themselves. */
 const ANCHORED = new Set<Animation['kind']>([
 	'pop',
@@ -184,14 +191,18 @@ function MemeEditor({
 		Math.max(MIN_TIME_MS, draft.duration_ms ?? naturalMs),
 	);
 
-	const monitor =
-		draft.monitor.kind === 'named'
-			? monitors.find(
-					(m) =>
-						draft.monitor.kind === 'named' && m.name === draft.monitor.name,
-				)
-			: monitors.find((m) => m.primary);
-	const screen = monitor ?? FALLBACK_MONITOR;
+	// the meme's monitor; one that is gone, or none picked yet, means the primary one
+	const chosen = draft.monitor.kind === 'named' ? draft.monitor.name : null;
+	const screen =
+		monitors.find((m) => m.name === chosen) ??
+		monitors.find((m) => m.primary) ??
+		FALLBACK_MONITOR;
+
+	// the list has no "wherever the cursor is": once the monitors are known, pin the meme to one of them
+	useEffect(() => {
+		if (!screen.name || screen.name === chosen) return;
+		setDraft((d) => ({ ...d, monitor: { kind: 'named', name: screen.name } }));
+	}, [screen, chosen]);
 
 	const set = <K extends keyof Meme>(key: K, value: Meme[K]) =>
 		setDraft((d) => ({ ...d, [key]: value }));
@@ -307,16 +318,11 @@ function MemeEditor({
 				);
 			case 'dvd_bounce':
 				return (
-					<label className="meme-check">
-						<input
-							type="checkbox"
-							checked={anim.colors}
-							onChange={(e) =>
-								setAnimation({ ...anim, colors: e.target.checked })
-							}
-						/>
-						{options.dvdColors}
-					</label>
+					<SettingsToggle
+						checked={anim.colors}
+						text={{ label: options.dvdColors }}
+						onChange={(colors) => setAnimation({ ...anim, colors })}
+					/>
 				);
 			case 'cross':
 				return (
@@ -450,19 +456,11 @@ function MemeEditor({
 								<span>{editor.monitor}</span>
 								<select
 									className="filter-search"
-									value={
-										draft.monitor.kind === 'named' ? draft.monitor.name : ''
-									}
+									value={screen.name}
 									onChange={(e) =>
-										set(
-											'monitor',
-											e.target.value
-												? { kind: 'named', name: e.target.value }
-												: { kind: 'cursor' },
-										)
+										set('monitor', { kind: 'named', name: e.target.value })
 									}
 								>
-									<option value="">{editor.monitorCursor}</option>
 									{monitors.map((m) => (
 										<option key={m.name} value={m.name}>
 											{editor.monitorName(
@@ -505,21 +503,24 @@ function MemeEditor({
 								onReset={() => set('playback_speed', 1)}
 								resetLabel={editor.playbackSpeed}
 							/>
-							<div className="meme-time">
-								<Slider
-									label={editor.time}
-									min={MIN_TIME_MS}
-									max={maxMemeMs}
-									step={100}
-									value={durationMs}
-									format={seconds}
-									onChange={(v) => set('duration_ms', v)}
-									// back to "as long as its sound"
-									onReset={() => set('duration_ms', null)}
-									resetLabel={editor.time}
-								/>
-								<InfoTip text={editor.timeInfo} label={t.memeboard.infoLabel} />
-							</div>
+							<Slider
+								label={editor.time}
+								min={MIN_TIME_MS}
+								max={maxMemeMs}
+								step={100}
+								value={durationMs}
+								format={seconds}
+								onChange={(v) => set('duration_ms', v)}
+								// back to "as long as its sound"
+								onReset={() => set('duration_ms', null)}
+								resetLabel={editor.time}
+								info={
+									<InfoTip
+										text={editor.timeInfo}
+										label={t.memeboard.infoLabel}
+									/>
+								}
+							/>
 							<Slider
 								label={editor.volume}
 								min={0}

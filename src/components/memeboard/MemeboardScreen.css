@@ -239,25 +239,6 @@
 	font-size: var(--kg-text-sm);
 }
 
-.meme-check {
-	display: flex;
-	align-items: center;
-	gap: var(--kg-space-2);
-	font-size: var(--kg-text-sm);
-	cursor: pointer;
-}
-
-/* the time slider with its ⓘ beside the label */
-.meme-time {
-	position: relative;
-}
-
-.meme-time .info-tip {
-	position: absolute;
-	top: -6px;
-	right: 0;
-}
-
 .path-recorder-actions {
 	display: flex;
 	flex-wrap: wrap;
@@ -404,18 +385,28 @@
 	display: flex;
 	flex-direction: column;
 	align-items: center;
-	gap: 4px;
+	gap: var(--kg-space-3);
 	min-width: 0;
 	text-align: center;
 }
 
+/* three columns: the key in the middle, the reset to its right, and an empty twin on the left that keeps it centred */
 .hotkey-field-row {
-	display: flex;
-	flex-wrap: wrap;
+	display: grid;
+	grid-template-columns: 1fr minmax(0, max-content) 1fr;
 	align-items: center;
-	justify-content: center;
 	gap: var(--kg-space-2);
+	width: 100%;
+}
+
+.hotkey-field-row .hotkey-capture {
+	grid-column: 2;
 	max-width: 100%;
+	overflow-wrap: anywhere;
+}
+
+.hotkey-field-clear {
+	justify-self: start;
 }
 
 .hotkey-capture {

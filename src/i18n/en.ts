@@ -254,7 +254,6 @@ export const en = {
 			options: 'Animation options',
 			playback: 'Playback',
 			monitor: 'Monitor',
-			monitorCursor: 'Wherever the cursor is',
 			monitorName: (name: string, w: number, h: number) =>
 				`${name} (${w}×${h})`,
 			size: 'Size',

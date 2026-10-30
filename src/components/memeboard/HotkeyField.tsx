@@ -6,6 +6,7 @@ import {
 	hotkeyFromEvent,
 	type HotkeyRefusal,
 } from '../../lib/memeboard';
+import ResetButton from '../ui/ResetButton';
 
 interface HotkeyFieldProps {
 	value: string | null;
@@ -89,14 +90,13 @@ function HotkeyField({
 							? displayHotkey(value)
 							: t.memeboard.editor.hotkeyPlaceholder}
 				</button>
+				{/* the reset sits in the row's right column, so the key stays centred with or without it */}
 				{clearable && value && (
-					<button
-						type="button"
-						className="kg-btn kg-btn--ghost kg-btn--sm"
-						onClick={() => onChange(null)}
-					>
-						{t.memeboard.editor.hotkeyClear}
-					</button>
+					<ResetButton
+						label={t.memeboard.editor.hotkeyClear}
+						onReset={() => onChange(null)}
+						className="hotkey-field-clear"
+					/>
 				)}
 			</div>
 			{refusal ? (

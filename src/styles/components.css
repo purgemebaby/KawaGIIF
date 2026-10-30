@@ -306,15 +306,15 @@
 	color: var(--kg-fg-muted);
 }
 
-/* Icon-only per-slider reset; the sketch strokes take their ink from --kg-fg. */
-.kg-slider-reset {
+/* Icon-only reset (a circular arrow); the sketch strokes take their ink from --kg-fg. */
+.kg-reset {
 	--kg-fg: var(--kg-fg-muted);
 	display: inline-flex;
+	flex: none;
 	align-items: center;
 	justify-content: center;
-	width: 22px;
-	height: 22px;
-	margin-left: auto;
+	width: 26px;
+	height: 26px;
 	padding: 0;
 	border: none;
 	border-radius: var(--kg-radius-pill);
@@ -323,102 +323,84 @@
 	transition: background var(--kg-dur-fast) var(--kg-ease-out);
 }
 
-.kg-slider-reset:hover,
-.kg-slider-reset:focus-visible {
+.kg-reset:hover,
+.kg-reset:focus-visible {
 	--kg-fg: var(--kg-accent);
 	background: var(--kg-accent-soft);
 }
 
-/* Hand-drawn slider: a wobbly line, a hatched fill up to the value and a wobbly thumb. The native range input sits
-   on top, invisible, so it still takes the pointer, the keyboard and the screen reader. */
+.kg-slider-reset {
+	margin-left: auto;
+}
+
+/* Hand-drawn slider: a pill outlined like the buttons (a real border plus a fainter second pass) that fills with
+   the buttons' hatch up to the value. The native range input sits on top, invisible, so it still takes the
+   pointer, the keyboard and the screen reader. */
 .kg-slider-track-wrap {
-	--thumb: 20px;
+	--kg-slider-ink: var(--kg-border-strong);
 	position: relative;
 	display: block;
-	height: var(--thumb);
+	height: 18px;
 }
 
-.kg-slider-line {
+.kg-slider:hover,
+.kg-slider:focus-within,
+.kg-slider[data-dragging] {
+	--kg-slider-ink: var(--kg-accent);
+}
+
+.kg-slider-track {
 	position: absolute;
-	inset: 3px 0;
-	width: 100%;
-	height: calc(100% - 6px);
-	overflow: visible;
+	inset: 0;
+	border: 1.5px solid var(--kg-slider-ink);
+	border-radius: var(--kg-radius-pill);
+	background: var(--kg-well-bg);
+	overflow: hidden;
+	transition: border-color var(--kg-dur-fast) var(--kg-ease-out);
 }
 
-.kg-slider-stroke {
-	fill: none;
-	stroke: var(--kg-border-strong);
-	stroke-width: 1.6px;
-	stroke-linecap: round;
-	stroke-linejoin: round;
-	vector-effect: non-scaling-stroke;
+/* second pass, outside the clipped track so it can stray past the line */
+.kg-slider-track-wrap::after {
+	content: '';
+	position: absolute;
+	inset: -1px;
+	border: 1px solid var(--kg-slider-ink);
+	border-radius: var(--kg-radius-pill);
+	opacity: 0.45;
+	transform: translate(1px, 1.2px) rotate(-0.25deg);
+	pointer-events: none;
+	transition: border-color var(--kg-dur-fast) var(--kg-ease-out);
 }
 
-.kg-slider-stroke--second {
-	stroke-width: 1.1px;
-	stroke-opacity: 0.55;
-}
-
-/* the hatch: 45 degree stripes that tile every 8 px, so moving them by 8 px loops without a seam */
+/* The hatch of .kg-btn--secondary, drawn as a 7 px tile (lines at the corners and the middle) so moving it by 7 px
+   loops without a seam. */
 .kg-slider-fill {
 	position: absolute;
-	top: 50%;
-	left: 2px;
-	width: calc(var(--ratio) * (100% - var(--thumb)) + var(--thumb) / 2);
-	height: 8px;
-	translate: 0 -50%;
-	border-radius: 4px;
+	inset: 0 auto 0 0;
+	width: calc(var(--ratio) * 100%);
+	border-right: 1.5px solid var(--kg-accent);
+	background-color: color-mix(in srgb, var(--kg-accent) 10%, transparent);
 	background-image: linear-gradient(
-		135deg,
-		var(--kg-accent) 25%,
-		transparent 25% 50%,
-		var(--kg-accent-2) 50% 75%,
-		transparent 75%
+		45deg,
+		var(--kg-accent) 0 6.25%,
+		transparent 6.25% 43.75%,
+		var(--kg-accent) 43.75% 56.25%,
+		transparent 56.25% 93.75%,
+		var(--kg-accent) 93.75%
 	);
-	background-size: 8px 8px;
-	opacity: 0.85;
+	background-size: 7px 7px;
+	opacity: 0.9;
 	pointer-events: none;
 }
 
 .kg-slider[data-dragging] .kg-slider-fill {
-	animation: kg-slider-hatch 0.5s linear infinite;
+	animation: kg-slider-hatch 0.4s linear infinite;
 }
 
 @keyframes kg-slider-hatch {
 	to {
-		background-position: 8px 0;
+		background-position: 7px 0;
 	}
-}
-
-.kg-slider-thumb {
-	position: absolute;
-	top: 0;
-	left: calc(var(--ratio) * (100% - var(--thumb)));
-	width: var(--thumb);
-	height: var(--thumb);
-	overflow: visible;
-	pointer-events: none;
-	transition: transform var(--kg-dur-fast) var(--kg-ease-pop);
-}
-
-.kg-slider-thumb .kg-slider-stroke {
-	stroke: var(--kg-accent);
-}
-
-.kg-slider-thumb-fill {
-	fill: var(--kg-title-keyline);
-	stroke: none;
-}
-
-.kg-slider:hover .kg-slider-thumb,
-.kg-slider:focus-within .kg-slider-thumb,
-.kg-slider[data-dragging] .kg-slider-thumb {
-	transform: scale(1.18);
-}
-
-.kg-slider:focus-within .kg-slider-line .kg-slider-stroke {
-	stroke: var(--kg-accent);
 }
 
 .kg-slider-track-wrap input[type='range'] {
@@ -433,17 +415,17 @@
 	cursor: pointer;
 }
 
-/* the invisible native thumb matches the drawn one, so the pointer grabs where it looks */
+/* a hair-thin native thumb, so the value under the pointer is where the fill ends */
 .kg-slider-track-wrap input[type='range']::-webkit-slider-thumb {
 	appearance: none;
-	width: var(--thumb);
-	height: var(--thumb);
+	width: 2px;
+	height: 18px;
 }
 
 .kg-slider-bubble {
 	position: absolute;
-	bottom: 100%;
-	left: calc(var(--thumb) / 2 + var(--ratio) * (100% - var(--thumb)));
+	bottom: calc(100% + 4px);
+	left: calc(var(--ratio) * 100%);
 	transform: translateX(-50%);
 	padding: 3px 8px;
 	border-radius: var(--kg-radius-pill);
