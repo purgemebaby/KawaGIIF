@@ -85,7 +85,7 @@ export const en = {
 		},
 		tabs: {
 			visual: 'Images & videos',
-			audio: 'Cassettes',
+			audio: 'Audio',
 		},
 		sort: {
 			label: 'Sort',
@@ -242,6 +242,7 @@ export const en = {
 		editor: {
 			titleNew: 'New meme',
 			titleEdit: 'Edit meme',
+			media: 'What it shows and plays',
 			name: 'Name',
 			visual: 'Image, GIF or video',
 			sound: 'Sound',
@@ -250,27 +251,34 @@ export const en = {
 			animation: 'Animation',
 			from: 'Comes in from',
 			anchor: 'Appears at',
+			options: 'Animation options',
+			playback: 'Playback',
+			monitor: 'Monitor',
+			monitorCursor: 'Wherever the cursor is',
+			monitorName: (name: string, w: number, h: number) =>
+				`${name} (${w}×${h})`,
 			size: 'Size',
+			motionSpeed: 'Animation speed',
+			playbackSpeed: 'Playback speed',
+			time: 'Time',
+			timeInfo:
+				'How long the meme lasts, 10 s at most. By default as long as its sound; a longer time repeats it.',
 			volume: 'Volume',
-			duration: 'Duration',
-			durationFromSound: (seconds: string) =>
-				`Lasts as long as its sound: ${seconds} (10 s at most)`,
+			heightAt: 'Height',
+			widthAt: 'Position',
+			pxOf: (px: number, of: number) => `${px} px of ${of}`,
 			hotkey: 'Shortcut',
 			hotkeyPlaceholder: 'Click and press the keys',
 			hotkeyListening: 'Press the keys…',
 			hotkeyClear: 'Remove shortcut',
-			hotkeyHint:
-				'Use Ctrl + AltGr (or Ctrl + Alt) with a key, or F13-F24 alone.',
-			hotkeyLimit: (max: number) => `Up to ${max} memes can have a shortcut.`,
+			hotkeyHint: 'Use Ctrl + AltGr (or Ctrl + Alt) with a key.',
 			preview: 'Preview',
 			save: 'Save meme',
 			needsMedia: 'Pick an image or a sound first.',
 		},
 		behaviour: {
-			title: 'When you press the shortcut',
-			cooldown: 'Minimum time between plays',
-			cooldownHint: "So it can't be spammed.",
-			noWait: 'No wait',
+			cooldown: 'Meme cooldown',
+			noWait: 'None',
 			refire: 'If you press it while it plays',
 			refires: {
 				restart: 'Start over',
@@ -278,8 +286,6 @@ export const en = {
 				ignore: 'Ignore the press',
 			},
 			pitch: 'Change the pitch on each play',
-			pitchHint:
-				"Each play goes a bit faster or slower so it doesn't sound the same.",
 			pitches: {
 				off: 'Off',
 				low: 'A little',
@@ -332,13 +338,10 @@ export const en = {
 			limit: 'All 10 shortcuts are taken.',
 		},
 		path: {
-			record: 'Record path',
-			rerecord: 'Record again',
+			draw: 'Hold the click on the preview and move to draw the path.',
 			clear: 'Delete path',
-			points: (n: number) => `${n} points recorded`,
-			none: 'No path recorded yet.',
-			hint: 'Move the mouse to draw the path. Click or press Esc to finish (10 s at most).',
-			countdown: (n: number) => `Recording in ${n}…`,
+			points: (n: number) => `${n} points`,
+			none: 'No path drawn yet.',
 		},
 		podium: {
 			empty: 'Play a few memes and the most used ones climb here.',

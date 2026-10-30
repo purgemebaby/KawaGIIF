@@ -53,6 +53,16 @@ function MemeCard({
 				{!visual && audio && (
 					<span className="meme-card-badge">{card.onlySound}</span>
 				)}
+				{/* the same corner × as the Library's cards */}
+				<button
+					type="button"
+					className="media-card-delete"
+					onClick={onDelete}
+					aria-label={card.delete}
+					title={card.delete}
+				>
+					×
+				</button>
 			</div>
 			<div className="meme-card-body">
 				<h3 className="meme-card-name" title={meme.name}>
@@ -85,15 +95,6 @@ function MemeCard({
 				>
 					<SketchIcon name="pencil" />
 					{card.edit}
-				</button>
-				<button
-					type="button"
-					className="kg-btn kg-btn--ghost kg-btn--sm icon-hover"
-					aria-label={card.delete}
-					title={card.delete}
-					onClick={onDelete}
-				>
-					<SketchIcon name="trash" />
 				</button>
 			</div>
 		</article>

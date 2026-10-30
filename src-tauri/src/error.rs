@@ -53,9 +53,6 @@ pub enum AppError {
     #[error("Hotkey refused: {0:?}")]
     HotkeyRefused(crate::memeboard::HotkeyRefusal),
 
-    #[error("Recording the path failed")]
-    RecordingFailed,
-
     #[error("The meme stage window is missing")]
     MissingStageWindow,
 

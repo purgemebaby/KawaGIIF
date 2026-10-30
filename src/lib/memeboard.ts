@@ -17,8 +17,10 @@ export type Animation =
 	| { kind: 'dvd_bounce'; colors: boolean }
 	| { kind: 'bounce' }
 	| { kind: 'shake'; intensity: number }
-	| { kind: 'cross'; from: Side }
-	| { kind: 'fall' }
+	/** `at`: where on the other axis it crosses, 0..1 of the monitor (height for left/right, else width). */
+	| { kind: 'cross'; from: Side; at: number }
+	/** `at`: where along the width it falls, 0..1. */
+	| { kind: 'fall'; at: number }
 	| { kind: 'path'; points: PathPoint[] };
 
 export type AnimationKind = Animation['kind'];
@@ -28,6 +30,10 @@ export type Anchor =
 	| { kind: 'center' }
 	| { kind: 'random' }
 	| { kind: 'fixed'; x: number; y: number };
+
+/** Which monitor a meme shows on. */
+export type MonitorChoice =
+	{ kind: 'cursor' } | { kind: 'named'; name: string };
 
 /** What a second press does while the meme still plays. */
 export type Refire = 'restart' | 'stack' | 'ignore';
@@ -47,6 +53,8 @@ export interface Preset {
 	anchor: Anchor;
 	size: number;
 	behaviour: Behaviour;
+	motion_speed: number;
+	playback_speed: number;
 }
 
 export interface Meme {
@@ -59,8 +67,13 @@ export interface Meme {
 	/** Longer side of the visual as a fraction of the monitor's shorter one. */
 	size: number;
 	volume: number;
-	/** Only used without sound. */
+	/** How long it lasts; null = as long as its sound (or one GIF loop). Longer loops it. */
 	duration_ms: number | null;
+	/** How fast the animation moves (1 = normal). */
+	motion_speed: number;
+	/** How fast the visual and the sound play (1 = as recorded). */
+	playback_speed: number;
+	monitor: MonitorChoice;
 	/** Canonical `Ctrl+Alt+Digit1` form, keys as `KeyboardEvent.code`. */
 	hotkey: string | null;
 	behaviour: Behaviour;
@@ -117,12 +130,15 @@ export const POP_IN_MS = 280;
 export const POP_OUT_MS = 220;
 export const POP_MS_RANGE: [number, number] = [80, 1500];
 export const SHAKE_INTENSITY = 0.25;
+export const SPEED_RANGE: [number, number] = [0.25, 3];
 
 /** The animation of a kind with its default options. */
 export function defaultAnimation(kind: AnimationKind): Animation {
 	switch (kind) {
 		case 'cross':
-			return { kind, from: 'left' };
+			return { kind, from: 'left', at: 0.5 };
+		case 'fall':
+			return { kind, at: 0.5 };
 		case 'path':
 			return { kind, points: [] };
 		case 'pop':

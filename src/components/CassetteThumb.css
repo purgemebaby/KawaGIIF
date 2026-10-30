@@ -98,28 +98,34 @@
 	}
 }
 
-/* Play / pause, bottom-left so the duration keeps the other corner. */
+/* Play / pause like a tape recorder's keys: no box, a soft halo on hover, the keys swap with a pop. */
 .cassette-play {
 	position: absolute;
-	left: 6px;
-	bottom: 4px;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	width: 26px;
-	height: 26px;
+	left: 4px;
+	bottom: 2px;
+	display: grid;
+	place-items: center;
+	width: 30px;
+	height: 30px;
 	padding: 0;
-	border: 1.5px solid var(--kg-border-strong);
-	border-radius: var(--kg-radius-sm);
-	background: var(--kg-bg-raised);
-	color: var(--kg-fg);
-	font-size: 12px;
-	line-height: 1;
+	border: none;
+	border-radius: 50%;
+	background: transparent;
 	cursor: pointer;
 }
 
 .cassette-play:hover,
 .cassette-play:focus-visible {
-	border-color: var(--kg-accent);
-	background: var(--kg-accent-soft);
+	background: color-mix(in srgb, var(--kg-px-red) 18%, transparent);
+}
+
+.cassette-key {
+	grid-area: 1 / 1;
+	transform: scale(0);
+	transition: transform var(--kg-dur-fast) var(--kg-ease-out);
+}
+
+.cassette-key.is-shown {
+	transform: scale(1);
+	transition: transform var(--kg-dur-med) var(--kg-ease-pop);
 }

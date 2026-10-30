@@ -2,7 +2,7 @@
  what it is sent: each sound on every chosen device, cut at the meme length. Output devices open on the first sound
  and again after the output setting changes or a device goes away. */
 use std::path::PathBuf;
-use std::sync::mpsc::{self, Receiver, Sender};
+use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 use std::time::Duration;
 
 use rodio::cpal::traits::{DeviceTrait, HostTrait};
@@ -89,7 +89,11 @@ impl Engine {
         for sink in &self.sinks {
             // each device decodes on its own: a source can only feed one mixer
             let file = std::fs::File::open(&sound.path).map_err(|e| e.to_string())?;
-            let source = Decoder::try_from(file).map_err(|e| e.to_string())?.take_duration(sound.max);
+            // repeats when the meme lasts longer than the file; the decoded copy is a few MB at most (≤ 10 s)
+            let source = Decoder::try_from(file).map_err(|e| e.to_string())?
+                .buffered()
+                .repeat_infinite()
+                .take_duration(sound.max);
             let player = Player::connect_new(sink.mixer());
             player.set_volume(sound.volume);
             player.set_speed(sound.speed);
@@ -111,9 +115,22 @@ impl Engine {
     }
 }
 
+/** Without a sound for this long the devices are closed: an open WASAPI stream keeps the audio engine (and its
+ memory) busy, and shows the app in the volume mixer. The next sound opens them again. */
+const IDLE_CLOSE: Duration = Duration::from_secs(20);
+
 fn run(commands: Receiver<Command>, output: AudioOutput) {
     let mut engine = Engine { output, sinks: Vec::new(), players: Vec::new() };
-    while let Ok(command) = commands.recv() {
+    loop {
+        let command = match commands.recv_timeout(IDLE_CLOSE) {
+            Ok(command) => command,
+            Err(RecvTimeoutError::Timeout) => {
+                engine.players.retain(|(_, player)| !player.empty());
+                if engine.players.is_empty() { engine.sinks.clear(); }
+                continue;
+            }
+            Err(RecvTimeoutError::Disconnected) => break,
+        };
         engine.players.retain(|(_, player)| !player.empty());
         match command {
             Command::Play(tag, sound, reply) => { let _ = reply.send(engine.play(tag, &sound)); }

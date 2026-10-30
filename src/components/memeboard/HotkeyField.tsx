@@ -15,6 +15,8 @@ interface HotkeyFieldProps {
 	/** Reports whether the current value can be saved. */
 	onValidity?: (ok: boolean) => void;
 	clearable?: boolean;
+	/** Shows the line on which keys work; errors always show. */
+	hint?: boolean;
 }
 
 // A button that, once clicked, records the next key combination. Rust checks it (reserved, duplicate, the cap of 10).
@@ -24,6 +26,7 @@ function HotkeyField({
 	onChange,
 	onValidity,
 	clearable = true,
+	hint = true,
 }: HotkeyFieldProps) {
 	const [listening, setListening] = useState(false);
 	const [refusal, setRefusal] = useState<HotkeyRefusal | null>(null);
@@ -96,11 +99,17 @@ function HotkeyField({
 					</button>
 				)}
 			</div>
-			<small className={refusal ? 'hotkey-field-error' : 'hotkey-field-hint'}>
-				{refusal
-					? t.memeboard.refusals[refusal]
-					: t.memeboard.editor.hotkeyHint}
-			</small>
+			{refusal ? (
+				<small className="hotkey-field-error">
+					{t.memeboard.refusals[refusal]}
+				</small>
+			) : (
+				hint && (
+					<small className="hotkey-field-hint">
+						{t.memeboard.editor.hotkeyHint}
+					</small>
+				)
+			)}
 		</div>
 	);
 }

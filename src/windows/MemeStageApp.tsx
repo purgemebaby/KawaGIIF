@@ -1,14 +1,7 @@
 import { useEffect, useState } from 'react';
 import { convertFileSrc, invoke, listenToSelf } from '../lib/ipc';
 import type { StageFire } from '../lib/memeboard';
-import { t } from '../i18n';
 import MemeLayer from '../components/memeboard/MemeLayer';
-
-/** What Rust reports while a path is recorded (meme_path.rs). */
-type RecordPhase =
-	| { phase: 'countdown'; n: number }
-	| { phase: 'recording' }
-	| { phase: 'done' };
 
 /** Size of the stage window, which Rust stretches over the cursor's monitor before every meme. */
 function useStageSize(): [number, number] {
@@ -28,7 +21,6 @@ function useStageSize(): [number, number] {
 function MemeStageApp() {
 	const [layers, setLayers] = useState<StageFire[]>([]);
 	const [stageW, stageH] = useStageSize();
-	const [recording, setRecording] = useState<RecordPhase | null>(null);
 
 	useEffect(() => {
 		const offs = [
@@ -39,9 +31,6 @@ function MemeStageApp() {
 				setLayers((prev) => prev.filter((l) => l.instance !== e.payload)),
 			),
 			listenToSelf<null>('meme-clear', () => setLayers([])),
-			listenToSelf<RecordPhase>('path-recording', (e) =>
-				setRecording(e.payload.phase === 'done' ? null : e.payload),
-			),
 		];
 		return () => offs.forEach((off) => off.then((f) => f()));
 	}, []);
@@ -62,16 +51,6 @@ function MemeStageApp() {
 
 	return (
 		<div className="meme-stage">
-			{recording && (
-				<div className="meme-record-veil">
-					<p className="meme-record-title">
-						{recording.phase === 'countdown'
-							? t.memeboard.path.countdown(recording.n)
-							: t.memeboard.path.record}
-					</p>
-					<p className="meme-record-hint">{t.memeboard.path.hint}</p>
-				</div>
-			)}
 			{layers.map(
 				(layer) =>
 					layer.visual && (
@@ -86,6 +65,7 @@ function MemeStageApp() {
 							size={layer.meme.size}
 							durationMs={layer.duration_ms}
 							speed={layer.speed}
+							motionSpeed={layer.meme.motion_speed}
 							cursor={layer.cursor}
 							stageW={stageW}
 							stageH={stageH}

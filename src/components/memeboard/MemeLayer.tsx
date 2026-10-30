@@ -27,6 +27,8 @@ export interface MemeLayerProps {
 	loop?: boolean;
 	/** Playback speed of the GIF or video (1 = as recorded), matching the sound. */
 	speed?: number;
+	/** How fast the movement runs, see `PoseContext.motionSpeed`. */
+	motionSpeed?: number;
 	onDone?: () => void;
 }
 
@@ -45,6 +47,7 @@ function MemeLayer({
 	stageH,
 	loop = false,
 	speed = 1,
+	motionSpeed = 1,
 	onDone,
 }: MemeLayerProps) {
 	const ref = useRef<HTMLDivElement>(null);
@@ -63,7 +66,16 @@ function MemeLayer({
 		const el = ref.current;
 		if (!el) return;
 		const [cx, cy] = anchorPoint(anchor, cursor, stageW, stageH, seed);
-		const ctx = { stageW, stageH, w, h, cx, cy, duration: durationMs };
+		const ctx = {
+			stageW,
+			stageH,
+			w,
+			h,
+			cx,
+			cy,
+			duration: durationMs,
+			motionSpeed,
+		};
 		let start = performance.now();
 		let frame = 0;
 		const tick = (now: number) => {
@@ -84,7 +96,19 @@ function MemeLayer({
 		};
 		frame = requestAnimationFrame(tick);
 		return () => cancelAnimationFrame(frame);
-	}, [animation, anchor, cursor, durationMs, h, loop, seed, stageH, stageW, w]);
+	}, [
+		animation,
+		anchor,
+		cursor,
+		durationMs,
+		h,
+		loop,
+		motionSpeed,
+		seed,
+		stageH,
+		stageW,
+		w,
+	]);
 
 	const onNatural = (nw: number, nh: number) => {
 		if (natural[0] === null || natural[1] === null) setNatural([nw, nh]);

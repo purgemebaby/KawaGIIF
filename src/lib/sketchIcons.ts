@@ -368,9 +368,10 @@ export const SKETCH_ICONS = {
 		],
 	},
 	info: {
+		// outline only: a fill under the white stroke made the i hard to read
 		base: [
-			{ ellipse: [12, 12, 8.5, 8.5], fill: 'var(--kg-px-sky)' },
-			{ ellipse: [12, 7.8, 1.1, 1.1], fill: 'var(--kg-px-deep)' },
+			{ ellipse: [12, 12, 8.5, 8.5] },
+			{ ellipse: [12, 7.8, 0.9, 0.9], fill: 'var(--kg-fg)' },
 			{
 				// the stem of the i, with a little foot
 				points: [
@@ -379,6 +380,44 @@ export const SKETCH_ICONS = {
 					[12.2, 16.8],
 					[13.6, 16.9],
 				],
+			},
+		],
+	},
+	// tape-recorder keys: a red play triangle and two pause bars
+	play: {
+		base: [
+			{
+				points: [
+					[7, 4.5],
+					[19, 12],
+					[7, 19.5],
+				],
+				closed: true,
+				fill: 'var(--kg-px-red)',
+			},
+		],
+	},
+	pause: {
+		base: [
+			{
+				points: [
+					[6.5, 5],
+					[10, 5],
+					[10, 19],
+					[6.5, 19],
+				],
+				closed: true,
+				fill: 'var(--kg-px-light)',
+			},
+			{
+				points: [
+					[14, 5],
+					[17.5, 5],
+					[17.5, 19],
+					[14, 19],
+				],
+				closed: true,
+				fill: 'var(--kg-px-light)',
 			},
 		],
 	},

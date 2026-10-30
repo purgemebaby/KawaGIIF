@@ -384,16 +384,47 @@ pub fn create_meme_stage(app: &AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
+/** A monitor as the meme editor lists it, in physical px. */
+#[derive(serde::Serialize)]
+pub struct MonitorInfo {
+    pub name: String,
+    pub width: u32,
+    pub height: u32,
+    pub primary: bool,
+}
+
+/// Every connected monitor, for the meme editor's monitor choice and its preview's shape.
+#[tauri::command]
+pub fn list_monitors(app: AppHandle) -> crate::error::AppResult<Vec<MonitorInfo>> {
+    let primary = app.primary_monitor()?.and_then(|m| m.name().cloned());
+    Ok(app.available_monitors()?.into_iter()
+        .filter_map(|m| {
+            let name = m.name()?.clone();
+            Some(MonitorInfo { primary: primary.as_ref() == Some(&name), width: m.size().width, height: m.size().height, name })
+        })
+        .collect())
+}
+
 /**
- * Covers the monitor under the cursor with the stage and shows it without activating it. Returns where the cursor is,
- * as a fraction (0..=1) of that monitor.
+ * Covers the chosen monitor (the one under the cursor when none is chosen or it was unplugged) with the stage and shows
+ * it without activating it. Returns where the cursor is, as a fraction (0..=1) of that monitor, clamped when the
+ * cursor is on another one.
  */
-pub fn show_meme_stage(app: &AppHandle) -> crate::error::AppResult<(f64, f64)> {
+pub fn show_meme_stage(app: &AppHandle, choice: &crate::memeboard::MonitorChoice) -> crate::error::AppResult<(f64, f64)> {
     let window = meme_stage(app).ok_or(crate::error::AppError::MissingStageWindow)?;
     let cursor = app.cursor_position()?;
-    let monitor = app.monitor_from_point(cursor.x, cursor.y)?
-        .or(app.primary_monitor()?)
-        .ok_or(crate::error::AppError::MissingStageWindow)?;
+    let named = match choice {
+        crate::memeboard::MonitorChoice::Named { name } => {
+            app.available_monitors()?.into_iter().find(|m| m.name() == Some(name))
+        }
+        crate::memeboard::MonitorChoice::Cursor => None,
+    };
+    let monitor = match named {
+        Some(monitor) => monitor,
+        None => app.monitor_from_point(cursor.x, cursor.y)?
+            .or(app.primary_monitor()?)
+            .ok_or(crate::error::AppError::MissingStageWindow)?,
+    };
     let (pos, size) = (*monitor.position(), *monitor.size());
 
     set_slot_dormant(&window, false, || true);
@@ -409,25 +440,6 @@ pub fn show_meme_stage(app: &AppHandle) -> crate::error::AppResult<(f64, f64)> {
 
     let fraction = |at: f64, start: i32, len: u32| ((at - f64::from(start)) / f64::from(len.max(1))).clamp(0.0, 1.0);
     Ok((fraction(cursor.x, pos.x, size.width), fraction(cursor.y, pos.y, size.height)))
-}
-
-/** Whether Escape is held, whatever window has focus. */
-pub fn escape_down() -> bool {
-    #[cfg(windows)]
-    return native::escape_down();
-    #[cfg(not(windows))]
-    false
-}
-
-/** Lets the stage catch clicks (while a path is recorded, so the finishing click lands on it) or go back to click-through. */
-pub fn set_meme_stage_interactive(app: &AppHandle, interactive: bool) {
-    if let Some(window) = meme_stage(app) { set_overlay_click_through(&window, !interactive); }
-}
-
-/** The stage's top-left corner and size in physical px. */
-pub fn meme_stage_rect(app: &AppHandle) -> Option<(PhysicalPosition<i32>, PhysicalSize<u32>)> {
-    let window = meme_stage(app)?;
-    Some((window.outer_position().ok()?, window.outer_size().ok()?))
 }
 
 /** Hides the stage and puts its webview to sleep until the next meme. */
@@ -635,7 +647,7 @@ pub fn carry_with_cursor(app: &AppHandle, slot: usize, grip_y: i32, on_drop: imp
 /** Whether `slot` is the overlay hanging from the cursor right now (it goes anywhere until the drop). */
 pub fn is_carried(slot: usize) -> bool { CARRIED_SLOT.load(Ordering::Relaxed) == slot }
 
-pub fn primary_button_down() -> bool {
+fn primary_button_down() -> bool {
     #[cfg(windows)]
     return native::primary_button_down();
     #[cfg(not(windows))]

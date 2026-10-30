@@ -223,7 +223,6 @@ from the any-foreground hook (a click on the control window raises it).
 | `meme-fire`                  | `memeboard::fire` (`StageFire`)                  | MEME-STAGE   | `MemeStageApp` (`"self"`) → adds a layer             |
 | `meme-end`                   | `memeboard::fire` (evicted instance id)          | MEME-STAGE   | `MemeStageApp` (`"self"`) → drops that layer         |
 | `meme-clear`                 | `memeboard::stop_all`                            | MEME-STAGE   | `MemeStageApp` (`"self"`) → empties the stage        |
-| `path-recording`             | `meme_path::record` (`countdown` n / `recording` / `done`) | MEME-STAGE | `MemeStageApp` (`"self"`) → recording veil |
 
 `emit` broadcasts to every window. For per-overlay events Rust uses `emit_to`
 **and** React listens with `listenToSelf` (`getCurrentWebviewWindow().listen`).
@@ -303,7 +302,8 @@ media file is gone or no slot was free); its payload is
 **meme_path.rs**
 | Command | Args | Returns |
 |---|---|---|
-| `record_meme_path` | — | `AppResult<Vec<PathPoint>>` (3-2-1 countdown, ~60 Hz cursor samples until a click, Esc or 10 s, thinned with Visvalingam-Whyatt; empty = cancelled) |
+| `simplify_meme_path` | `points: Vec<PathPoint>, width: f64, height: f64` (the path drawn on the editor preview, fractions of it; the preview size in px) | `Vec<PathPoint>` (thinned with Visvalingam-Whyatt to triangles ≥ 40 px² and at most 240 points) |
+| `list_monitors` (window_manager.rs) | — | `AppResult<Vec<MonitorInfo>>` (`{ name, width, height, primary }`, physical px) |
 
 Memes live in `%LOCALAPPDATA%\KawaGIIF\memeboard.json`. A meme lasts as long as its sound (an MP4's own track, decoded by the audio thread so it follows the output device), else its `duration_ms` or one GIF loop, never more than 10 s; a faster random speed shortens it. `KawaGIIF.exe --fire-meme <id|name>` fires one from outside (a second launch passes its args through the single-instance plugin).
 

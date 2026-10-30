@@ -154,3 +154,29 @@ export function freeHalfWidth(id: SectorId, x: number, y: number): number {
 	}
 	return half;
 }
+
+/**
+ * The one label radius that gives the tightest sector the most room: a label sits `drop` below its point and its icon
+ * `rise` above, so in the lower sectors the label is nearer the outer edge than in the upper ones. Scans the ring in
+ * whole units and returns the radius and the half-width it leaves.
+ */
+export function bestLabelRadius(
+	drop: number,
+	rise: number,
+): { radius: number; half: number } {
+	let best = { radius: (RING_INNER + RING_OUTER) / 2, half: 0 };
+	for (let r = RING_INNER + 10; r <= RING_OUTER - 10; r += 1) {
+		let worst = Infinity;
+		for (const sector of SECTORS) {
+			const [x, y] = pointAt(0, 0, r, sector.centreDeg);
+			// the icon must stay inside its sector too
+			if (!insideSector(sector, x, y - rise)) {
+				worst = 0;
+				break;
+			}
+			worst = Math.min(worst, freeHalfWidth(sector.id, x, y + drop));
+		}
+		if (worst > best.half) best = { radius: r, half: worst };
+	}
+	return best;
+}

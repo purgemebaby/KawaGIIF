@@ -25,6 +25,8 @@ export interface PoseContext {
 	cx: number;
 	cy: number;
 	duration: number;
+	/** How fast the movement runs (1 = normal); the meme's length doesn't change. */
+	motionSpeed?: number;
 }
 
 // at full intensity: px sideways, px up and down, degrees
@@ -93,7 +95,10 @@ export function poseAt(
 		opacity: Math.min(enter, exit),
 		hue: 0,
 	};
-	const progress = duration > 0 ? clamp(t / duration, 0, 1) : 0;
+	// movement time: a faster motion goes through its course sooner (and starts over), a slower one covers less
+	const m = t * (ctx.motionSpeed ?? 1);
+	const progress =
+		duration > 0 ? (m / duration) % 1 || clamp(m / duration, 0, 1) : 0;
 
 	switch (animation.kind) {
 		case 'static':
@@ -106,7 +111,7 @@ export function poseAt(
 			};
 		case 'dvd_bounce': {
 			const speed = DVD_SPEED * Math.min(stageW, stageH);
-			const travel = (speed * t) / 1000;
+			const travel = (speed * m) / 1000;
 			const [x, hitsX] = pingPong(cx - w / 2 + travel, stageW - w);
 			const [y, hitsY] = pingPong(cy - h / 2 + travel, stageH - h);
 			const hue = animation.colors ? ((hitsX + hitsY) * DVD_HUE_STEP) % 360 : 0;
@@ -114,7 +119,7 @@ export function poseAt(
 		}
 		case 'bounce': {
 			const amp = 0.12 * stageH;
-			const hop = Math.abs(Math.sin((Math.PI * t) / 450));
+			const hop = Math.abs(Math.sin((Math.PI * m) / 450));
 			const squash = 1 - 0.08 * (1 - hop);
 			return { ...base, y: base.y - hop * amp, scale: squash };
 		}
@@ -122,9 +127,9 @@ export function poseAt(
 			const [dx, dy, deg] = SHAKE_MAX.map((max) => max * animation.intensity);
 			return {
 				...base,
-				x: base.x + Math.sin(t * 0.05) * dx,
-				y: base.y + Math.cos(t * 0.065) * dy,
-				rotate: Math.sin(t * 0.04) * deg,
+				x: base.x + Math.sin(m * 0.05) * dx,
+				y: base.y + Math.cos(m * 0.065) * dy,
+				rotate: Math.sin(m * 0.04) * deg,
 			};
 		}
 		case 'cross': {
@@ -134,16 +139,25 @@ export function poseAt(
 			const forward = animation.from === 'left' || animation.from === 'top';
 			const along =
 				(forward ? progress : 1 - progress) * span - (horizontal ? w : h);
+			// the other axis comes from `at`, kept on screen
+			const across = horizontal
+				? clamp(animation.at * stageH - h / 2, 0, Math.max(0, stageH - h))
+				: clamp(animation.at * stageW - w / 2, 0, Math.max(0, stageW - w));
 			return horizontal
-				? { ...base, x: along, opacity: 1 }
-				: { ...base, y: along, opacity: 1 };
+				? { ...base, x: along, y: across, opacity: 1 }
+				: { ...base, x: across, y: along, opacity: 1 };
 		}
 		case 'fall': {
 			const y = -h + (stageH + 2 * h) * progress * progress;
-			return { ...base, y, rotate: progress * 40, opacity: 1 };
+			const x = clamp(
+				animation.at * stageW - w / 2,
+				0,
+				Math.max(0, stageW - w),
+			);
+			return { ...base, x, y, rotate: progress * 40, opacity: 1 };
 		}
 		case 'path': {
-			const [px, py] = onPath(animation.points, t, ctx);
+			const [px, py] = onPath(animation.points, m, ctx);
 			return { ...base, x: px - w / 2, y: py - h / 2 };
 		}
 	}

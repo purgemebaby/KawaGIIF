@@ -46,6 +46,7 @@ fn handle_control_close(control: &WebviewWindow) {
 /** Every real exit ends here. Unsaved edits are discarded since no dialog can be shown while shutting down. */
 fn handle_exit(app: &AppHandle) {
     app.state::<EditorState>().lock().discard_changes();
+    memeboard::flush_counts(app);
     window_manager::stop_watching_foreground_changes();
     window_manager::hide_all_overlay_slots(app);
 }
@@ -99,7 +100,8 @@ pub fn run() {
             memeboard::meme_stage_idle,
             memeboard::save_preset,
             memeboard::delete_preset,
-            meme_path::record_meme_path,
+            meme_path::simplify_meme_path,
+            window_manager::list_monitors,
             commands::set_overlay_rect,
             commands::get_config,
             commands::set_launch_on_startup,

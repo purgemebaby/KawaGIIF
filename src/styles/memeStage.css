@@ -22,34 +22,3 @@
 	height: 100%;
 	object-fit: contain;
 }
-
-/* While a path is recorded the stage catches the mouse; the veil says so. */
-.meme-record-veil {
-	position: absolute;
-	inset: 0;
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	justify-content: flex-start;
-	gap: 8px;
-	padding-top: 8vh;
-	background: rgb(20 10 40 / 0.18);
-	box-shadow: inset 0 0 0 4px rgb(169 123 255 / 0.85);
-	color: #fff;
-	font-family: system-ui, sans-serif;
-	text-shadow: 0 1px 4px rgb(0 0 0 / 0.7);
-	pointer-events: auto;
-	cursor: crosshair;
-}
-
-.meme-record-title {
-	margin: 0;
-	font-size: 28px;
-	font-weight: 700;
-}
-
-.meme-record-hint {
-	margin: 0;
-	font-size: 15px;
-	opacity: 0.9;
-}

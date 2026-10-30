@@ -43,7 +43,7 @@
 /* Meme cards */
 .meme-grid {
 	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+	grid-template-columns: repeat(auto-fill, minmax(min(190px, 100%), 1fr));
 	gap: var(--kg-space-4);
 }
 
@@ -59,6 +59,12 @@
 
 .meme-card:hover {
 	border-color: var(--kg-accent);
+}
+
+/* the shared corner × (index.css) only shows on the card under the pointer */
+.meme-card:hover .media-card-delete,
+.meme-card:focus-within .media-card-delete {
+	opacity: 1;
 }
 
 .meme-card-thumb {
@@ -112,6 +118,8 @@
 }
 
 .meme-card-actions {
+	flex-wrap: wrap;
+	min-width: 0;
 	display: flex;
 	gap: var(--kg-space-2);
 	padding: var(--kg-space-3);
@@ -143,54 +151,81 @@
 	color: var(--kg-danger);
 }
 
-/* Editor */
+/* Editor: titled blocks in two columns that stack when the modal gets narrow */
 .modal.meme-editor {
-	max-width: 980px;
+	max-width: 1040px;
 	max-height: calc(100vh - 48px);
 	overflow-y: auto;
+	container-type: inline-size;
 }
 
 .meme-editor-body {
 	display: grid;
-	grid-template-columns: minmax(0, 1fr) minmax(240px, 360px);
+	grid-template-columns: repeat(2, minmax(0, 1fr));
 	gap: var(--kg-space-5);
+	align-items: start;
 }
 
-.meme-editor-fields {
+@container (max-width: 760px) {
+	.meme-editor-body {
+		grid-template-columns: minmax(0, 1fr);
+	}
+}
+
+.meme-editor-column {
+	display: flex;
+	flex-direction: column;
+	gap: var(--kg-space-5);
+	min-width: 0;
+}
+
+/* the preview over the full width while a path is drawn */
+.meme-editor-wide {
+	margin-bottom: var(--kg-space-5);
+}
+
+/* one block of the editor, the same card as a Settings section */
+.meme-block {
 	display: flex;
 	flex-direction: column;
 	gap: var(--kg-space-4);
 	min-width: 0;
+	padding: var(--kg-space-4);
+	border: 1px solid var(--kg-border);
+	border-radius: var(--kg-radius-md);
+	background: color-mix(in srgb, var(--kg-bg-raised) 55%, transparent);
 }
 
-.meme-editor-side {
-	position: sticky;
-	top: 0;
+.meme-block-title {
 	display: flex;
-	flex-direction: column;
+	align-items: center;
+	justify-content: space-between;
 	gap: var(--kg-space-2);
-	align-self: start;
+	margin-bottom: calc(var(--kg-space-1) * -1);
 }
 
-.meme-editor-side-title,
-.meme-field > span {
-	color: var(--kg-fg-muted);
-	font-size: var(--kg-text-sm);
+.meme-block-title h4 {
+	margin: 0;
+	font-family: var(--kg-font-heading);
+	font-size: var(--kg-text-md);
 	font-weight: 600;
+}
+
+.meme-block .kg-slider {
+	margin-bottom: 0;
 }
 
 .meme-field {
 	display: flex;
 	flex-direction: column;
 	gap: var(--kg-space-2);
+	min-width: 0;
 }
 
-.meme-subfield {
-	display: flex;
-	flex-direction: column;
-	gap: var(--kg-space-2);
-	padding-left: var(--kg-space-3);
-	border-left: 2px solid var(--kg-border);
+.meme-field > span {
+	color: var(--kg-fg-muted);
+	font-size: var(--kg-text-sm);
+	font-weight: 600;
 }
 
 .meme-field-note {
@@ -204,9 +239,46 @@
 	font-size: var(--kg-text-sm);
 }
 
+.meme-check {
+	display: flex;
+	align-items: center;
+	gap: var(--kg-space-2);
+	font-size: var(--kg-text-sm);
+	cursor: pointer;
+}
+
+/* the time slider with its ⓘ beside the label */
+.meme-time {
+	position: relative;
+}
+
+.meme-time .info-tip {
+	position: absolute;
+	top: -6px;
+	right: 0;
+}
+
 .path-recorder-actions {
 	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
 	gap: var(--kg-space-2);
+}
+
+/* Saved styles, one row over the editor */
+.meme-styles {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--kg-space-2);
+	margin-bottom: var(--kg-space-4);
+}
+
+.meme-styles select,
+.meme-styles input {
+	flex: 1 1 220px;
+	min-width: 0;
+	max-width: 360px;
 }
 
 /* Horizontal strip of library items */
@@ -247,16 +319,17 @@
 }
 
 .meme-picker-tile img,
-.meme-picker-tile video {
+.meme-picker-tile video,
+.meme-picker-tile canvas {
 	width: 100%;
 	height: 100%;
 	object-fit: cover;
 }
 
-/* The preview is a little screen; the layer inside is absolutely placed like on the stage. */
+/* The preview is a little screen with the monitor's shape; the layer inside is placed like on the stage. */
 .meme-preview {
 	position: relative;
-	aspect-ratio: 16 / 9;
+	width: 100%;
 	overflow: hidden;
 	border: 1.5px solid var(--kg-border);
 	border-radius: var(--kg-radius-sm);
@@ -267,6 +340,13 @@
 			transparent
 		),
 		var(--kg-bg-input);
+	touch-action: none;
+}
+
+.meme-preview.is-drawing {
+	border-style: dashed;
+	border-color: var(--kg-accent);
+	cursor: crosshair;
 }
 
 .meme-preview .meme-layer {
@@ -274,6 +354,7 @@
 	top: 0;
 	left: 0;
 	transform-origin: center;
+	pointer-events: none;
 }
 
 .meme-preview .meme-layer img,
@@ -285,21 +366,60 @@
 	object-fit: contain;
 }
 
-/* Hotkey capture */
+.meme-preview-trail {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	overflow: visible;
+	pointer-events: none;
+}
+
+.meme-trail-live,
+.meme-trail-saved {
+	fill: none;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+}
+
+.meme-trail-live {
+	stroke: var(--kg-accent);
+	stroke-width: 3;
+	filter: drop-shadow(0 0 4px rgb(var(--kg-accent-rgb) / 0.7));
+}
+
+.meme-trail-saved {
+	stroke: var(--kg-accent-2);
+	stroke-width: 2;
+	stroke-opacity: 0.55;
+}
+
+.meme-trail-saved--second {
+	stroke-width: 1.2;
+	stroke-opacity: 0.3;
+}
+
+/* Hotkey capture: the key and its line centred on each other, wrapping when narrow */
 .hotkey-field {
 	display: flex;
 	flex-direction: column;
+	align-items: center;
 	gap: 4px;
+	min-width: 0;
+	text-align: center;
 }
 
 .hotkey-field-row {
 	display: flex;
+	flex-wrap: wrap;
 	align-items: center;
+	justify-content: center;
 	gap: var(--kg-space-2);
+	max-width: 100%;
 }
 
 .hotkey-capture {
-	min-width: 180px;
+	min-width: min(180px, 100%);
 	padding: 6px 12px;
 	border: 1.5px dashed var(--kg-border-strong);
 	border-radius: var(--kg-radius-sm);
@@ -330,11 +450,13 @@
 	font-size: var(--kg-text-xs);
 }
 
-/* Podium: hand-drawn steps that grow from the floor, each meme floating over its own */
+/* Podium: one hand-drawn SVG, the memes floating over it in HTML */
 .podium {
 	display: flex;
 	flex-direction: column;
+	align-items: center;
 	gap: var(--kg-space-5);
+	padding-top: var(--kg-space-4);
 }
 
 .podium-empty {
@@ -342,42 +464,87 @@
 	text-align: center;
 }
 
-.podium-steps {
-	display: grid;
-	grid-template-columns: repeat(3, minmax(0, 150px));
-	justify-content: center;
-	align-items: end;
-	gap: var(--kg-space-2);
-	min-height: 300px;
-	padding-top: var(--kg-space-4);
+.podium-stage {
+	position: relative;
+	width: min(100%, 460px);
 }
 
-.podium-step {
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	gap: var(--kg-space-2);
-	min-width: 0;
-}
-
-.podium-float {
-	display: flex;
-	justify-content: center;
+.podium-svg {
+	display: block;
 	width: 100%;
+	height: 100%;
+	overflow: visible;
 }
 
-/* no frame or circle: the meme itself, contained, on a transparent background */
+.podium-stroke {
+	fill: none;
+	stroke: var(--kg-fg);
+	stroke-width: 1.8;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+}
+
+.podium-stroke--second {
+	stroke-width: 1.2;
+	stroke-opacity: 0.55;
+}
+
+/* the same soft fill as the sketch icons */
+.podium-fill {
+	stroke: none;
+	fill-opacity: 0.6;
+}
+
+.podium-step.is-empty .podium-stroke {
+	stroke: var(--kg-fg-faint);
+	stroke-dasharray: 5 6;
+}
+
+.podium-step.is-empty .podium-stroke--second {
+	display: none;
+}
+
+/* the place in title digits, outlined like the KawaGIIF title; the plays in the middle */
+.podium-place,
+.podium-plays {
+	text-anchor: middle;
+	paint-order: stroke;
+	stroke: var(--kg-px-ink);
+	stroke-linejoin: round;
+}
+
+.podium-place {
+	fill: var(--kg-title-keyline);
+	stroke-width: 4px;
+	font-family: var(--kg-font-heading);
+	font-size: 26px;
+	font-weight: 700;
+}
+
+.podium-step.is-empty .podium-place {
+	fill: var(--kg-fg-faint);
+	stroke: none;
+}
+
+.podium-plays {
+	fill: var(--kg-fg);
+	stroke-width: 3px;
+	font-size: 13px;
+	font-weight: 700;
+}
+
+.podium-meme {
+	position: absolute;
+	aspect-ratio: 1;
+}
+
+/* no frame: the meme itself, contained, on a transparent background */
 .podium-visual {
 	display: flex;
 	align-items: flex-end;
 	justify-content: center;
-	width: 96px;
-	height: 96px;
-}
-
-.podium-step--1 .podium-visual {
-	width: 120px;
-	height: 120px;
+	width: 100%;
+	height: 100%;
 }
 
 .podium-visual img,
@@ -386,6 +553,7 @@
 	width: 100%;
 	height: 100%;
 	object-fit: contain;
+	object-position: bottom;
 	background: transparent;
 }
 
@@ -397,11 +565,11 @@
 	animation: podium-bob 2.4s ease-in-out infinite;
 }
 
-.podium-step--2 .podium-visual.is-bobbing {
+.podium-meme:nth-of-type(2) .podium-visual.is-bobbing {
 	animation-delay: -0.8s;
 }
 
-.podium-step--3 .podium-visual.is-bobbing {
+.podium-meme:nth-of-type(3) .podium-visual.is-bobbing {
 	animation-delay: -1.6s;
 }
 
@@ -411,90 +579,12 @@
 	}
 }
 
-.podium-block {
-	position: relative;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	width: 100%;
-	overflow: hidden;
-	--sketch-width: 2px;
-}
-
-.podium-block-frame {
-	position: absolute;
-	/* room for the wobble, which the block clips while it grows */
-	inset: 2px;
-	width: calc(100% - 4px);
-	height: calc(100% - 4px);
-}
-
-.podium-step--1 .podium-block-frame {
-	--sketch-paper: color-mix(
-		in srgb,
-		var(--kg-px-sun, #ffd23f) 55%,
-		var(--kg-bg-raised)
-	);
-}
-
-.podium-step--2 .podium-block-frame {
-	--sketch-paper: color-mix(in srgb, var(--kg-accent) 45%, var(--kg-bg-raised));
-}
-
-.podium-step--3 .podium-block-frame {
-	--sketch-paper: color-mix(
-		in srgb,
-		var(--kg-px-pink, #ff7bd0) 40%,
-		var(--kg-bg-raised)
-	);
-}
-
-/* the place, small on the top edge; the plays, big in the middle */
-.podium-place {
-	position: absolute;
-	top: 6px;
-	left: 50%;
-	translate: -50% 0;
-	color: var(--kg-fg-muted);
-	font-family: var(--kg-font-heading);
-	font-size: var(--kg-text-sm);
-	font-weight: 700;
-}
-
-.podium-plays {
-	position: relative;
-	padding: 0 var(--kg-space-1);
-	color: var(--kg-fg);
-	font-family: var(--kg-font-heading);
-	font-size: var(--kg-text-md);
-	font-weight: 700;
-	text-align: center;
-}
-
-.podium-step--1 .podium-plays {
-	font-size: var(--kg-text-heading);
-}
-
-.podium-floor {
-	display: block;
-	width: min(100%, 480px);
-	height: 6px;
-	margin: calc(var(--kg-space-5) * -1) auto 0;
-	--sketch-paper: var(--kg-fg-muted);
-}
-
-@media (prefers-reduced-motion: reduce) {
-	.podium-visual.is-bobbing {
-		animation: none;
-	}
-}
-
 .podium-rest {
 	display: flex;
 	flex-direction: column;
 	gap: var(--kg-space-2);
-	margin: 0 auto;
-	width: min(100%, 480px);
+	width: min(100%, 460px);
+	margin: 0;
 	padding-left: var(--kg-space-5);
 }
 
@@ -508,64 +598,8 @@
 	color: var(--kg-fg-muted);
 }
 
-/* Fields of the editor: one gap between all of them, sliders included */
-.meme-editor-fields .kg-slider,
-.meme-subfield .kg-slider,
-.meme-option .kg-slider {
-	margin-bottom: 0;
-}
-
-.meme-editor-side-title {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-}
-
-.meme-check {
-	flex-direction: row;
-	align-items: center;
-	gap: var(--kg-space-2);
-	font-size: var(--kg-text-sm);
-	cursor: pointer;
-}
-
-/* Saved styles, one row over the editor */
-.meme-styles {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: center;
-	gap: var(--kg-space-2);
-	margin-bottom: var(--kg-space-4);
-}
-
-.meme-styles select,
-.meme-styles input {
-	flex: 1 1 220px;
-	max-width: 360px;
-}
-
-/* What the shortcut does: each option a label, its control and one line saying why */
-.meme-behaviour {
-	display: flex;
-	flex-direction: column;
-	gap: var(--kg-space-4);
-	padding-top: var(--kg-space-4);
-	border-top: 1px solid var(--kg-border);
-}
-
-.meme-behaviour-title {
-	margin: 0;
-	font-size: var(--kg-text-md);
-	font-weight: 600;
-}
-
-.meme-option {
-	display: flex;
-	flex-direction: column;
-	gap: var(--kg-space-2);
-}
-
-.meme-option-label {
-	color: var(--kg-fg-muted);
-	font-size: var(--kg-text-sm);
+@media (prefers-reduced-motion: reduce) {
+	.podium-visual.is-bobbing {
+		animation: none;
+	}
 }

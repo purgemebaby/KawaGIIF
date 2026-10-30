@@ -88,7 +88,7 @@ export const es: Strings = {
 		},
 		tabs: {
 			visual: 'Imágenes y vídeos',
-			audio: 'Casetes',
+			audio: 'Audios',
 		},
 		sort: {
 			label: 'Ordenar',
@@ -250,6 +250,7 @@ export const es: Strings = {
 		editor: {
 			titleNew: 'Nuevo meme',
 			titleEdit: 'Editar meme',
+			media: 'Qué muestra y qué suena',
 			name: 'Nombre',
 			visual: 'Imagen, GIF o vídeo',
 			sound: 'Sonido',
@@ -258,28 +259,34 @@ export const es: Strings = {
 			animation: 'Animación',
 			from: 'Entra por',
 			anchor: 'Aparece en',
+			options: 'Opciones de la animación',
+			playback: 'Reproducción',
+			monitor: 'Monitor',
+			monitorCursor: 'Donde esté el cursor',
+			monitorName: (name: string, w: number, h: number) =>
+				`${name} (${w}×${h})`,
 			size: 'Tamaño',
+			motionSpeed: 'Velocidad de la animación',
+			playbackSpeed: 'Velocidad de reproducción',
+			time: 'Tiempo',
+			timeInfo:
+				'Cuánto dura el meme, 10 s como máximo. Por defecto lo que dure su sonido; un tiempo mayor lo repite.',
 			volume: 'Volumen',
-			duration: 'Duración',
-			durationFromSound: (seconds: string) =>
-				`Dura lo que su sonido: ${seconds} (10 s como máximo)`,
+			heightAt: 'Altura',
+			widthAt: 'Posición',
+			pxOf: (px: number, of: number) => `${px} px de ${of}`,
 			hotkey: 'Atajo',
 			hotkeyPlaceholder: 'Haz clic y pulsa las teclas',
 			hotkeyListening: 'Pulsa las teclas…',
 			hotkeyClear: 'Quitar atajo',
-			hotkeyHint:
-				'Usa Ctrl + AltGr (o Ctrl + Alt) con una tecla, o F13-F24 solas.',
-			hotkeyLimit: (max: number) =>
-				`Como mucho ${max} memes pueden tener atajo.`,
+			hotkeyHint: 'Usa Ctrl + AltGr (o Ctrl + Alt) con una tecla.',
 			preview: 'Vista previa',
 			save: 'Guardar meme',
 			needsMedia: 'Elige antes una imagen o un sonido.',
 		},
 		behaviour: {
-			title: 'Al pulsar el atajo',
-			cooldown: 'Tiempo mínimo entre usos',
-			cooldownHint: 'Para que no se pueda spamear.',
-			noWait: 'Sin espera',
+			cooldown: 'Cooldown del meme',
+			noWait: 'Ninguno',
 			refire: 'Si lo pulsas mientras suena',
 			refires: {
 				restart: 'Empieza de nuevo',
@@ -287,8 +294,6 @@ export const es: Strings = {
 				ignore: 'Ignora la pulsación',
 			},
 			pitch: 'Variar el tono en cada uso',
-			pitchHint:
-				'Cada vez suena un poco más rápido o más lento para que no sea siempre igual.',
 			pitches: {
 				off: 'No',
 				low: 'Un poco',
@@ -341,13 +346,10 @@ export const es: Strings = {
 			limit: 'Los 10 atajos están ocupados.',
 		},
 		path: {
-			record: 'Grabar trayectoria',
-			rerecord: 'Volver a grabar',
+			draw: 'Mantén el clic en la vista previa y muévete para dibujar la trayectoria.',
 			clear: 'Borrar trayectoria',
-			points: (n: number) => `${n} puntos grabados`,
-			none: 'Aún no hay trayectoria grabada.',
-			hint: 'Mueve el ratón para dibujar la trayectoria. Haz clic o pulsa Esc para terminar (10 s como máximo).',
-			countdown: (n: number) => `Grabando en ${n}…`,
+			points: (n: number) => `${n} puntos`,
+			none: 'Aún no hay trayectoria dibujada.',
 		},
 		podium: {
 			empty: 'Reproduce unos memes y los más usados subirán aquí.',

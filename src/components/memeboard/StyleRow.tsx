@@ -30,6 +30,8 @@ function StyleRow({ draft, presets, onChange }: StyleRowProps) {
 			anchor: preset.anchor,
 			size: preset.size,
 			behaviour: preset.behaviour,
+			motion_speed: preset.motion_speed,
+			playback_speed: preset.playback_speed,
 		});
 	};
 
@@ -43,6 +45,8 @@ function StyleRow({ draft, presets, onChange }: StyleRowProps) {
 			anchor: draft.anchor,
 			size: draft.size,
 			behaviour: draft.behaviour,
+			motion_speed: draft.motion_speed,
+			playback_speed: draft.playback_speed,
 		};
 		try {
 			const saved = await invoke<Preset>('save_preset', { preset });

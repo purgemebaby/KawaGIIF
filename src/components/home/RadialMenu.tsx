@@ -7,24 +7,25 @@ import {
 	RING_SIZE,
 	SECTORS,
 	annularSectorPath,
+	bestLabelRadius,
 	directionOf,
-	freeHalfWidth,
 	outerArcPath,
 } from '../../lib/radial';
-import { useLayoutEffect, useRef, type KeyboardEvent } from 'react';
+import { useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
 
 interface RadialMenuProps {
 	onSelect: (id: Screen) => void;
 }
 
-const LABEL_RADIUS = 145;
+// where the label group sits until the first measure picks the best radius
+const DEFAULT_LABEL_RADIUS = 145;
 // ring units: the 24-unit icon drawn at 2x
 const ICON_SIZE = 48;
 // small sideways nudges so each icon sits optically centred over its label
 const ICON_NUDGE: Partial<Record<Screen, number>> = {};
 const CENTRE = RING_SIZE / 2;
 // room left between a label and its sector edge, viewBox units
-const LABEL_MARGIN = 10;
+const LABEL_MARGIN = 6;
 // must match the translateY of .radial-label (RadialMenu.css)
 const LABEL_DROP = 0.9;
 
@@ -34,28 +35,34 @@ function RadialMenu({ onSelect }: RadialMenuProps) {
 	const svgRef = useRef<SVGSVGElement>(null);
 	const labelRefs = useRef(new Map<string, SVGTextElement>());
 	const labelKey = tiles.map((tile) => tile.label).join('|');
+	const [labelRadius, setLabelRadius] = useState(DEFAULT_LABEL_RADIUS);
 
 	// Measured in viewBox units, so the window size never matters; the label text, font and font scale do, so it
 	// runs again when the labels change, once the font has loaded, and on resize (a font-scale change reflows it).
 	useLayoutEffect(() => {
 		const measure = () => {
-			for (const sector of SECTORS) {
-				const text = labelRefs.current.get(sector.id);
-				if (!text) continue;
-				text.style.fontSize = '';
-				const length = text.getComputedTextLength();
-				const size = parseFloat(getComputedStyle(text).fontSize) || 0;
-				const dir = directionOf(sector.id);
-				const half = freeHalfWidth(
-					sector.id,
-					dir.x * LABEL_RADIUS,
-					dir.y * LABEL_RADIUS + size * LABEL_DROP,
-				);
-				const room = Math.max(0, 2 * (half - LABEL_MARGIN));
-				// shrunk straight on the element: React never sets this style, so a re-render can't undo it
-				if (length > room && length > 0) {
-					text.style.fontSize = `calc(var(--radial-label-size) * ${(room / length).toFixed(3)})`;
-				}
+			const texts = SECTORS.map((sector) => labelRefs.current.get(sector.id));
+			for (const text of texts) if (text) text.style.fontSize = '';
+			const size = texts[0]
+				? parseFloat(getComputedStyle(texts[0]).fontSize) || 0
+				: 0;
+			// one radius and one scale for every label, so all four look the same
+			const { radius, half } = bestLabelRadius(
+				size * LABEL_DROP,
+				ICON_SIZE / 2 + 4,
+			);
+			const room = Math.max(0, 2 * (half - LABEL_MARGIN));
+			const longest = Math.max(
+				0,
+				...texts.map((text) => text?.getComputedTextLength() ?? 0),
+			);
+			setLabelRadius(radius);
+			if (longest <= room || longest === 0) return;
+			// set straight on the elements: React never sets this style, so a re-render can't undo it
+			const scale = (room / longest).toFixed(3);
+			for (const text of texts) {
+				if (text)
+					text.style.fontSize = `calc(var(--radial-label-size) * ${scale})`;
 			}
 		};
 		measure();
@@ -100,8 +107,8 @@ function RadialMenu({ onSelect }: RadialMenuProps) {
 				const tile = tiles.find((item) => item.id === sector.id);
 				if (!tile) return null;
 				const dir = directionOf(sector.id);
-				const x = CENTRE + dir.x * LABEL_RADIUS;
-				const y = CENTRE + dir.y * LABEL_RADIUS;
+				const x = CENTRE + dir.x * labelRadius;
+				const y = CENTRE + dir.y * labelRadius;
 				const arc = outerArcPath(
 					CENTRE,
 					CENTRE,

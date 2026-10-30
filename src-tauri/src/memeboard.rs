@@ -72,8 +72,17 @@ pub enum Animation {
         #[serde(default = "default_shake")]
         intensity: f32,
     },
-    Cross { from: Side },
-    Fall,
+    /// Crosses the monitor from `from`, at `at` (0..=1) of the other axis: the height for left/right, else the width.
+    Cross {
+        from: Side,
+        #[serde(default = "half")]
+        at: f32,
+    },
+    /// Falls from the top at `at` (0..=1) of the width.
+    Fall {
+        #[serde(default = "half")]
+        at: f32,
+    },
     Path { points: Vec<PathPoint> },
 }
 
@@ -86,6 +95,7 @@ fn default_pop_in() -> u32 { 280 }
 fn default_pop_out() -> u32 { 220 }
 fn default_true() -> bool { true }
 fn default_shake() -> f32 { 0.25 }
+fn half() -> f32 { 0.5 }
 
 /** Where the visual appears. `Fixed` is a fraction (0..=1) of the monitor. */
 #[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Debug, Default)]
@@ -151,10 +161,25 @@ pub struct Preset {
     pub size: f32,
     #[serde(default)]
     pub behaviour: Behaviour,
+    #[serde(default = "default_speed")]
+    pub motion_speed: f32,
+    #[serde(default = "default_speed")]
+    pub playback_speed: f32,
 }
 
 fn default_size() -> f32 { 0.3 }
 fn default_volume() -> f32 { 1.0 }
+fn default_speed() -> f32 { 1.0 }
+const SPEEDS: std::ops::RangeInclusive<f32> = 0.25..=3.0;
+
+/** Which monitor a meme shows on: the one under the cursor, or one by its system name (`\\.\DISPLAY2`). */
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Debug, Default)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum MonitorChoice {
+    #[default]
+    Cursor,
+    Named { name: String },
+}
 
 /** One meme. `size` is the visual's longer side as a fraction of the monitor's shorter one. */
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
@@ -173,9 +198,17 @@ pub struct Meme {
     pub size: f32,
     #[serde(default = "default_volume")]
     pub volume: f32,
-    /// How long a meme without sound stays, in ms. Ignored when there is a sound.
+    /// How long the meme lasts, in ms. `None` lasts as long as its sound (or one GIF loop); a longer time loops it.
     #[serde(default)]
     pub duration_ms: Option<u32>,
+    /// How fast the animation moves (1 = normal). Doesn't change how long the meme lasts.
+    #[serde(default = "default_speed")]
+    pub motion_speed: f32,
+    /// How fast the visual and the sound play (1 = as recorded).
+    #[serde(default = "default_speed")]
+    pub playback_speed: f32,
+    #[serde(default)]
+    pub monitor: MonitorChoice,
     /// Canonical form, e.g. `Ctrl+Alt+Digit1` (key names are `KeyboardEvent.code`).
     #[serde(default)]
     pub hotkey: Option<String>,
@@ -191,6 +224,8 @@ impl Meme {
         self.size = finite_or(self.size, default_size()).clamp(0.05, 1.0);
         self.volume = finite_or(self.volume, default_volume()).clamp(0.0, 1.0);
         self.duration_ms = self.duration_ms.map(|ms| ms.clamp(100, MAX_MEME_MS));
+        self.motion_speed = finite_or(self.motion_speed, 1.0).clamp(*SPEEDS.start(), *SPEEDS.end());
+        self.playback_speed = finite_or(self.playback_speed, 1.0).clamp(*SPEEDS.start(), *SPEEDS.end());
         self.behaviour = self.behaviour.sanitized();
         if let Anchor::Fixed { x, y } = &mut self.anchor {
             *x = finite_or(*x, 0.5).clamp(0.0, 1.0);
@@ -202,6 +237,7 @@ impl Meme {
                 *exit_ms = (*exit_ms).clamp(*POP_MS.start(), *POP_MS.end());
             }
             Animation::Shake { intensity } => *intensity = finite_or(*intensity, default_shake()).clamp(0.0, 1.0),
+            Animation::Cross { at, .. } | Animation::Fall { at } => *at = finite_or(*at, 0.5).clamp(0.0, 1.0),
             _ => {}
         }
         if let Animation::Path { points } = &mut self.animation {
@@ -400,6 +436,8 @@ struct Inner {
     stop_conflict: bool,
     showing: Vec<Showing>,
     last_fired: HashMap<Uuid, Instant>,
+    /// A play count changed and a save is scheduled (`save_counts_soon`).
+    save_pending: bool,
 }
 impl Default for MemeboardState {
     fn default() -> Self {
@@ -412,6 +450,7 @@ impl Default for MemeboardState {
             stop_conflict: false,
             showing: Vec::new(),
             last_fired: HashMap::new(),
+            save_pending: false,
         }))
     }
 }
@@ -532,25 +571,29 @@ pub struct StageFire {
     pub meme: Meme,
     pub visual: Option<StageVisual>,
     pub duration_ms: u32,
-    /// Playback speed of the visual, matching the sound's (1 = as recorded).
+    /// Playback speed of the visual: the meme's playback speed times its random pitch, matching the sound.
     pub speed: f32,
     pub cursor: (f64, f64),
 }
 
 fn media_path(item: &MediaItem) -> PathBuf { crate::library::media_dir().join(&item.stored_file_name) }
 
-/** How long a meme lasts: the video's length when the visual is an MP4 with sound, else its sound's, else its own
- duration (or one loop of a GIF, or `DEFAULT_STILL_MS`). Never more than `MAX_MEME_MS`. */
-fn meme_duration(meme: &Meme, visual: Option<&MediaItem>, audio: Option<&MediaItem>) -> u32 {
+/** Length of a meme's media as recorded: the MP4's own sound, else its sound, else one GIF loop. */
+fn media_length(visual: Option<&MediaItem>, audio: Option<&MediaItem>) -> Option<u32> {
     let video_sound = visual.filter(|v| v.media_type == MediaType::Mp4 && v.info.has_audio == Some(true));
-    let ms = if let Some(video) = video_sound {
-        video.info.duration_ms
-    } else if let Some(sound) = audio {
-        sound.info.duration_ms
-    } else {
-        meme.duration_ms.or_else(|| visual.and_then(|v| v.info.duration_ms).filter(|ms| *ms > 0))
+    let ms = match (video_sound, audio) {
+        (Some(video), _) => video.info.duration_ms,
+        (None, Some(sound)) => sound.info.duration_ms,
+        (None, None) => visual.and_then(|v| v.info.duration_ms),
     };
-    ms.unwrap_or(DEFAULT_STILL_MS).clamp(100, MAX_MEME_MS)
+    ms.filter(|ms| *ms > 0)
+}
+
+/** How long a meme lasts, in real time: its own `duration_ms` when set, else its media played at `speed`, else
+ `DEFAULT_STILL_MS`. Never more than `MAX_MEME_MS`; a time longer than the media loops it. */
+fn meme_duration(meme: &Meme, visual: Option<&MediaItem>, audio: Option<&MediaItem>, speed: f32) -> u32 {
+    let natural = media_length(visual, audio).map(|ms| (ms as f32 / speed.max(0.01)).round() as u32);
+    meme.duration_ms.or(natural).unwrap_or(DEFAULT_STILL_MS).clamp(100, MAX_MEME_MS)
 }
 
 /** Rough RAM a meme needs while it plays: decoded frames for visuals, decoded samples for sound. Items imported
@@ -628,15 +671,13 @@ pub fn fire(app: &AppHandle, id: Uuid) -> AppResult<()> {
     let sound_file = video_sound.or(audio.as_ref().filter(|_| visual.as_ref().is_none_or(|v| v.media_type != MediaType::Mp4)));
 
     let settings = config::load();
-    let duration_ms = meme_duration(&meme, visual.as_ref(), audio.as_ref());
+    let speed = meme.playback_speed * meme.behaviour.pick_speed();
+    let duration_ms = meme_duration(&meme, visual.as_ref(), audio.as_ref(), speed);
     let outputs = if matches!(settings.audio_output, config::AudioOutput::DefaultPlusDevice(_)) { 2 } else { 1 };
     let bytes = estimated_bytes(visual.as_ref(), sound_file, duration_ms, outputs);
     let max_concurrent = settings.meme_max_concurrent.clamp(1, config::MAX_MEME_CONCURRENCY) as usize;
 
     let instance = Uuid::new_v4();
-    let speed = meme.behaviour.pick_speed();
-    // the sound is cut at `duration_ms` of its own time, which a faster play gets through sooner
-    let shown_ms = (duration_ms as f32 / speed).round() as u32;
     let evicted: Vec<Uuid> = {
         let state = app.state::<MemeboardState>();
         let mut inner = state.lock();
@@ -653,11 +694,14 @@ pub fn fire(app: &AppHandle, id: Uuid) -> AppResult<()> {
         if !fits_in_memory(bytes, kept_bytes, available_memory()) { return Err(AppError::MemeTooHeavy); }
         let mut evicted = Vec::with_capacity(evict.len());
         for index in evict.into_iter().rev() { evicted.push(inner.showing.remove(index).instance); }
-        let until = now + Duration::from_millis(u64::from(shown_ms));
+        let until = now + Duration::from_millis(u64::from(duration_ms));
         inner.showing.push(Showing { instance, meme: id, bytes, until });
         inner.last_fired.insert(id, now);
         if let Some(stored) = inner.index.memes.iter_mut().find(|m| m.id == id) { stored.fire_count += 1; }
-        let _ = inner.index.save();
+        let schedule = !inner.save_pending;
+        inner.save_pending = true;
+        drop(inner);
+        if schedule { save_counts_soon(app); }
         evicted
     };
 
@@ -665,12 +709,14 @@ pub fn fire(app: &AppHandle, id: Uuid) -> AppResult<()> {
     for old in &evicted { sound.stop(*old); }
     if let Some(file) = sound_file {
         let volume = meme.volume * settings.meme_volume;
-        sound.play(instance, Sound { path: media_path(file), volume, speed, max: Duration::from_millis(u64::from(duration_ms)) })?;
+        // `max` is in the sound's own time: at speed 2, 1 s of real time is 2 s of the file
+        let max = Duration::from_millis((f64::from(duration_ms) * f64::from(speed)).round() as u64);
+        sound.play(instance, Sound { path: media_path(file), volume, speed, max })?;
     }
 
     for old in &evicted { let _ = app.emit_to(window_manager::MEME_STAGE_LABEL, "meme-end", old); }
     if let Some(visual) = &visual {
-        let cursor = window_manager::show_meme_stage(app)?;
+        let cursor = window_manager::show_meme_stage(app, &meme.monitor)?;
         let payload = StageFire {
             instance,
             visual: Some(StageVisual {
@@ -680,7 +726,7 @@ pub fn fire(app: &AppHandle, id: Uuid) -> AppResult<()> {
                 height: visual.info.height,
             }),
             meme,
-            duration_ms: shown_ms,
+            duration_ms,
             speed,
             cursor,
         };
@@ -688,6 +734,26 @@ pub fn fire(app: &AppHandle, id: Uuid) -> AppResult<()> {
     }
     notify_memeboard_changed(app);
     Ok(())
+}
+
+const COUNT_SAVE_DELAY: Duration = Duration::from_secs(2);
+
+/** Saves the play counts once, a little later: a burst of presses writes `memeboard.json` once, not every time. */
+fn save_counts_soon(app: &AppHandle) {
+    let app = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(COUNT_SAVE_DELAY);
+        flush_counts(&app);
+    });
+}
+
+/** Writes pending play counts now (also on exit). */
+pub fn flush_counts(app: &AppHandle) {
+    let state = app.state::<MemeboardState>();
+    let mut inner = state.lock();
+    if !inner.save_pending { return; }
+    inner.save_pending = false;
+    let _ = inner.index.save();
 }
 
 /** Stops every sound and clears the stage. */
@@ -748,6 +814,9 @@ pub fn new_meme(state: State<MemeboardState>, name: String) -> Meme {
         size: default_size(),
         volume: default_volume(),
         duration_ms: None,
+        motion_speed: 1.0,
+        playback_speed: 1.0,
+        monitor: MonitorChoice::Cursor,
         hotkey: inner.index.free_default_hotkey(),
         behaviour: Behaviour::default(),
         fire_count: 0,
@@ -825,6 +894,8 @@ pub fn save_preset(app: AppHandle, state: State<MemeboardState>, preset: Preset)
     // the same clamps as a meme's
     preset.size = finite_or(preset.size, default_size()).clamp(0.05, 1.0);
     preset.behaviour = preset.behaviour.sanitized();
+    preset.motion_speed = finite_or(preset.motion_speed, 1.0).clamp(*SPEEDS.start(), *SPEEDS.end());
+    preset.playback_speed = finite_or(preset.playback_speed, 1.0).clamp(*SPEEDS.start(), *SPEEDS.end());
     {
         let mut inner = state.lock();
         match inner.index.presets.iter_mut().find(|p| p.id == preset.id) {
@@ -884,6 +955,7 @@ mod tests {
             let mut meme = Meme {
                 id: Uuid::new_v4(), name: format!("m{n}"), visual: None, audio: None, animation: Animation::default(),
                 anchor: Anchor::Cursor, size: 0.3, volume: 1.0, duration_ms: None, hotkey: None,
+                motion_speed: 1.0, playback_speed: 1.0, monitor: MonitorChoice::Cursor,
                 behaviour: Behaviour::default(), fire_count: 0,
             };
             meme.hotkey = Some((*key).to_owned());
@@ -971,22 +1043,38 @@ mod tests {
     }
 
     #[test]
-    fn duration_follows_the_sound_and_stops_at_ten_seconds() {
+    fn duration_follows_the_media_unless_set_and_stops_at_ten_seconds() {
         let meme = index_with(&["F13"]).memes.remove(0);
         let gif = item(MediaType::Gif, Some(800), None);
         let short = item(MediaType::Mp3, Some(3_000), Some(true));
         let long = item(MediaType::Wav, Some(20_000), Some(true));
         let video = item(MediaType::Mp4, Some(4_500), Some(true));
         let silent_video = item(MediaType::Mp4, Some(4_500), Some(false));
-        assert_eq!(meme_duration(&meme, Some(&gif), Some(&short)), 3_000);
-        assert_eq!(meme_duration(&meme, Some(&gif), Some(&long)), MAX_MEME_MS);
-        assert_eq!(meme_duration(&meme, Some(&video), Some(&short)), 4_500);
-        assert_eq!(meme_duration(&meme, Some(&silent_video), Some(&short)), 3_000);
-        assert_eq!(meme_duration(&meme, Some(&gif), None), 800);
+        assert_eq!(meme_duration(&meme, Some(&gif), Some(&short), 1.0), 3_000);
+        assert_eq!(meme_duration(&meme, Some(&gif), Some(&long), 1.0), MAX_MEME_MS);
+        assert_eq!(meme_duration(&meme, Some(&video), Some(&short), 1.0), 4_500);
+        assert_eq!(meme_duration(&meme, Some(&silent_video), Some(&short), 1.0), 3_000);
+        assert_eq!(meme_duration(&meme, Some(&gif), None, 1.0), 800);
+        // twice as fast, half as long
+        assert_eq!(meme_duration(&meme, Some(&gif), Some(&short), 2.0), 1_500);
         let still = item(MediaType::Png, None, None);
-        assert_eq!(meme_duration(&meme, Some(&still), None), DEFAULT_STILL_MS);
-        let timed = Meme { duration_ms: Some(60_000), ..meme }.sanitized();
-        assert_eq!(meme_duration(&timed, Some(&still), None), MAX_MEME_MS);
+        assert_eq!(meme_duration(&meme, Some(&still), None, 1.0), DEFAULT_STILL_MS);
+        // a set time wins over the sound, longer (it loops) or shorter
+        let timed = Meme { duration_ms: Some(8_000), ..meme.clone() };
+        assert_eq!(meme_duration(&timed, Some(&gif), Some(&short), 1.0), 8_000);
+        let capped = Meme { duration_ms: Some(60_000), ..meme }.sanitized();
+        assert_eq!(meme_duration(&capped, Some(&still), None, 1.0), MAX_MEME_MS);
+    }
+
+    #[test]
+    fn memes_saved_before_speeds_and_monitors_load_with_defaults() {
+        let json = format!(r#"{{"id":"{}","name":"old","animation":{{"kind":"cross","from":"left"}}}}"#, Uuid::new_v4());
+        let meme: Meme = serde_json::from_str(&json).unwrap();
+        assert_eq!(meme.animation, Animation::Cross { from: Side::Left, at: 0.5 });
+        assert_eq!((meme.motion_speed, meme.playback_speed), (1.0, 1.0));
+        assert_eq!(meme.monitor, MonitorChoice::Cursor);
+        let fall: Animation = serde_json::from_str(r#"{"kind":"fall"}"#).unwrap();
+        assert_eq!(fall, Animation::Fall { at: 0.5 });
     }
 
     fn showing(memes: &[Uuid]) -> Vec<Showing> {

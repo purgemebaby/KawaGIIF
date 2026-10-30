@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { isAudioType, isVideoType, type MediaItem } from '../lib/media';
 import { useMediaUrl } from '../hooks/useMediaUrl';
 import CassetteThumb from './CassetteThumb';
+import StillFrame from './StillFrame';
 
 const PREVIEW_STEPS = 8;
 const PREVIEW_INTERVAL_MS = 700;
@@ -14,6 +15,8 @@ interface MediaThumbProps {
 	preview?: boolean;
 	/** Cassettes get a play / pause button (they never play on hover). */
 	playable?: boolean;
+	/** GIFs show only their first frame, to keep long pickers light. */
+	still?: boolean;
 	/** The loading placeholder shows the media type label. */
 	placeholderLabel?: boolean;
 	alt?: string;
@@ -26,6 +29,7 @@ function MediaThumb({
 	className = '',
 	preview = false,
 	playable = false,
+	still = false,
 	placeholderLabel = false,
 	alt = '',
 }: MediaThumbProps) {
@@ -93,6 +97,10 @@ function MediaThumb({
 				onMouseLeave={preview ? stopPreview : undefined}
 			/>
 		);
+	}
+
+	if (still && item.media_type === 'gif') {
+		return <StillFrame url={url} className={className} alt={alt} />;
 	}
 
 	return (

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { t } from '../i18n';
 import { claimPreview, releasePreview } from '../lib/audioPreview';
 import { formatDuration, type MediaItem } from '../lib/media';
+import SketchIcon from './ui/SketchIcon';
 import './CassetteThumb.css';
 
 const PREVIEW_VOLUME = 0.5;
@@ -125,7 +126,17 @@ function CassetteThumb({
 					title={playing ? t.storage.pause : t.storage.play}
 					onClick={toggle}
 				>
-					{playing ? '⏸' : '▶'}
+					{/* both drawn, so the old key pops out while the new one pops in */}
+					<SketchIcon
+						name="play"
+						size={24}
+						className={`cassette-key${playing ? '' : ' is-shown'}`}
+					/>
+					<SketchIcon
+						name="pause"
+						size={24}
+						className={`cassette-key${playing ? ' is-shown' : ''}`}
+					/>
 				</button>
 			)}
 			{url && <audio ref={audioRef} src={url} preload="none" onEnded={pause} />}

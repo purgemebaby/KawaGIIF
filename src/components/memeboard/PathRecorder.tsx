@@ -1,69 +1,30 @@
-import { useEffect, useState } from 'react';
 import { t } from '../../i18n';
-import { invoke } from '../../lib/ipc';
-import { notifyError } from '../../lib/notify';
 import type { PathPoint } from '../../lib/memeboard';
 
 interface PathRecorderProps {
 	points: PathPoint[];
-	maxMs: number;
-	onRecorded: (points: PathPoint[]) => void;
+	onClear: () => void;
 }
 
-/** Record / re-record / delete the single path track. Rust runs the countdown and samples the cursor. */
-function PathRecorder({ points, onRecorded }: PathRecorderProps) {
-	const [recording, setRecording] = useState(false);
-
-	// Escape ends the recording; it must not also close the editor around this
-	useEffect(() => {
-		if (!recording) return;
-		const swallow = (e: KeyboardEvent) => {
-			if (e.key === 'Escape') e.preventDefault();
-		};
-		window.addEventListener('keydown', swallow, true);
-		return () => window.removeEventListener('keydown', swallow, true);
-	}, [recording]);
-
-	const record = async () => {
-		setRecording(true);
-		try {
-			const recorded = await invoke<PathPoint[]>('record_meme_path');
-			// an empty answer is a cancel: keep what was there
-			if (recorded.length > 1) onRecorded(recorded);
-		} catch (e) {
-			notifyError(e);
-		} finally {
-			setRecording(false);
-		}
-	};
-
+/** What the drawn path holds and how to draw it; the drawing itself happens on the preview. */
+function PathRecorder({ points, onClear }: PathRecorderProps) {
 	const path = t.memeboard.path;
+	const has = points.length > 1;
 	return (
-		<div className="meme-subfield path-recorder">
-			<small>
-				{points.length > 1 ? path.points(points.length) : path.none}
-			</small>
+		<div className="meme-field path-recorder">
+			<small className="meme-field-note">{path.draw}</small>
 			<div className="path-recorder-actions">
-				<button
-					type="button"
-					className="kg-btn kg-btn--secondary kg-btn--sm"
-					disabled={recording}
-					onClick={record}
-				>
-					{points.length > 1 ? path.rerecord : path.record}
-				</button>
-				{points.length > 1 && (
+				<small>{has ? path.points(points.length) : path.none}</small>
+				{has && (
 					<button
 						type="button"
 						className="kg-btn kg-btn--ghost kg-btn--sm"
-						disabled={recording}
-						onClick={() => onRecorded([])}
+						onClick={onClear}
 					>
 						{path.clear}
 					</button>
 				)}
 			</div>
-			<small className="meme-field-note">{path.hint}</small>
 		</div>
 	);
 }

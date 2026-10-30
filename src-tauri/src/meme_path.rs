@@ -1,33 +1,16 @@
-/** Recorded meme paths. After a 3-2-1 countdown the stage covers the cursor's monitor with a veil and the cursor is
- sampled at ~60 Hz until a click, Escape or `MAX_MEME_MS`. The samples are then thinned with Visvalingam-Whyatt and
- stored as fractions of the monitor, so the path replays on any screen size. */
-use serde::Serialize;
+/** Recorded meme paths. The user draws the path with the mouse on the editor's preview; the samples arrive here and
+ are thinned with Visvalingam-Whyatt, kept as fractions of the monitor so the path replays on any screen size. */
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
-use std::time::{Duration, Instant};
-use tauri::{AppHandle, Emitter};
 
-use crate::error::{AppError, AppResult};
-use crate::memeboard::{self, PathPoint, MAX_MEME_MS};
-use crate::window_manager;
+use crate::memeboard::{PathPoint, MAX_MEME_MS};
 
-const SAMPLE_EVERY: Duration = Duration::from_millis(16);
-const COUNTDOWN_FROM: u32 = 3;
-/** A click this soon after the start is the one that pressed Record still being released. */
-const CLICK_GRACE: Duration = Duration::from_millis(250);
 /** Triangles smaller than this (px²) are jitter, not shape: about a 9 px bump over a 9 px base. Lower and a hand's
  tremor over a long stroke survives, since a triangle grows with its base. */
 const MIN_AREA_PX2: f64 = 40.0;
 const MAX_POINTS: usize = 240;
-
-/** What the stage shows while a path is recorded. */
-#[derive(Serialize, Clone)]
-#[serde(tag = "phase", content = "n", rename_all = "snake_case")]
-enum RecordPhase { Countdown(u32), Recording, Done }
-
-fn announce(app: &AppHandle, phase: RecordPhase) {
-    let _ = app.emit_to(window_manager::MEME_STAGE_LABEL, "path-recording", phase);
-}
+/** A drawn path never has more samples than this (10 s at the 60 Hz a pointer reports). */
+const MAX_SAMPLES: usize = 1200;
 
 
 
@@ -95,58 +78,14 @@ pub fn simplify(points: Vec<PathPoint>, width: f64, height: f64, min_area: f64, 
 
 
 
-/** Runs the countdown and the recording on this (blocking) thread. Escape during the countdown cancels: no points. */
-fn record(app: &AppHandle) -> AppResult<Vec<PathPoint>> {
-    memeboard::stop_all(app);
-    window_manager::show_meme_stage(app)?;
-    let (origin, size) = window_manager::meme_stage_rect(app).ok_or(AppError::MissingStageWindow)?;
-    let (ox, oy) = (f64::from(origin.x), f64::from(origin.y));
-    let (w, h) = (f64::from(size.width.max(1)), f64::from(size.height.max(1)));
-    window_manager::set_meme_stage_interactive(app, true);
-
-    let finish = |app: &AppHandle| {
-        window_manager::set_meme_stage_interactive(app, false);
-        announce(app, RecordPhase::Done);
-        window_manager::hide_meme_stage(app);
-    };
-
-    for n in (1..=COUNTDOWN_FROM).rev() {
-        announce(app, RecordPhase::Countdown(n));
-        let until = Instant::now() + Duration::from_secs(1);
-        while Instant::now() < until {
-            if window_manager::escape_down() {
-                finish(app);
-                return Ok(Vec::new());
-            }
-            std::thread::sleep(SAMPLE_EVERY);
-        }
-    }
-
-    announce(app, RecordPhase::Recording);
-    let start = Instant::now();
-    let limit = Duration::from_millis(u64::from(MAX_MEME_MS));
-    let mut points = Vec::new();
-    loop {
-        let elapsed = start.elapsed();
-        let clicked = elapsed > CLICK_GRACE && window_manager::primary_button_down();
-        if elapsed >= limit || clicked || window_manager::escape_down() { break; }
-        if let Ok(cursor) = app.cursor_position() {
-            points.push(PathPoint {
-                t: u32::try_from(elapsed.as_millis()).unwrap_or(MAX_MEME_MS),
-                x: ((cursor.x - ox) / w).clamp(0.0, 1.0) as f32,
-                y: ((cursor.y - oy) / h).clamp(0.0, 1.0) as f32,
-            });
-        }
-        std::thread::sleep(SAMPLE_EVERY);
-    }
-    finish(app);
-    Ok(simplify(points, w, h, MIN_AREA_PX2, MAX_POINTS))
-}
-
-/// Records a path for a meme. Resolves with the thinned points, or none when cancelled with Escape.
+/// Thins a path drawn on a `width` x `height` px preview. Samples past `MAX_MEME_MS` or outside 0..=1 are dropped first.
 #[tauri::command]
-pub async fn record_meme_path(app: AppHandle) -> AppResult<Vec<PathPoint>> {
-    tauri::async_runtime::spawn_blocking(move || record(&app)).await.map_err(|_| AppError::RecordingFailed)?
+pub fn simplify_meme_path(points: Vec<PathPoint>, width: f64, height: f64) -> Vec<PathPoint> {
+    let points: Vec<PathPoint> = points.into_iter()
+        .filter(|p| p.t <= MAX_MEME_MS && (0.0..=1.0).contains(&p.x) && (0.0..=1.0).contains(&p.y))
+        .take(MAX_SAMPLES)
+        .collect();
+    simplify(points, width.max(1.0), height.max(1.0), MIN_AREA_PX2, MAX_POINTS)
 }
 
 

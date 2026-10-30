@@ -28,7 +28,7 @@ use windows::Win32::Graphics::Gdi::{
 };
 
 use windows::Win32::UI::HiDpi::GetDpiForWindow;
-use windows::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_ESCAPE, VK_LBUTTON, VK_RBUTTON};
+use windows::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_LBUTTON, VK_RBUTTON};
 use windows::Win32::UI::Shell::{
     DefSubclassProc, RemoveWindowSubclass, SetWindowSubclass, SHQueryUserNotificationState, QUNS_RUNNING_D3D_FULL_SCREEN,
 };
@@ -363,11 +363,6 @@ pub fn foreground_fullscreen() -> Fullscreen {
 }
 
 /** Whether the primary mouse button is held right now, anywhere on screen (respects swapped buttons). */
-/** Whether Escape is held right now, whatever window has focus. */
-pub fn escape_down() -> bool {
-    unsafe { GetAsyncKeyState(i32::from(VK_ESCAPE.0)) < 0 }
-}
-
 pub fn primary_button_down() -> bool {
     let button = if unsafe { GetSystemMetrics(SM_SWAPBUTTON) } != 0 { VK_RBUTTON } else { VK_LBUTTON };
     let state: i16 = unsafe { GetAsyncKeyState(i32::from(button.0)) };
