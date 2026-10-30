@@ -1,5 +1,8 @@
 /*Central menu box*/
 .radial-menu {
+	/* the lit label: the same filter list in and out of the reveal, so it animates instead of jumping */
+	--radial-label-glow: blur(0) drop-shadow(0 0 2px var(--kg-accent-2))
+		drop-shadow(0 0 6px var(--kg-accent));
 	--radial-label-size: min(calc(var(--kg-text-heading) * 1.15), 22px);
 
 	position: relative;
@@ -58,16 +61,55 @@
 	filter: url(#radial-glow-blur);
 }
 
-/* Sector labels. The sketch icon above each one is a nested svg. */
+/* Sector labels: hidden in the dark, written along the inside of the neon line. Hovering lights the line and the
+   light reveals the name, flickering on like a neon tube. */
 .radial-label {
-	fill: var(--kg-fg);
+	fill: color-mix(in srgb, var(--kg-fg) 78%, var(--kg-accent-2));
+	font-family: var(--kg-font-heading);
+	font-size: var(--radial-label-size);
+	font-weight: 600;
+	letter-spacing: 0.06em;
 	text-anchor: middle;
 	dominant-baseline: central;
+	opacity: 0;
 	pointer-events: none; /*ignores clicks*/
 	user-select: none; /*ignores select text*/
-	font-size: var(--radial-label-size);
-	font-weight: 500;
-	transform: translateY(calc(var(--radial-label-size) * 0.9));
+	transition: opacity var(--kg-dur-fast) var(--kg-ease-out);
+}
+
+.radial-sector:hover .radial-label,
+.radial-sector:focus-visible .radial-label {
+	opacity: 1;
+	filter: var(--radial-label-glow);
+	animation: radial-label-reveal 0.6s var(--kg-ease-out) both;
+}
+
+/* out of the blur and the spread, with two quick flickers before it holds */
+@keyframes radial-label-reveal {
+	0% {
+		opacity: 0;
+		letter-spacing: 0.3em;
+		filter: blur(4px) drop-shadow(0 0 0 transparent)
+			drop-shadow(0 0 0 transparent);
+	}
+	35% {
+		opacity: 0.8;
+	}
+	45% {
+		opacity: 0.25;
+	}
+	60% {
+		opacity: 1;
+		letter-spacing: 0.06em;
+	}
+	70% {
+		opacity: 0.55;
+	}
+	100% {
+		opacity: 1;
+		letter-spacing: 0.06em;
+		filter: var(--radial-label-glow);
+	}
 }
 
 /* the icon ignores clicks like the label, so the whole sector stays the button */

@@ -47,7 +47,7 @@ export function hasMediaExtension(path: string): boolean {
 	return MEDIA_EXTENSIONS.includes(ext);
 }
 
-export const AUDIO_TYPES: MediaType[] = ['mp3', 'wav', 'ogg'];
+const AUDIO_TYPES: MediaType[] = ['mp3', 'wav', 'ogg'];
 
 export const isAudioType = (type: MediaType | null): boolean =>
 	type !== null && AUDIO_TYPES.includes(type);

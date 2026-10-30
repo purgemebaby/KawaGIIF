@@ -89,6 +89,21 @@ export function outerArcPath(
 	return `M ${fmt(pointAt(cx, cy, r, startDeg))} ${arcTo(r, large, 1, pointAt(cx, cy, r, endDeg))}`;
 }
 
+/** The arc a sector's label is written along. It always runs left to right, so the lower sectors' labels never read
+ upside down: their arc goes back from the end angle to the start one. */
+export function labelArcPath(
+	id: SectorId,
+	cx: number,
+	cy: number,
+	r: number,
+): string {
+	const { startDeg, endDeg, centreDeg } = sectorOf(id);
+	if (Math.sin((centreDeg * Math.PI) / 180) <= 0)
+		return outerArcPath(cx, cy, r, startDeg, endDeg);
+	const large = largeArcFlag(startDeg, endDeg);
+	return `M ${fmt(pointAt(cx, cy, r, endDeg))} ${arcTo(r, large, 0, pointAt(cx, cy, r, startDeg))}`;
+}
+
 /** Unit vector from the ring centre towards the sector centre. */
 export function directionOf(id: SectorId): { x: number; y: number } {
 	const [x, y] = pointAt(0, 0, 1, CENTRES[id]);
@@ -124,59 +139,4 @@ export function sectorPolygon(
 		...sampleArc(cx, cy, rOuter, startDeg, endDeg, outerCount),
 		...sampleArc(cx, cy, rInner, endDeg, startDeg, points - outerCount),
 	];
-}
-
-/** Whether a point (relative to the ring centre) lies inside a sector's slice of the ring. */
-function insideSector(sector: Sector, x: number, y: number): boolean {
-	const r = Math.hypot(x, y);
-	if (r < RING_INNER || r > RING_OUTER) return false;
-	const deg = ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
-	const start = ((sector.startDeg % 360) + 360) % 360;
-	const end = start + (sector.endDeg - sector.startDeg);
-	return (
-		(deg >= start && deg <= end) || (deg + 360 >= start && deg + 360 <= end)
-	);
-}
-
-/**
- * How far a horizontal label centred at (x, y) (relative to the ring centre, viewBox units) can reach to each side
- * before leaving its sector. Walks outwards a unit at a time: cheap, and right for any sector count.
- */
-export function freeHalfWidth(id: SectorId, x: number, y: number): number {
-	const sector = sectorOf(id);
-	let half = 0;
-	while (
-		half < RING_OUTER &&
-		insideSector(sector, x - half - 1, y) &&
-		insideSector(sector, x + half + 1, y)
-	) {
-		half += 1;
-	}
-	return half;
-}
-
-/**
- * The one label radius that gives the tightest sector the most room: a label sits `drop` below its point and its icon
- * `rise` above, so in the lower sectors the label is nearer the outer edge than in the upper ones. Scans the ring in
- * whole units and returns the radius and the half-width it leaves.
- */
-export function bestLabelRadius(
-	drop: number,
-	rise: number,
-): { radius: number; half: number } {
-	let best = { radius: (RING_INNER + RING_OUTER) / 2, half: 0 };
-	for (let r = RING_INNER + 10; r <= RING_OUTER - 10; r += 1) {
-		let worst = Infinity;
-		for (const sector of SECTORS) {
-			const [x, y] = pointAt(0, 0, r, sector.centreDeg);
-			// the icon must stay inside its sector too
-			if (!insideSector(sector, x, y - rise)) {
-				worst = 0;
-				break;
-			}
-			worst = Math.min(worst, freeHalfWidth(sector.id, x, y + drop));
-		}
-		if (worst > best.half) best = { radius: r, half: worst };
-	}
-	return best;
 }

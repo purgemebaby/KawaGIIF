@@ -138,41 +138,26 @@
 }
 
 /* Raised neutral pill: grows a touch, the icon spins. */
-.kg-btn--ghost,
-.kg-btn--icon {
+.kg-btn--ghost {
 	--kg-btn-ink: var(--kg-border-strong);
 	background: var(--kg-bg-raised);
 	color: var(--kg-fg-muted);
 }
 
-.kg-btn--ghost:hover:not(:disabled),
-.kg-btn--icon:hover:not(:disabled) {
-	--kg-btn-ink: var(--kg-fg);
+.kg-btn--ghost:hover:not(:disabled) {
+	--kg-btn-ink: var(--kg-fg-muted);
 	box-shadow: var(--kg-shadow-1);
 	color: var(--kg-fg);
 	transform: scale(1.04);
 }
 
-.kg-btn--ghost:hover:not(:disabled) {
-	--kg-btn-ink: var(--kg-fg-muted);
-}
-
-.kg-btn--ghost:hover:not(:disabled) > svg,
-.kg-btn--icon:hover:not(:disabled) > svg {
+.kg-btn--ghost:hover:not(:disabled) > svg {
 	transform: rotate(180deg);
 }
 
 .kg-btn--sm {
 	padding: 6px 12px;
 	font-size: var(--kg-text-sm);
-}
-
-.kg-btn--icon {
-	width: 34px;
-	height: 34px;
-	padding: 0;
-	border-radius: 50%;
-	font-size: var(--kg-text-icon);
 }
 
 /* After the hover rules so a press wins while hovering. */

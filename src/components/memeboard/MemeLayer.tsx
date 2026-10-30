@@ -10,7 +10,7 @@ import {
 } from '../../lib/memeAnimation';
 import GifCanvasPlayer from '../GifCanvasPlayer';
 
-export interface MemeLayerProps {
+interface MemeLayerProps {
 	url: string;
 	mediaType: MediaType;
 	naturalW: number | null;

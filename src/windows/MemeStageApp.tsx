@@ -35,16 +35,12 @@ function MemeStageApp() {
 		return () => offs.forEach((off) => off.then((f) => f()));
 	}, []);
 
-	const [hadLayers, setHadLayers] = useState(false);
+	// Empty at startup too, so the hidden stage goes to sleep right away instead of after its first meme. Rust hides
+	// the window unless a sound-only meme is still counted as playing.
+	const empty = layers.length === 0;
 	useEffect(() => {
-		if (layers.length > 0) {
-			setHadLayers(true);
-		} else if (hadLayers) {
-			// Rust hides the window unless a sound-only meme is still counted as playing
-			invoke('meme_stage_idle').catch(() => {});
-			setHadLayers(false);
-		}
-	}, [layers.length, hadLayers]);
+		if (empty) invoke('meme_stage_idle').catch(() => {});
+	}, [empty]);
 
 	const remove = (instance: string) =>
 		setLayers((prev) => prev.filter((l) => l.instance !== instance));

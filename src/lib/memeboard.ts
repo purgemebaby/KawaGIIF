@@ -23,7 +23,7 @@ export type Animation =
 	| { kind: 'fall'; at: number }
 	| { kind: 'path'; points: PathPoint[] };
 
-export type AnimationKind = Animation['kind'];
+type AnimationKind = Animation['kind'];
 
 export type Anchor =
 	| { kind: 'cursor' }
@@ -32,8 +32,7 @@ export type Anchor =
 	| { kind: 'fixed'; x: number; y: number };
 
 /** Which monitor a meme shows on. */
-export type MonitorChoice =
-	{ kind: 'cursor' } | { kind: 'named'; name: string };
+type MonitorChoice = { kind: 'cursor' } | { kind: 'named'; name: string };
 
 /** What a second press does while the meme still plays. */
 export type Refire = 'restart' | 'stack' | 'ignore';
@@ -96,7 +95,7 @@ export interface MemeboardView {
 export type HotkeyRefusal =
 	'invalid' | 'needs_modifier' | 'reserved' | 'duplicate' | 'limit';
 
-export interface StageVisual {
+interface StageVisual {
 	path: string;
 	media_type: MediaType;
 	width: number | null;
@@ -129,7 +128,7 @@ export const ANIMATION_KINDS: AnimationKind[] = [
 export const POP_IN_MS = 280;
 export const POP_OUT_MS = 220;
 export const POP_MS_RANGE: [number, number] = [80, 1500];
-export const SHAKE_INTENSITY = 0.25;
+const SHAKE_INTENSITY = 0.25;
 export const SPEED_RANGE: [number, number] = [0.25, 3];
 
 /** The animation of a kind with its default options. */
