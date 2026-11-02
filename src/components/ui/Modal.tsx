@@ -28,7 +28,8 @@ function Modal({
 	onCancel,
 	extraActions,
 }: ModalProps) {
-	useEscape(true, onCancel);
+	// claims Escape first: a dialog opened over another modal (the meme editor) closes alone
+	useEscape(true, onCancel, true);
 
 	return createPortal(
 		<div className="modal-backdrop" onClick={onCancel}>

@@ -300,6 +300,15 @@
 	transition: none;
 }
 
+/* the podium's memes keep their glow but hold still, without sparkles */
+:root[data-nav-animations='off'] .podium-visual.is-bobbing {
+	animation: none;
+}
+
+:root[data-nav-animations='off'] .podium-sparkle {
+	display: none;
+}
+
 /* the button hatch still fills with nav animations off, just without the fade */
 :root[data-nav-animations='off'] .kg-btn--secondary::before,
 :root[data-nav-animations='off'] .kg-btn--danger::before {

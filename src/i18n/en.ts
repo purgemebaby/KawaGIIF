@@ -263,8 +263,10 @@ export const en = {
 			timeInfo:
 				'How long the meme lasts, 10 s at most. By default as long as its sound. A longer time repeats it.',
 			volume: 'Volume',
-			heightAt: 'Height',
-			widthAt: 'Position',
+			xAt: 'X',
+			yAt: 'Y',
+			positionAt: 'Position',
+			randomAt: 'Random position',
 			pxOf: (px: number, of: number) => `${px} px of ${of}`,
 			hotkey: 'Shortcut',
 			hotkeyPlaceholder: 'Click and press the keys',
@@ -284,12 +286,8 @@ export const en = {
 				stack: 'Add another on top',
 				ignore: 'Ignore the press',
 			},
-			pitch: 'Change the pitch on each play',
-			pitches: {
-				off: 'Off',
-				low: 'A little',
-				high: 'A lot',
-			},
+			pitch: 'Random pitch on each play',
+			pitchRange: 'Variation',
 		},
 		styles: {
 			load: 'Load a saved style…',
@@ -321,6 +319,7 @@ export const en = {
 			right: 'Right',
 			top: 'Top',
 			bottom: 'Bottom',
+			random: 'Random',
 		},
 		anchors: {
 			cursor: 'Cursor',

@@ -20,6 +20,9 @@ interface HotkeyFieldProps {
 	hint?: boolean;
 }
 
+// under memeboard.rs PAUSE_LIMIT (15 s)
+const PAUSE_RENEW_MS = 10_000;
+
 // A button that, once clicked, records the next key combination. Rust checks it (reserved, duplicate, the cap of 10).
 function HotkeyField({
 	value,
@@ -56,6 +59,20 @@ function HotkeyField({
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [value, memeId]);
 
+	// While recording, the memes' hotkeys are paused: pressing one types it here instead of firing it. Rust lifts a
+	// pause nobody renews after 15 s, so it is renewed while the field still listens.
+	useEffect(() => {
+		if (!listening) return;
+		const pause = (paused: boolean) =>
+			invoke('pause_meme_hotkeys', { paused }).catch(() => {});
+		pause(true);
+		const renew = window.setInterval(() => pause(true), PAUSE_RENEW_MS);
+		return () => {
+			window.clearInterval(renew);
+			pause(false);
+		};
+	}, [listening]);
+
 	useEffect(() => {
 		if (!listening) return;
 		const onKeyDown = (e: KeyboardEvent) => {
@@ -68,12 +85,21 @@ function HotkeyField({
 			const hotkey = hotkeyFromEvent(e);
 			if (!hotkey) return;
 			setListening(false);
-			onChange(hotkey);
+			// a refused combination (taken, reserved…) is never set: the field keeps its value and says why
+			invoke<HotkeyRefusal | null>('check_hotkey', {
+				hotkey,
+				memeId: memeId ?? null,
+			})
+				.then((result) => {
+					if (result) setRefusal(result);
+					else onChange(hotkey);
+				})
+				.catch(() => {});
 		};
 		// capture, so Escape doesn't also close the editor around it
 		window.addEventListener('keydown', onKeyDown, true);
 		return () => window.removeEventListener('keydown', onKeyDown, true);
-	}, [listening, onChange]);
+	}, [listening, onChange, memeId]);
 
 	return (
 		<div className="hotkey-field">

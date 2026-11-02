@@ -294,6 +294,7 @@ Thumbnails live in `thumbs/<stored stem>.webp` (longest side 320 px, lossless WE
 | `list_memes` | — | `MemeboardView` (`memes` with `hotkey_conflict`, `stop_hotkey`, `stop_conflict`, `presets`, `max_hotkeys` = 10, `max_meme_ms` = 10 000) |
 | `new_meme` | `name: String` | `Meme` (not saved; first free default hotkey `Ctrl+Alt+Digit1..0`, shown as Ctrl+AltGr+N) |
 | `check_hotkey` | `hotkey: String, meme_id: Option<Uuid>` (none = the Stop all shortcut) | `Option<HotkeyRefusal>` (`invalid`, `needs_modifier`, `reserved`, `duplicate`, `limit`) |
+| `pause_meme_hotkeys` | `paused: bool` | — (while a shortcut field records; lifted by itself after 15 s without renewal) |
 | `save_meme` | `meme: Meme` | `AppResult<Meme>` (sanitized, hotkey canonicalized; keeps the stored `fire_count`; re-registers every hotkey) |
 | `delete_meme` | `id: Uuid` | `AppResult<()>` |
 | `set_stop_hotkey` | `hotkey: String` | `AppResult<String>` (canonical form) |

@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { t } from '../../i18n';
 import type { Behaviour, Refire } from '../../lib/memeboard';
+import SettingsToggle from '../settings/SettingsToggle';
 import ChoiceChips from '../ui/ChoiceChips';
 import Slider from '../ui/Slider';
 
@@ -10,25 +12,21 @@ interface BehaviourPanelProps {
 
 const REFIRES: readonly Refire[] = ['restart', 'stack', 'ignore'];
 const MAX_COOLDOWN_MS = 30_000;
-/** The pitch choices and the `speed_jitter` each one stands for. */
-const PITCH_JITTER = { off: 0, low: 0.12, high: 0.3 } as const;
-type Pitch = keyof typeof PITCH_JITTER;
-const PITCHES = Object.keys(PITCH_JITTER) as Pitch[];
+// `speed_jitter`: each play runs at a random speed (and so pitch) within 1 ± it; must match memeboard.rs MAX_SPEED_JITTER
+const MIN_JITTER = 0.01;
+const MAX_JITTER = 0.5;
+const DEFAULT_JITTER = 0.12;
 
-/** The pitch choice closest to a stored jitter, so values saved before the choices existed still show one. */
-function pitchOf(jitter: number): Pitch {
-	return PITCHES.reduce((best, p) =>
-		Math.abs(PITCH_JITTER[p] - jitter) < Math.abs(PITCH_JITTER[best] - jitter)
-			? p
-			: best,
-	);
-}
-
-/** What pressing the shortcut does: the cooldown, what a second press does, and a varying pitch. */
+/** What pressing the shortcut does: the cooldown, what a second press does, and a pitch that can vary at random. */
 function BehaviourPanel({ behaviour, onChange }: BehaviourPanelProps) {
 	const text = t.memeboard.behaviour;
 	const set = (patch: Partial<Behaviour>) =>
 		onChange({ ...behaviour, ...patch });
+	// switching the random pitch off and on again brings back the last variation
+	const [lastJitter, setLastJitter] = useState(
+		behaviour.speed_jitter > 0 ? behaviour.speed_jitter : DEFAULT_JITTER,
+	);
+	const randomPitch = behaviour.speed_jitter > 0;
 
 	return (
 		<>
@@ -53,16 +51,25 @@ function BehaviourPanel({ behaviour, onChange }: BehaviourPanelProps) {
 					ariaLabel={text.refire}
 				/>
 			</div>
-			<div className="meme-field">
-				<span>{text.pitch}</span>
-				<ChoiceChips
-					options={PITCHES}
-					value={pitchOf(behaviour.speed_jitter)}
-					label={(pitch) => text.pitches[pitch]}
-					onChange={(pitch) => set({ speed_jitter: PITCH_JITTER[pitch] })}
-					ariaLabel={text.pitch}
+			<SettingsToggle
+				checked={randomPitch}
+				text={{ label: text.pitch }}
+				onChange={(on) => set({ speed_jitter: on ? lastJitter : 0 })}
+			/>
+			{randomPitch && (
+				<Slider
+					label={text.pitchRange}
+					min={MIN_JITTER}
+					max={MAX_JITTER}
+					step={0.01}
+					value={behaviour.speed_jitter}
+					format={(v) => `± ${Math.round(v * 100)} %`}
+					onChange={(speed_jitter) => {
+						setLastJitter(speed_jitter);
+						set({ speed_jitter });
+					}}
 				/>
-			</div>
+			)}
 		</>
 	);
 }

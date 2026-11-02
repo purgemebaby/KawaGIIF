@@ -2,7 +2,9 @@ import type { MediaType } from './media';
 
 // Mirror of memeboard.rs.
 
-export type Side = 'left' | 'right' | 'top' | 'bottom';
+/** `random` picks one of the four on each play. */
+export type Side = 'left' | 'right' | 'top' | 'bottom' | 'random';
+const CONCRETE_SIDES = ['left', 'right', 'top', 'bottom'] as const;
 
 /** `t` ms after the start; `x`/`y` as a fraction (0..1) of the monitor. */
 export interface PathPoint {
@@ -17,10 +19,11 @@ export type Animation =
 	| { kind: 'dvd_bounce'; colors: boolean }
 	| { kind: 'bounce' }
 	| { kind: 'shake'; intensity: number }
-	/** `at`: where on the other axis it crosses, 0..1 of the monitor (height for left/right, else width). */
-	| { kind: 'cross'; from: Side; at: number }
-	/** `at`: where along the width it falls, 0..1. */
-	| { kind: 'fall'; at: number }
+	/** `at`: where on the other axis it crosses, 0..1 of the monitor (height for left/right, else width); `random_at`
+	 picks it anew on each play. */
+	| { kind: 'cross'; from: Side; at: number; random_at: boolean }
+	/** `at`: where along the width it falls, 0..1, or anywhere with `random_at`. */
+	| { kind: 'fall'; at: number; random_at: boolean }
 	| { kind: 'path'; points: PathPoint[] };
 
 type AnimationKind = Animation['kind'];
@@ -111,6 +114,8 @@ export interface StageFire {
 	/** Playback speed of the visual, matching the sound's. */
 	speed: number;
 	cursor: [number, number];
+	/** How many copies of this meme were already on screen. */
+	stack: number;
 }
 
 export const ANIMATION_KINDS: AnimationKind[] = [
@@ -135,9 +140,9 @@ export const SPEED_RANGE: [number, number] = [0.25, 3];
 export function defaultAnimation(kind: AnimationKind): Animation {
 	switch (kind) {
 		case 'cross':
-			return { kind, from: 'left', at: 0.5 };
+			return { kind, from: 'left', at: 0.5, random_at: false };
 		case 'fall':
-			return { kind, at: 0.5 };
+			return { kind, at: 0.5, random_at: false };
 		case 'path':
 			return { kind, points: [] };
 		case 'pop':
@@ -148,6 +153,27 @@ export function defaultAnimation(kind: AnimationKind): Animation {
 			return { kind, intensity: SHAKE_INTENSITY };
 		default:
 			return { kind };
+	}
+}
+
+/** One play's animation, with a random side or position picked (memeboard.rs `Animation::resolved`). The stage
+ already gets them picked; the editor preview picks again on each loop. */
+export function resolveAnimation(animation: Animation): Animation {
+	switch (animation.kind) {
+		case 'cross': {
+			const from =
+				animation.from === 'random'
+					? CONCRETE_SIDES[Math.floor(Math.random() * CONCRETE_SIDES.length)]
+					: animation.from;
+			const at = animation.random_at ? Math.random() : animation.at;
+			return { ...animation, from, at, random_at: false };
+		}
+		case 'fall':
+			return animation.random_at
+				? { ...animation, at: Math.random(), random_at: false }
+				: animation;
+		default:
+			return animation;
 	}
 }
 

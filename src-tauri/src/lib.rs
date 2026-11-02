@@ -75,11 +75,10 @@ pub fn run() {
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, None))
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
+                // the meme hotkeys go through the keyboard hook (memeboard::start_hotkeys); only the app's own is here
                 .with_handler(move |app, shortcut, event| {
-                    if *shortcut == release_shortcut {
-                        if event.state == ShortcutState::Pressed { template::toggle_click_through_release(app); }
-                    } else {
-                        memeboard::on_shortcut(app, shortcut, &event);
+                    if *shortcut == release_shortcut && event.state == ShortcutState::Pressed {
+                        template::toggle_click_through_release(app);
                     }
                 })
                 .build(),
@@ -92,6 +91,7 @@ pub fn run() {
             memeboard::list_memes,
             memeboard::new_meme,
             memeboard::check_hotkey,
+            memeboard::pause_meme_hotkeys,
             memeboard::save_meme,
             memeboard::delete_meme,
             memeboard::set_stop_hotkey,
@@ -194,6 +194,7 @@ pub fn run() {
             template::load_saved_template_on_boot(&handle.state::<EditorState>());
             library::thumbnail_library_on_boot(&handle.state::<LibraryState>());
             app.global_shortcut().register(release_shortcut)?;
+            memeboard::start_hotkeys(handle);
             memeboard::sync_hotkeys(handle);
             memeboard::fire_from_args(handle, &std::env::args().collect::<Vec<_>>());
             tray::setup(handle)?;

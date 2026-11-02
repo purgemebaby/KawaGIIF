@@ -63,6 +63,7 @@ function MemeStageApp() {
 							speed={layer.speed}
 							motionSpeed={layer.meme.motion_speed}
 							cursor={layer.cursor}
+							stack={layer.stack}
 							stageW={stageW}
 							stageH={stageH}
 							onDone={() => remove(layer.instance)}

@@ -1,26 +1,29 @@
 /** Memeboard. Memes pair a visual and/or a sound from the library with an on-screen animation and a global hotkey.
- Keeps them in `memeboard.json`, keeps their hotkeys registered, and fires them: the sound goes to the audio thread,
+ Keeps them in `memeboard.json`, hands their hotkeys to the keyboard hook (native/keyboard_hook.rs), and fires them: the sound goes to the audio thread,
  the visual to the `MEME-STAGE` overlay. A meme lasts as long as its sound (or the video's own), never more than
  `MAX_MEME_MS`, and is only fired when its estimated memory fits in what the system has free. */
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::str::FromStr;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, MutexGuard, PoisonError};
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager, State};
-use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutEvent, ShortcutState};
+use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut};
 use uuid::Uuid;
 
 use crate::audio::{AudioState, Sound};
 use crate::config;
 use crate::error::{AppError, AppResult};
 use crate::library::{LibraryState, MediaItem, MediaType};
+use crate::native::keyboard_hook::{self, KeyCombo};
 use crate::window_manager;
 
 /* Personal Note for me:
-- A `Shortcut` is a modifiers + key pair. `Shortcut::id()` is a number made from both, so the shortcut handler can
-  look the meme up from the event without comparing strings.
+- The hotkeys don't go through RegisterHotKey (the global-shortcut plugin) any more: it can't tell Ctrl+AltGr from
+  AltGr, so it stole AltGr+1 (`|`). The keyboard hook matches a `KeyCombo` (scan code + real modifiers) instead. The
+  plugin only probes each hotkey, to flag one another app already holds.
 */
 
 pub const MAX_MEME_MS: u32 = 10_000;
@@ -40,10 +43,11 @@ fn notify_memeboard_changed(app: &AppHandle) {
 
 
 
-/** Where a cross-screen meme comes in from. */
+/** Where a cross-screen meme comes in from. `Random` picks one of the four on each play. */
 #[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Debug)]
 #[serde(rename_all = "snake_case")]
-pub enum Side { Left, Right, Top, Bottom }
+pub enum Side { Left, Right, Top, Bottom, Random }
+const SIDES: [Side; 4] = [Side::Left, Side::Right, Side::Top, Side::Bottom];
 
 /** One sample of a recorded path: `t` ms after the start, the position as a fraction (0..=1) of the monitor. */
 #[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Debug)]
@@ -73,21 +77,47 @@ pub enum Animation {
         intensity: f32,
     },
     /// Crosses the monitor from `from`, at `at` (0..=1) of the other axis: the height for left/right, else the width.
+    /// `random_at` picks `at` anew on each play.
     Cross {
         from: Side,
         #[serde(default = "half")]
         at: f32,
+        #[serde(default)]
+        random_at: bool,
     },
-    /// Falls from the top at `at` (0..=1) of the width.
+    /// Falls from the top at `at` (0..=1) of the width, or anywhere along it with `random_at`.
     Fall {
         #[serde(default = "half")]
         at: f32,
+        #[serde(default)]
+        random_at: bool,
     },
     Path { points: Vec<PathPoint> },
 }
 
 impl Default for Animation {
     fn default() -> Self { Self::Pop { enter_ms: default_pop_in(), exit_ms: default_pop_out() } }
+}
+impl Animation {
+    /// This play's animation: a random side or position is picked now, so the stage only ever gets concrete ones.
+    fn resolved(&self) -> Self {
+        let pick_at = |at: f32, random: bool| if random { random_unit() } else { at };
+        match *self {
+            Self::Cross { from, at, random_at } => {
+                // random_unit is below 1, so the index stays in range
+                let from = if from == Side::Random { SIDES[(random_unit() * SIDES.len() as f32) as usize] } else { from };
+                Self::Cross { from, at: pick_at(at, random_at), random_at: false }
+            }
+            Self::Fall { at, random_at } => Self::Fall { at: pick_at(at, random_at), random_at: false },
+            _ => self.clone(),
+        }
+    }
+}
+
+/** A random number in 0..1, from a fresh v4 uuid (no rand crate needed for a few picks per play). */
+fn random_unit() -> f32 {
+    let bits = (Uuid::new_v4().as_u128() >> 64) as u64;
+    (bits >> 40) as f32 / (1u64 << 24) as f32
 }
 
 const POP_MS: std::ops::RangeInclusive<u32> = 80..=1500;
@@ -143,8 +173,7 @@ impl Behaviour {
     /// A random speed for one play, from the bits of a fresh UUID (no rand crate needed for this).
     fn pick_speed(self) -> f32 {
         if self.speed_jitter <= 0.0 { return 1.0; }
-        let unit = (Uuid::new_v4().as_u128() >> 64) as f64 / u64::MAX as f64;
-        1.0 + self.speed_jitter * (unit as f32 * 2.0 - 1.0)
+        1.0 + self.speed_jitter * (random_unit() * 2.0 - 1.0)
     }
 }
 
@@ -237,7 +266,7 @@ impl Meme {
                 *exit_ms = (*exit_ms).clamp(*POP_MS.start(), *POP_MS.end());
             }
             Animation::Shake { intensity } => *intensity = finite_or(*intensity, default_shake()).clamp(0.0, 1.0),
-            Animation::Cross { at, .. } | Animation::Fall { at } => *at = finite_or(*at, 0.5).clamp(0.0, 1.0),
+            Animation::Cross { at, .. } | Animation::Fall { at, .. } => *at = finite_or(*at, 0.5).clamp(0.0, 1.0),
             _ => {}
         }
         if let Animation::Path { points } = &mut self.animation {
@@ -312,6 +341,12 @@ impl Hotkey {
         if self.alt { mods |= Modifiers::ALT; }
         if self.shift { mods |= Modifiers::SHIFT; }
         Shortcut::new((!mods.is_empty()).then_some(mods), self.code)
+    }
+
+    /// What the keyboard hook matches. `None` for a key the hook has no scan code for.
+    fn combo(self) -> Option<KeyCombo> {
+        let scan = keyboard_hook::scan_for_code(&self.code.to_string())?;
+        Some(KeyCombo { scan, ctrl: self.ctrl, alt: self.alt, shift: self.shift })
     }
 
     fn modifier_count(self) -> usize { usize::from(self.ctrl) + usize::from(self.alt) + usize::from(self.shift) }
@@ -423,15 +458,15 @@ impl MemeboardIndex {
 
 
 /** A meme on screen: what it costs and when it ends. */
-struct Showing { instance: Uuid, meme: Uuid, bytes: u64, until: Instant }
+/// `monitor` is where its visual shows (none for a sound alone).
+struct Showing { instance: Uuid, meme: Uuid, bytes: u64, until: Instant, monitor: Option<String> }
 
-/** The memeboard, the registered shortcuts (by `Shortcut::id`) and what is on screen. */
+/** The memeboard, the hotkeys the hook matches and what is on screen. */
 pub struct MemeboardState(Mutex<Inner>);
 struct Inner {
     index: MemeboardIndex,
-    registered: HashMap<u32, Shortcut>,
-    by_shortcut: HashMap<u32, Uuid>,
-    stop_shortcut: Option<u32>,
+    by_combo: HashMap<KeyCombo, Uuid>,
+    stop_combo: Option<KeyCombo>,
     conflicts: HashSet<Uuid>,
     stop_conflict: bool,
     showing: Vec<Showing>,
@@ -443,9 +478,8 @@ impl Default for MemeboardState {
     fn default() -> Self {
         Self(Mutex::new(Inner {
             index: MemeboardIndex::load(),
-            registered: HashMap::new(),
-            by_shortcut: HashMap::new(),
-            stop_shortcut: None,
+            by_combo: HashMap::new(),
+            stop_combo: None,
             conflicts: HashSet::new(),
             stop_conflict: false,
             showing: Vec::new(),
@@ -459,43 +493,81 @@ impl MemeboardState {
 }
 
 /**
- * Unregisters every meme shortcut and registers the current ones again. A shortcut another app already holds fails
- * to register: that meme is flagged as a conflict instead of failing silently.
+ * Hands the current hotkeys to the keyboard hook. A hotkey another app already holds (probed by registering and
+ * releasing it at once) is flagged as a conflict and left out, instead of failing silently or stealing it.
  */
 pub fn sync_hotkeys(app: &AppHandle) {
     let state = app.state::<MemeboardState>();
     let mut inner = state.lock();
-    let shortcuts = app.global_shortcut();
-    for shortcut in inner.registered.drain().map(|(_, s)| s) { let _ = shortcuts.unregister(shortcut); }
-    inner.by_shortcut.clear();
+    inner.by_combo.clear();
     inner.conflicts.clear();
 
-    let wanted: Vec<(Uuid, Option<Hotkey>)> = inner.index.memes.iter()
-        .filter_map(|m| Some((m.id, m.hotkey.as_deref().map(Hotkey::parse)?.ok())))
+    let wanted: Vec<(Uuid, Hotkey)> = inner.index.memes.iter()
+        .filter_map(|m| Some((m.id, Hotkey::parse(m.hotkey.as_deref()?).ok()?)))
         .collect();
     for (id, hotkey) in wanted {
-        let Some(hotkey) = hotkey else { continue; };
-        let shortcut = hotkey.shortcut();
-        if shortcuts.register(shortcut).is_ok() {
-            inner.registered.insert(shortcut.id(), shortcut);
-            inner.by_shortcut.insert(shortcut.id(), id);
-        } else {
-            inner.conflicts.insert(id);
+        match hotkey.combo().filter(|_| is_free(app, hotkey)) {
+            Some(combo) => { inner.by_combo.insert(combo, id); }
+            None => { inner.conflicts.insert(id); }
         }
     }
 
-    inner.stop_shortcut = None;
-    inner.stop_conflict = false;
-    if let Ok(stop) = Hotkey::parse(&inner.index.stop_hotkey).map(Hotkey::shortcut) {
-        if shortcuts.register(stop).is_ok() {
-            inner.registered.insert(stop.id(), stop);
-            inner.stop_shortcut = Some(stop.id());
-        } else {
-            inner.stop_conflict = true;
-        }
-    }
+    let stop = Hotkey::parse(&inner.index.stop_hotkey).ok();
+    inner.stop_combo = stop.filter(|h| is_free(app, *h)).and_then(Hotkey::combo);
+    inner.stop_conflict = inner.stop_combo.is_none();
+    keyboard_hook::set_combos(inner.by_combo.keys().copied().chain(inner.stop_combo).collect());
     drop(inner);
     notify_memeboard_changed(app);
+}
+
+/** Whether no other app holds `hotkey` through RegisterHotKey: registering it must work (it is released at once). */
+fn is_free(app: &AppHandle, hotkey: Hotkey) -> bool {
+    let shortcuts = app.global_shortcut();
+    let shortcut = hotkey.shortcut();
+    let free = shortcuts.register(shortcut).is_ok();
+    if free { let _ = shortcuts.unregister(shortcut); }
+    free
+}
+
+/** Starts the keyboard hook and the thread that fires what it matches. Called once from setup. */
+pub fn start_hotkeys(app: &AppHandle) {
+    let Some(pressed) = keyboard_hook::start() else { return; };
+    let app = app.clone();
+    std::thread::spawn(move || {
+        for combo in pressed {
+            let (meme, is_stop) = {
+                let state = app.state::<MemeboardState>();
+                let inner = state.lock();
+                (inner.by_combo.get(&combo).copied(), inner.stop_combo == Some(combo))
+            };
+            if is_stop { stop_all(&app); continue; }
+            let Some(id) = meme else { continue; };
+            let handle = app.clone();
+            // its own thread: firing reads files and waits for the audio thread, and the next press must not wait
+            std::thread::spawn(move || {
+                if let Err(error) = fire(&handle, id) {
+                    let _ = handle.emit("meme-rejected", error.to_string());
+                }
+            });
+        }
+    });
+}
+
+/// Bumped by every pause, so the safety timer only lifts the pause it was started for.
+static PAUSE_GENERATION: AtomicU64 = AtomicU64::new(0);
+/// A shortcut field that never said it was done (a crashed page) can't leave the hotkeys off for long.
+const PAUSE_LIMIT: Duration = Duration::from_secs(15);
+
+/// Stops the hotkeys from firing (and from swallowing their keys) while a shortcut field records one.
+#[tauri::command]
+pub fn pause_meme_hotkeys(paused: bool) {
+    let generation = PAUSE_GENERATION.fetch_add(1, Ordering::Relaxed) + 1;
+    keyboard_hook::set_paused(paused);
+    if !paused { return; }
+    std::thread::spawn(move || {
+        std::thread::sleep(PAUSE_LIMIT);
+        if PAUSE_GENERATION.load(Ordering::Relaxed) == generation { keyboard_hook::set_paused(false); }
+    });
 }
 
 /** The meme named by `--fire-meme <id|name>` (or `--fire-meme=<id|name>`) in `args`; names ignore case. */
@@ -532,25 +604,6 @@ pub fn fire_from_args(app: &AppHandle, args: &[String]) -> bool {
     true
 }
 
-/** The global shortcut handler's share: fires the meme of a pressed shortcut, or stops everything. */
-pub fn on_shortcut(app: &AppHandle, shortcut: &Shortcut, event: &ShortcutEvent) {
-    if event.state != ShortcutState::Pressed { return; }
-    let (meme, is_stop) = {
-        let state = app.state::<MemeboardState>();
-        let inner = state.lock();
-        (inner.by_shortcut.get(&shortcut.id()).copied(), inner.stop_shortcut == Some(shortcut.id()))
-    };
-    if is_stop { stop_all(app); return; }
-    let Some(id) = meme else { return; };
-    let handle = app.clone();
-    // off the shortcut thread: firing reads files and waits for the audio thread
-    std::thread::spawn(move || {
-        if let Err(error) = fire(&handle, id) {
-            let _ = handle.emit("meme-rejected", error.to_string());
-        }
-    });
-}
-
 
 
 // Firing
@@ -574,6 +627,8 @@ pub struct StageFire {
     /// Playback speed of the visual: the meme's playback speed times its random pitch, matching the sound.
     pub speed: f32,
     pub cursor: (f64, f64),
+    /// How many copies of this meme were already on screen: each stacked copy is placed a little aside.
+    pub stack: usize,
 }
 
 fn media_path(item: &MediaItem) -> PathBuf { crate::library::media_dir().join(&item.stored_file_name) }
@@ -640,6 +695,15 @@ fn make_room(showing: &[Showing], id: Uuid, refire: Refire, max: usize) -> Optio
     Some(evict)
 }
 
+/** Adds to `evict` the visuals on another monitor than `monitor`: the stage is a single window, about to move there. */
+fn evict_other_monitors(showing: &[Showing], monitor: Option<&str>, evict: &mut Vec<usize>) {
+    let Some(monitor) = monitor else { return; };
+    for (index, s) in showing.iter().enumerate() {
+        if s.monitor.as_deref().is_some_and(|m| m != monitor) && !evict.contains(&index) { evict.push(index); }
+    }
+    evict.sort_unstable();
+}
+
 fn fits_in_memory(needed: u64, already_showing: u64, available: u64) -> bool {
     let budget = (available as f64 * FREE_RAM_SHARE) as u64;
     needed.saturating_add(already_showing) <= budget
@@ -678,14 +742,16 @@ pub fn fire(app: &AppHandle, id: Uuid) -> AppResult<()> {
     let max_concurrent = settings.meme_max_concurrent.clamp(1, config::MAX_MEME_CONCURRENCY) as usize;
 
     let instance = Uuid::new_v4();
-    let evicted: Vec<Uuid> = {
+    let monitor = visual.as_ref().and_then(|_| window_manager::meme_monitor_name(app, &meme.monitor));
+    let (evicted, stack) = {
         let state = app.state::<MemeboardState>();
         let mut inner = state.lock();
         let now = Instant::now();
         let cooldown = Duration::from_millis(u64::from(meme.behaviour.cooldown_ms));
         if inner.last_fired.get(&id).is_some_and(|at| now.duration_since(*at) < cooldown) { return Ok(()); }
         inner.showing.retain(|s| s.until > now);
-        let Some(evict) = make_room(&inner.showing, id, meme.behaviour.refire, max_concurrent) else { return Ok(()); };
+        let Some(mut evict) = make_room(&inner.showing, id, meme.behaviour.refire, max_concurrent) else { return Ok(()); };
+        evict_other_monitors(&inner.showing, monitor.as_deref(), &mut evict);
         // nothing changes unless the new meme also fits in memory
         let kept_bytes: u64 = inner.showing.iter().enumerate()
             .filter(|(i, _)| !evict.contains(i))
@@ -695,14 +761,15 @@ pub fn fire(app: &AppHandle, id: Uuid) -> AppResult<()> {
         let mut evicted = Vec::with_capacity(evict.len());
         for index in evict.into_iter().rev() { evicted.push(inner.showing.remove(index).instance); }
         let until = now + Duration::from_millis(u64::from(duration_ms));
-        inner.showing.push(Showing { instance, meme: id, bytes, until });
+        let stack = inner.showing.iter().filter(|s| s.meme == id).count();
+        inner.showing.push(Showing { instance, meme: id, bytes, until, monitor });
         inner.last_fired.insert(id, now);
         if let Some(stored) = inner.index.memes.iter_mut().find(|m| m.id == id) { stored.fire_count += 1; }
         let schedule = !inner.save_pending;
         inner.save_pending = true;
         drop(inner);
         if schedule { save_counts_soon(app); }
-        evicted
+        (evicted, stack)
     };
 
     let sound = app.state::<AudioState>();
@@ -725,10 +792,12 @@ pub fn fire(app: &AppHandle, id: Uuid) -> AppResult<()> {
                 width: visual.info.width,
                 height: visual.info.height,
             }),
-            meme,
+            // a random side or position is picked here, once per play
+            meme: Meme { animation: meme.animation.resolved(), ..meme },
             duration_ms,
             speed,
             cursor,
+            stack,
         };
         let _ = app.emit_to(window_manager::MEME_STAGE_LABEL, "meme-fire", payload);
     }
@@ -1070,15 +1139,15 @@ mod tests {
     fn memes_saved_before_speeds_and_monitors_load_with_defaults() {
         let json = format!(r#"{{"id":"{}","name":"old","animation":{{"kind":"cross","from":"left"}}}}"#, Uuid::new_v4());
         let meme: Meme = serde_json::from_str(&json).unwrap();
-        assert_eq!(meme.animation, Animation::Cross { from: Side::Left, at: 0.5 });
+        assert_eq!(meme.animation, Animation::Cross { from: Side::Left, at: 0.5, random_at: false });
         assert_eq!((meme.motion_speed, meme.playback_speed), (1.0, 1.0));
         assert_eq!(meme.monitor, MonitorChoice::Cursor);
         let fall: Animation = serde_json::from_str(r#"{"kind":"fall"}"#).unwrap();
-        assert_eq!(fall, Animation::Fall { at: 0.5 });
+        assert_eq!(fall, Animation::Fall { at: 0.5, random_at: false });
     }
 
     fn showing(memes: &[Uuid]) -> Vec<Showing> {
-        memes.iter().map(|&meme| Showing { instance: Uuid::new_v4(), meme, bytes: 0, until: Instant::now() }).collect()
+        memes.iter().map(|&meme| Showing { instance: Uuid::new_v4(), meme, bytes: 0, until: Instant::now(), monitor: None }).collect()
     }
 
     #[test]
@@ -1093,6 +1162,33 @@ mod tests {
         assert_eq!(make_room(&screen, c, Refire::Stack, 3), Some(vec![0]));
         assert_eq!(make_room(&screen, c, Refire::Stack, 1), Some(vec![0, 1, 2]));
         assert_eq!(make_room(&screen, b, Refire::Restart, 2), Some(vec![0, 1]));
+    }
+
+    #[test]
+    fn random_cross_and_fall_resolve_to_concrete_values() {
+        for _ in 0..50 {
+            let Animation::Cross { from, at, random_at } =
+                (Animation::Cross { from: Side::Random, at: 0.5, random_at: true }).resolved() else { panic!() };
+            assert!(from != Side::Random && (0.0..1.0).contains(&at) && !random_at);
+            let Animation::Fall { at, random_at } = (Animation::Fall { at: 0.2, random_at: true }).resolved() else { panic!() };
+            assert!((0.0..1.0).contains(&at) && !random_at);
+        }
+        let fixed = Animation::Cross { from: Side::Top, at: 0.3, random_at: false };
+        assert_eq!(fixed.resolved(), fixed);
+    }
+
+    #[test]
+    fn a_meme_on_another_monitor_sends_the_others_away() {
+        let on = |monitor: Option<&str>| Showing {
+            instance: Uuid::new_v4(), meme: Uuid::new_v4(), bytes: 0, until: Instant::now(), monitor: monitor.map(str::to_owned),
+        };
+        let screen = [on(Some("A")), on(None), on(Some("B")), on(Some("A"))];
+        let mut evict = vec![3];
+        evict_other_monitors(&screen, Some("A"), &mut evict);
+        assert_eq!(evict, vec![2, 3]);
+        let mut none = Vec::new();
+        evict_other_monitors(&screen, None, &mut none);
+        assert!(none.is_empty(), "a sound alone moves no stage");
     }
 
     #[test]

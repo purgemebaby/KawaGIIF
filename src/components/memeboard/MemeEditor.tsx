@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { t } from '../../i18n';
 import { invoke } from '../../lib/ipc';
@@ -17,6 +17,7 @@ import {
 } from '../../lib/memeboard';
 import { useLibrary } from '../../context/LibraryProvider';
 import { useEscape } from '../../hooks/useDismiss';
+import { useImportFlow } from '../ImportDialogs';
 import MediaThumb from '../MediaThumb';
 import SettingsToggle from '../settings/SettingsToggle';
 import ChoiceChips from '../ui/ChoiceChips';
@@ -45,7 +46,7 @@ interface MonitorInfo {
 	primary: boolean;
 }
 
-const SIDES: readonly Side[] = ['left', 'right', 'top', 'bottom'];
+const SIDES: readonly Side[] = ['left', 'right', 'top', 'bottom', 'random'];
 const ANCHORS: readonly Anchor['kind'][] = ['cursor', 'center', 'random'];
 const DEFAULT_STILL_MS = 3000;
 const MIN_TIME_MS = 500;
@@ -73,14 +74,22 @@ const percent = (v: number) => `${Math.round(v * 100)} %`;
 function Block({
 	title,
 	extra,
+	className,
+	dropHint,
 	children,
 }: {
 	title: string;
 	extra?: ReactNode;
+	className?: string;
+	/** Set on a drop zone: the text shown while files are dragged over it. */
+	dropHint?: string;
 	children: ReactNode;
 }) {
 	return (
-		<section className="meme-block">
+		<section
+			className={className ? `meme-block ${className}` : 'meme-block'}
+			data-drop-hint={dropHint}
+		>
 			<header className="meme-block-title">
 				<h4>{title}</h4>
 				{extra}
@@ -152,6 +161,10 @@ function MemeEditor({
 	onClose,
 }: MemeEditorProps) {
 	const { items } = useLibrary();
+	// imports from here work like the Library's: a button, or files dropped on the media block
+	const { startImport, dropping, dialogs } = useImportFlow({
+		toastNotices: true,
+	});
 	const [draft, setDraft] = useState<Meme>(meme);
 	const [hotkeyOk, setHotkeyOk] = useState(true);
 	const [saving, setSaving] = useState(false);
@@ -172,6 +185,22 @@ function MemeEditor({
 		() => items.filter((i) => isAudioType(i.media_type) && !i.missing),
 		[items],
 	);
+	// what an import while the editor is open adds gets picked, when it is one visual or one sound
+	const knownIds = useRef<Set<string> | null>(null);
+	useEffect(() => {
+		const known = knownIds.current;
+		knownIds.current = new Set(items.map((i) => i.id));
+		if (!known) return;
+		const added = items.filter((i) => !known.has(i.id) && !i.missing);
+		const addedVisuals = added.filter((i) => !isAudioType(i.media_type));
+		const addedSounds = added.filter((i) => isAudioType(i.media_type));
+		setDraft((d) => ({
+			...d,
+			visual: addedVisuals.length === 1 ? addedVisuals[0].id : d.visual,
+			audio: addedSounds.length === 1 ? addedSounds[0].id : d.audio,
+		}));
+	}, [items]);
+
 	const visual = visuals.find((i) => i.id === draft.visual) ?? null;
 	const sound = sounds.find((i) => i.id === draft.audio) ?? null;
 	const videoVisual = visual !== null && isVideoType(visual.media_type);
@@ -259,23 +288,42 @@ function MemeEditor({
 		</Block>
 	);
 
-	// where along the other axis a crossing or a fall goes, shown in px of the meme's monitor
-	const positionSlider = (
-		at: number,
-		vertical: boolean,
-		onAt: (at: number) => void,
+	// Where along the other axis a crossing or a fall goes: Y for a side entry, X for one from above or below, shown in
+	// px of the meme's monitor. A random side can be either, so it reads as a plain share. Random hides the slider.
+	const positionOptions = (
+		anim: Extract<Animation, { kind: 'cross' | 'fall' }>,
+		axis: 'x' | 'y' | 'either',
 	) => {
-		const length = vertical ? screen.height : screen.width;
+		const length = axis === 'y' ? screen.height : screen.width;
 		return (
-			<Slider
-				label={vertical ? editor.heightAt : editor.widthAt}
-				min={0}
-				max={1}
-				step={0.01}
-				value={at}
-				format={(v) => editor.pxOf(Math.round(v * length), length)}
-				onChange={onAt}
-			/>
+			<>
+				<SettingsToggle
+					checked={anim.random_at}
+					text={{ label: editor.randomAt }}
+					onChange={(random_at) => setAnimation({ ...anim, random_at })}
+				/>
+				{!anim.random_at && (
+					<Slider
+						label={
+							axis === 'x'
+								? editor.xAt
+								: axis === 'y'
+									? editor.yAt
+									: editor.positionAt
+						}
+						min={0}
+						max={1}
+						step={0.01}
+						value={anim.at}
+						format={(v) =>
+							axis === 'either'
+								? percent(v)
+								: editor.pxOf(Math.round(v * length), length)
+						}
+						onChange={(at) => setAnimation({ ...anim, at })}
+					/>
+				)}
+			</>
 		);
 	};
 
@@ -336,17 +384,18 @@ function MemeEditor({
 								onChange={(from) => setAnimation({ ...anim, from })}
 							/>
 						</div>
-						{positionSlider(
-							anim.at,
-							anim.from === 'left' || anim.from === 'right',
-							(at) => setAnimation({ ...anim, at }),
+						{positionOptions(
+							anim,
+							anim.from === 'random'
+								? 'either'
+								: anim.from === 'left' || anim.from === 'right'
+									? 'y'
+									: 'x',
 						)}
 					</>
 				);
 			case 'fall':
-				return positionSlider(anim.at, false, (at) =>
-					setAnimation({ ...anim, at }),
-				);
+				return positionOptions(anim, 'x');
 			default:
 				return null;
 		}
@@ -372,7 +421,20 @@ function MemeEditor({
 
 				<div className="meme-editor-body">
 					<div className="meme-editor-column">
-						<Block title={editor.media}>
+						<Block
+							title={editor.media}
+							className={`kg-drop-zone${dropping ? ' is-dropping' : ''}`}
+							dropHint={t.storage.dropHint}
+							extra={
+								<button
+									type="button"
+									className="kg-btn kg-btn--secondary kg-btn--sm"
+									onClick={startImport}
+								>
+									{t.storage.import}
+								</button>
+							}
+						>
 							<label className="meme-field">
 								<span>{editor.name}</span>
 								<input
@@ -554,6 +616,8 @@ function MemeEditor({
 						{editor.save}
 					</button>
 				</div>
+				{/* inside the editor box, so their clicks stop here instead of reaching the backdrop that closes it */}
+				{dialogs}
 			</div>
 		</div>,
 		document.getElementById(MODAL_ROOT_ID) ?? document.body,

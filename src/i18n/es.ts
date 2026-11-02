@@ -271,8 +271,10 @@ export const es: Strings = {
 			timeInfo:
 				'Cuánto dura el meme, 10 s como máximo. Por defecto lo que dure su sonido. Un tiempo mayor lo repite.',
 			volume: 'Volumen',
-			heightAt: 'Altura',
-			widthAt: 'Posición',
+			xAt: 'X',
+			yAt: 'Y',
+			positionAt: 'Posición',
+			randomAt: 'Posición al azar',
 			pxOf: (px: number, of: number) => `${px} px de ${of}`,
 			hotkey: 'Atajo',
 			hotkeyPlaceholder: 'Haz clic y pulsa las teclas',
@@ -292,12 +294,8 @@ export const es: Strings = {
 				stack: 'Suma otro encima',
 				ignore: 'Ignora la pulsación',
 			},
-			pitch: 'Variar el tono en cada uso',
-			pitches: {
-				off: 'No',
-				low: 'Un poco',
-				high: 'Mucho',
-			},
+			pitch: 'Tono al azar en cada uso',
+			pitchRange: 'Variación',
 		},
 		styles: {
 			load: 'Cargar un estilo guardado…',
@@ -329,6 +327,7 @@ export const es: Strings = {
 			right: 'Derecha',
 			top: 'Arriba',
 			bottom: 'Abajo',
+			random: 'Al azar',
 		},
 		anchors: {
 			cursor: 'Cursor',

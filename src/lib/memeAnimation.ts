@@ -163,8 +163,31 @@ export function poseAt(
 	}
 }
 
-/** The anchor's centre in stage px. `seed` (0..1) places a random anchor. */
+// a stacked copy moves this share of the stage's shorter side per copy, round a spiral (the golden angle)
+const STACK_STEP = 0.06;
+const GOLDEN_ANGLE = 2.39996;
+
+/** The anchor's centre in stage px. `seed` (0..1) places a random anchor; `stack` copies already on screen shift it
+ aside, so stacked copies of one meme never sit exactly on top of each other. */
 export function anchorPoint(
+	anchor: Anchor,
+	cursor: [number, number],
+	stageW: number,
+	stageH: number,
+	seed: number,
+	stack = 0,
+): [number, number] {
+	const [x, y] = baseAnchor(anchor, cursor, stageW, stageH, seed);
+	if (stack <= 0) return [x, y];
+	const reach = STACK_STEP * Math.min(stageW, stageH) * Math.sqrt(stack);
+	const angle = stack * GOLDEN_ANGLE;
+	return [
+		clamp(x + reach * Math.cos(angle), 0, stageW),
+		clamp(y + reach * Math.sin(angle), 0, stageH),
+	];
+}
+
+function baseAnchor(
 	anchor: Anchor,
 	cursor: [number, number],
 	stageW: number,

@@ -447,7 +447,7 @@
 	flex-direction: column;
 	align-items: center;
 	gap: var(--kg-space-5);
-	padding-top: var(--kg-space-4);
+	padding-top: var(--kg-space-6);
 }
 
 .podium-empty {
@@ -467,59 +467,46 @@
 	overflow: visible;
 }
 
-.podium-stroke {
-	fill: none;
-	stroke: var(--kg-fg);
-	stroke-width: 1.8;
-	stroke-linecap: round;
-	stroke-linejoin: round;
+/* clean metal blocks: a thin darker edge, no wobble */
+.podium-block {
+	stroke: color-mix(in srgb, var(--kg-px-ink) 55%, transparent);
+	stroke-width: 1.5;
 }
 
-.podium-stroke--second {
-	stroke-width: 1.2;
-	stroke-opacity: 0.55;
-}
-
-/* the same soft fill as the sketch icons */
-.podium-fill {
-	stroke: none;
-	fill-opacity: 0.6;
-}
-
-.podium-step.is-empty .podium-stroke {
+.podium-step.is-empty .podium-block {
 	stroke: var(--kg-fg-faint);
 	stroke-dasharray: 5 6;
 }
 
-.podium-step.is-empty .podium-stroke--second {
-	display: none;
+.podium-shine {
+	fill: #ffffff;
+	opacity: 0.45;
 }
 
-/* the place in title digits, outlined like the KawaGIIF title; the plays in the middle */
+.podium-floor {
+	stroke: var(--kg-border-strong);
+	stroke-width: 2;
+	stroke-linecap: round;
+}
+
+/* the place and the plays in dark ink, engraved on the metal */
 .podium-place,
 .podium-plays {
+	fill: var(--kg-px-ink);
 	text-anchor: middle;
-	paint-order: stroke;
-	stroke: var(--kg-px-ink);
-	stroke-linejoin: round;
 }
 
 .podium-place {
-	fill: var(--kg-title-keyline);
-	stroke-width: 4px;
 	font-family: var(--kg-font-heading);
-	font-size: 26px;
+	font-size: 28px;
 	font-weight: 700;
 }
 
 .podium-step.is-empty .podium-place {
 	fill: var(--kg-fg-faint);
-	stroke: none;
 }
 
 .podium-plays {
-	fill: var(--kg-fg);
-	stroke-width: 3px;
 	font-size: 13px;
 	font-weight: 700;
 }
@@ -529,13 +516,15 @@
 	aspect-ratio: 1;
 }
 
-/* no frame: the meme itself, contained, on a transparent background */
+/* no frame: the meme itself, contained, lit by its medal's glow */
 .podium-visual {
 	display: flex;
 	align-items: flex-end;
 	justify-content: center;
 	width: 100%;
 	height: 100%;
+	filter: drop-shadow(0 0 6px var(--medal))
+		drop-shadow(0 0 16px color-mix(in srgb, var(--medal) 55%, transparent));
 }
 
 .podium-visual img,
@@ -552,6 +541,7 @@
 	background: transparent;
 }
 
+/* floats and its glow breathes with it */
 .podium-visual.is-bobbing {
 	animation: podium-bob 2.4s ease-in-out infinite;
 }
@@ -567,6 +557,66 @@
 @keyframes podium-bob {
 	50% {
 		transform: translateY(-5px);
+		filter: drop-shadow(0 0 10px var(--medal))
+			drop-shadow(0 0 26px color-mix(in srgb, var(--medal) 70%, transparent));
+	}
+}
+
+/* sparkles round the meme, twinkling one after another */
+.podium-sparkle {
+	position: absolute;
+	color: var(--medal);
+	font-size: 14px;
+	line-height: 1;
+	text-shadow: 0 0 6px var(--medal);
+	pointer-events: none;
+	animation: podium-twinkle 1.8s ease-in-out infinite;
+	opacity: 0;
+}
+
+.podium-sparkle:nth-of-type(1) {
+	top: 2%;
+	left: -6%;
+}
+.podium-sparkle:nth-of-type(2) {
+	top: 18%;
+	right: -8%;
+	animation-delay: -0.45s;
+	font-size: 10px;
+}
+.podium-sparkle:nth-of-type(3) {
+	top: 58%;
+	left: -10%;
+	animation-delay: -0.9s;
+	font-size: 11px;
+}
+.podium-sparkle:nth-of-type(4) {
+	top: 66%;
+	right: -6%;
+	animation-delay: -1.35s;
+}
+.podium-sparkle:nth-of-type(5) {
+	top: -12%;
+	left: 40%;
+	animation-delay: -0.2s;
+	font-size: 12px;
+}
+.podium-sparkle:nth-of-type(6) {
+	top: 38%;
+	right: -14%;
+	animation-delay: -1.1s;
+	font-size: 9px;
+}
+
+@keyframes podium-twinkle {
+	0%,
+	100% {
+		opacity: 0;
+		transform: scale(0.4) rotate(0deg);
+	}
+	45% {
+		opacity: 1;
+		transform: scale(1) rotate(45deg);
 	}
 }
 

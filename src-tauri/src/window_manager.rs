@@ -413,18 +413,7 @@ pub fn list_monitors(app: AppHandle) -> crate::error::AppResult<Vec<MonitorInfo>
 pub fn show_meme_stage(app: &AppHandle, choice: &crate::memeboard::MonitorChoice) -> crate::error::AppResult<(f64, f64)> {
     let window = meme_stage(app).ok_or(crate::error::AppError::MissingStageWindow)?;
     let cursor = app.cursor_position()?;
-    let named = match choice {
-        crate::memeboard::MonitorChoice::Named { name } => {
-            app.available_monitors()?.into_iter().find(|m| m.name() == Some(name))
-        }
-        crate::memeboard::MonitorChoice::Cursor => None,
-    };
-    let monitor = match named {
-        Some(monitor) => monitor,
-        None => app.monitor_from_point(cursor.x, cursor.y)?
-            .or(app.primary_monitor()?)
-            .ok_or(crate::error::AppError::MissingStageWindow)?,
-    };
+    let monitor = stage_monitor(app, choice)?;
     let (pos, size) = (*monitor.position(), *monitor.size());
 
     set_slot_dormant(&window, false, || true);
@@ -440,6 +429,24 @@ pub fn show_meme_stage(app: &AppHandle, choice: &crate::memeboard::MonitorChoice
 
     let fraction = |at: f64, start: i32, len: u32| ((at - f64::from(start)) / f64::from(len.max(1))).clamp(0.0, 1.0);
     Ok((fraction(cursor.x, pos.x, size.width), fraction(cursor.y, pos.y, size.height)))
+}
+
+/** The monitor a meme shows on: the chosen one if still connected, else the one under the cursor, else the primary. */
+fn stage_monitor(app: &AppHandle, choice: &crate::memeboard::MonitorChoice) -> crate::error::AppResult<tauri::Monitor> {
+    if let crate::memeboard::MonitorChoice::Named { name } = choice {
+        if let Some(monitor) = app.available_monitors()?.into_iter().find(|m| m.name() == Some(name)) {
+            return Ok(monitor);
+        }
+    }
+    let cursor = app.cursor_position()?;
+    app.monitor_from_point(cursor.x, cursor.y)?
+        .or(app.primary_monitor()?)
+        .ok_or(crate::error::AppError::MissingStageWindow)
+}
+
+/** The name of the monitor a meme would show on, without moving anything. */
+pub fn meme_monitor_name(app: &AppHandle, choice: &crate::memeboard::MonitorChoice) -> Option<String> {
+    stage_monitor(app, choice).ok().map(|m| m.name().cloned().unwrap_or_default())
 }
 
 /** Hides the stage and puts its webview to sleep until the next meme. */

@@ -1,10 +1,9 @@
-import { useMemo } from 'react';
+import { useMemo, type CSSProperties } from 'react';
 import { motion } from 'motion/react';
 import { t } from '../../i18n';
 import type { MediaItem } from '../../lib/media';
 import type { MemeView } from '../../lib/memeboard';
 import { prefersReducedMotion } from '../../lib/navAnimations';
-import { seedOf, sketchStroke, type Point } from '../../lib/sketch';
 import MediaThumb from '../MediaThumb';
 import SketchIcon from '../ui/SketchIcon';
 
@@ -13,36 +12,28 @@ interface PodiumProps {
 	byId: Map<string, MediaItem>;
 }
 
-// The whole podium in one fixed viewBox, so the hand-drawn wobble is never stretched.
+// The whole podium in one fixed viewBox; the floating memes are placed in its units turned into %.
 const VIEW_W = 360;
 const VIEW_H = 252;
 const FLOOR_Y = 240;
 const STEP_W = 108;
+const STEP_RADIUS = 6;
 // left to right the steps are 2nd, 1st, 3rd; place is 0-based
 const STEPS = [
 	{ place: 1, x: 8, height: 96 },
 	{ place: 0, x: 126, height: 136 },
 	{ place: 2, x: 244, height: 68 },
 ] as const;
-const FILLS = ['var(--kg-px-sun)', 'var(--kg-px-purple)', 'var(--kg-px-pink)'];
+// gold, silver, bronze (tokens.css)
+const MEDALS = ['gold', 'silver', 'bronze'] as const;
+// the winner gets the most sparkles
+const SPARKLES = [6, 4, 4];
 const MEME_W = 82; // viewBox units, the floating meme's box
 const GROW_S = 0.5;
 // third grows first, the winner last
 const growDelay = (place: number) => (2 - place) * 0.2;
 
-/** One step as a slightly uneven box standing on the floor. */
-function stepOutline(x: number, height: number): Point[] {
-	const top = FLOOR_Y - height;
-	return [
-		[x, FLOOR_Y],
-		[x + 0.6, top + 1],
-		[x + STEP_W / 2, top - 0.8],
-		[x + STEP_W - 0.4, top + 0.6],
-		[x + STEP_W, FLOOR_Y],
-	];
-}
-
-/** The three most played memes floating over a hand-drawn podium that grows; the rest ranked below. */
+/** The three most played memes floating, glowing, over a gold, silver and bronze podium that grows; the rest below. */
 function Podium({ memes, byId }: PodiumProps) {
 	const ranked = useMemo(
 		() =>
@@ -52,26 +43,6 @@ function Podium({ memes, byId }: PodiumProps) {
 					(a, b) => b.fire_count - a.fire_count || a.name.localeCompare(b.name),
 				),
 		[memes],
-	);
-	const drawn = useMemo(
-		() => ({
-			steps: STEPS.map(({ place, x, height }) =>
-				sketchStroke(stepOutline(x, height), {
-					seed: seedOf(`podium.step.${place}`),
-					closed: true,
-					roughness: 1.4,
-				}),
-			),
-			floor: sketchStroke(
-				[
-					[0, FLOOR_Y],
-					[VIEW_W / 2, FLOOR_Y + 0.8],
-					[VIEW_W, FLOOR_Y],
-				],
-				{ seed: seedOf('podium.floor'), roughness: 1.2 },
-			),
-		}),
-		[],
 	);
 
 	if (ranked.length === 0) {
@@ -105,9 +76,25 @@ function Podium({ memes, byId }: PodiumProps) {
 					viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
 					aria-hidden="true"
 				>
-					{STEPS.map(({ place, x, height }, i) => {
+					<defs>
+						{/* polished metal: light at the top, the medal colour, a darker foot */}
+						{MEDALS.map((medal) => (
+							<linearGradient
+								key={medal}
+								id={`podium-${medal}`}
+								x1="0"
+								y1="0"
+								x2="0"
+								y2="1"
+							>
+								<stop offset="0" stopColor={`var(--kg-medal-${medal}-light)`} />
+								<stop offset="0.35" stopColor={`var(--kg-medal-${medal})`} />
+								<stop offset="1" stopColor={`var(--kg-medal-${medal}-dark)`} />
+							</linearGradient>
+						))}
+					</defs>
+					{STEPS.map(({ place, x, height }) => {
 						const meme = ranked[place];
-						const [first, second] = drawn.steps[i];
 						const top = FLOOR_Y - height;
 						const centre = x + STEP_W / 2;
 						return (
@@ -123,15 +110,27 @@ function Podium({ memes, byId }: PodiumProps) {
 									ease: [0.34, 1.3, 0.64, 1],
 								}}
 							>
-								{meme && (
-									<path className="podium-fill" d={first} fill={FILLS[place]} />
-								)}
-								<path className="podium-stroke" d={first} />
-								<path
-									className="podium-stroke podium-stroke--second"
-									d={second}
+								<rect
+									className="podium-block"
+									x={x}
+									y={top}
+									width={STEP_W}
+									height={height}
+									rx={STEP_RADIUS}
+									fill={meme ? `url(#podium-${MEDALS[place]})` : 'none'}
 								/>
-								<text className="podium-place" x={centre} y={top + 30}>
+								{meme && (
+									// the shine along the top edge
+									<rect
+										className="podium-shine"
+										x={x + 6}
+										y={top + 4}
+										width={STEP_W - 12}
+										height={5}
+										rx={2.5}
+									/>
+								)}
+								<text className="podium-place" x={centre} y={top + 32}>
 									{place + 1}
 								</text>
 								{meme && (
@@ -146,27 +145,33 @@ function Podium({ memes, byId }: PodiumProps) {
 							</motion.g>
 						);
 					})}
-					<path className="podium-stroke" d={drawn.floor[0]} />
-					<path
-						className="podium-stroke podium-stroke--second"
-						d={drawn.floor[1]}
+					<line
+						className="podium-floor"
+						x1={0}
+						y1={FLOOR_Y}
+						x2={VIEW_W}
+						y2={FLOOR_Y}
 					/>
 				</svg>
 
-				{/* the memes float in HTML over their step, placed in viewBox units turned into % */}
+				{/* the memes float in HTML over their step, glowing in their medal's colour */}
 				{STEPS.map(({ place, x, height }) => {
 					const meme = ranked[place];
 					if (!meme) return null;
+					const medal = { '--medal': `var(--kg-medal-${MEDALS[place]})` };
 					return (
 						<motion.div
 							key={meme.id}
 							className="podium-meme"
 							title={meme.name}
-							style={{
-								left: `${((x + STEP_W / 2 - MEME_W / 2) / VIEW_W) * 100}%`,
-								bottom: `${((VIEW_H - FLOOR_Y + height + 4) / VIEW_H) * 100}%`,
-								width: `${(MEME_W / VIEW_W) * 100}%`,
-							}}
+							style={
+								{
+									...medal,
+									left: `${((x + STEP_W / 2 - MEME_W / 2) / VIEW_W) * 100}%`,
+									bottom: `${((VIEW_H - FLOOR_Y + height + 4) / VIEW_H) * 100}%`,
+									width: `${(MEME_W / VIEW_W) * 100}%`,
+								} as CSSProperties
+							}
 							initial={still ? false : { opacity: 0, y: -30 }}
 							animate={{ opacity: 1, y: 0 }}
 							transition={{
@@ -180,6 +185,12 @@ function Podium({ memes, byId }: PodiumProps) {
 							>
 								{visualOf(meme)}
 							</div>
+							{!still &&
+								Array.from({ length: SPARKLES[place] }, (_, i) => (
+									<span key={i} className="podium-sparkle" aria-hidden="true">
+										✦
+									</span>
+								))}
 						</motion.div>
 					);
 				})}

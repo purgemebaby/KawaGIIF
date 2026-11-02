@@ -1,7 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import type { MediaType } from '../../lib/media';
 import { isImageType, isVideoType } from '../../lib/media';
-import type { Anchor, Animation } from '../../lib/memeboard';
+import {
+	resolveAnimation,
+	type Anchor,
+	type Animation,
+} from '../../lib/memeboard';
 import {
 	anchorPoint,
 	poseAt,
@@ -29,6 +33,8 @@ interface MemeLayerProps {
 	speed?: number;
 	/** How fast the movement runs, see `PoseContext.motionSpeed`. */
 	motionSpeed?: number;
+	/** Copies of this meme already on screen: this one is placed a little aside. */
+	stack?: number;
 	onDone?: () => void;
 }
 
@@ -48,6 +54,7 @@ function MemeLayer({
 	loop = false,
 	speed = 1,
 	motionSpeed = 1,
+	stack = 0,
 	onDone,
 }: MemeLayerProps) {
 	const ref = useRef<HTMLDivElement>(null);
@@ -65,7 +72,7 @@ function MemeLayer({
 	useEffect(() => {
 		const el = ref.current;
 		if (!el) return;
-		const [cx, cy] = anchorPoint(anchor, cursor, stageW, stageH, seed);
+		const [cx, cy] = anchorPoint(anchor, cursor, stageW, stageH, seed, stack);
 		const ctx = {
 			stageW,
 			stageH,
@@ -78,6 +85,8 @@ function MemeLayer({
 		};
 		let start = performance.now();
 		let frame = 0;
+		// a random side or position is picked for each loop
+		let current = resolveAnimation(animation);
 		const tick = (now: number) => {
 			let t = now - start;
 			if (t >= durationMs) {
@@ -87,8 +96,9 @@ function MemeLayer({
 				}
 				start = now;
 				t = 0;
+				current = resolveAnimation(animation);
 			}
-			const style = poseStyle(poseAt(animation, t, ctx));
+			const style = poseStyle(poseAt(current, t, ctx));
 			el.style.transform = style.transform;
 			el.style.opacity = style.opacity;
 			el.style.filter = style.filter;
@@ -105,6 +115,7 @@ function MemeLayer({
 		loop,
 		motionSpeed,
 		seed,
+		stack,
 		stageH,
 		stageW,
 		w,
