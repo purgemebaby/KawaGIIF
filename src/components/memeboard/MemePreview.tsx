@@ -60,15 +60,17 @@ function MemePreview({
 	const { url } = useMediaFiles(visual);
 	const dirs = useMediaDirs();
 
-	// what the stage gets for a party: the originals, videos as their still poster
+	// what the stage gets for a party: the originals, and for videos their poster too
 	const partyMedia = useMemo<PartyMedia[]>(
 		() =>
 			dirs
-				? partyItems.map((item) =>
-						isVideoType(item.media_type)
-							? { url: thumbFileUrl(dirs, item), mediaType: 'webp' }
-							: { url: mediaFileUrl(dirs, item), mediaType: item.media_type },
-					)
+				? partyItems.map((item) => ({
+						url: mediaFileUrl(dirs, item),
+						mediaType: item.media_type,
+						poster: isVideoType(item.media_type)
+							? thumbFileUrl(dirs, item)
+							: null,
+					}))
 				: [],
 		[dirs, partyItems],
 	);

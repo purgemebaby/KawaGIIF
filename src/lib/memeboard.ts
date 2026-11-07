@@ -119,6 +119,11 @@ interface StageVisual {
 }
 
 /** The `meme-fire` event. `cursor` is a fraction of the stage. */
+/** A party pop-up: for a video, the poster that shows when too many videos are already playing. */
+interface PartyVisual extends StageVisual {
+	poster: string | null;
+}
+
 export interface StageFire {
 	instance: string;
 	meme: Meme;
@@ -130,7 +135,7 @@ export interface StageFire {
 	/** How many copies of this meme were already on screen. */
 	stack: number;
 	/** Party: one visual per pop-up. */
-	party: StageVisual[];
+	party: PartyVisual[];
 	/** Combo: this press's count (1..99); 0 for other animations. */
 	combo: number;
 	/** The layer this play takes over (a combo press on its own meme) instead of adding one. */
@@ -155,7 +160,6 @@ export const PARTY_COUNT_RANGE: [number, number] = [5, 60];
 export const COMBO_STEP_RANGE: [number, number] = [2, 6];
 export const COMBO_WINDOW_RANGE: [number, number] = [1000, 10_000];
 export const COMBO_MAX_MARGIN = 0.2;
-export const MAX_COMBO = 99;
 
 // Defaults and ranges of the animation options; memeboard.rs clamps to the same.
 export const POP_IN_MS = 280;

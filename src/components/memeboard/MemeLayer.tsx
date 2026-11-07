@@ -8,6 +8,7 @@ import {
 } from '../../lib/memeboard';
 import {
 	anchorPoint,
+	comboCounterShift,
 	poseAt,
 	poseStyle,
 	visualSize,
@@ -125,6 +126,7 @@ function MemeLayer({
 		motionSpeed,
 		seed,
 		stack,
+		// a new count restarts the meme's clock: the press plays again
 		combo,
 		stageH,
 		stageW,
@@ -167,6 +169,7 @@ function MemeLayer({
 					windowMs={animation.window_ms}
 					side={animation.corner.endsWith('right') ? 'left' : 'right'}
 					unit={cell}
+					shift={comboCounterShift(animation, w, h, stageW, stageH, cell)}
 				/>
 			)}
 			{isVideoType(mediaType) && (

@@ -47,28 +47,57 @@ export function pixelText(text: string): {
 	};
 }
 
-/** How much wider than the number each tier's flames are: they grow from a glow behind it to a blaze around it. */
-export const FLAME_WIDTH = [0, 1.05, 1.3, 1.55, 1.7];
-
 /** The flame tiers: none, faint, orange, big red, blue. */
 export const FLAME_TIERS = 4;
 
+/** The box every flame is drawn in, in cells: the same for every tier, so the counter never changes size. */
+export const FLAME_BOX = { w: 15, h: 22 };
+
 interface FlameStyle {
-	/** Grid size of the sprite. */
-	w: number;
-	h: number;
+	/** How much of the box's width and height the flame fills: it starts small and grows into the whole box. */
+	widthShare: number;
+	heightShare: number;
 	/** Outer, middle and core colours. */
 	colors: [string, string, string];
+	/** Chance of a loose spark above a column: the fire gets more lively. */
+	sparks: number;
+	/** Heat above which a cell takes the core colour (lower: a bigger bright core). */
+	core: number;
 }
 
 const FLAMES: Record<number, FlameStyle> = {
-	1: { w: 9, h: 13, colors: ['#ff9f43', '#ffc76b', '#fff1c1'] },
-	2: { w: 11, h: 17, colors: ['#ff6a00', '#ff9a1f', '#ffe08a'] },
-	3: { w: 13, h: 20, colors: ['#c81414', '#ff3b2f', '#ffb347'] },
-	4: { w: 13, h: 22, colors: ['#1d4ed8', '#3fa9ff', '#d6f6ff'] },
+	// a weak little flame at first, filling the box at the last tier
+	1: {
+		widthShare: 0.5,
+		heightShare: 0.42,
+		colors: ['#ff9f43', '#ffc76b', '#fff1c1'],
+		sparks: 0,
+		core: 0.6,
+	},
+	2: {
+		widthShare: 0.68,
+		heightShare: 0.64,
+		colors: ['#ff6a00', '#ff9a1f', '#ffe08a'],
+		sparks: 0.08,
+		core: 0.55,
+	},
+	3: {
+		widthShare: 0.86,
+		heightShare: 0.84,
+		colors: ['#c81414', '#ff3b2f', '#ffb347'],
+		sparks: 0.14,
+		core: 0.5,
+	},
+	4: {
+		widthShare: 1,
+		heightShare: 1,
+		colors: ['#1d4ed8', '#3fa9ff', '#d6f6ff'],
+		sparks: 0.2,
+		core: 0.42,
+	},
 };
 
-export function flameStyle(tier: number): FlameStyle {
+function flameStyle(tier: number): FlameStyle {
 	return FLAMES[Math.min(FLAME_TIERS, Math.max(1, tier))];
 }
 
@@ -86,7 +115,11 @@ function rng(seed: number): () => number {
  * to frame. Cells near the base and the centre take the core colour, the edges the outer one.
  */
 export function flameFrame(tier: number, frame: number): Pixel[] {
-	const { w, h, colors } = flameStyle(tier);
+	const { widthShare, heightShare, colors, sparks, core } = flameStyle(tier);
+	// an odd width, so the flame has a middle column, centred in the box; it stands on the box's bottom edge
+	const w = Math.max(3, 2 * Math.round((FLAME_BOX.w * widthShare - 1) / 2) + 1);
+	const h = Math.max(3, Math.round(FLAME_BOX.h * heightShare));
+	const left = (FLAME_BOX.w - w) / 2;
 	const random = rng(tier * 97 + frame * 31 + 7);
 	const centre = (w - 1) / 2;
 	const pixels: Pixel[] = [];
@@ -99,11 +132,13 @@ export function flameFrame(tier: number, frame: number): Pixel[] {
 		for (let y = 0; y < top; y++) {
 			const heat = (1 - y / h) * (1 - fromCentre);
 			const color =
-				heat > 0.55 ? colors[2] : heat > 0.25 ? colors[1] : colors[0];
-			pixels.push([x, h - 1 - y, color]);
+				heat > core ? colors[2] : heat > 0.25 ? colors[1] : colors[0];
+			pixels.push([left + x, FLAME_BOX.h - 1 - y, color]);
 		}
-		// a loose spark above some columns
-		if (top > 2 && random() > 0.8) pixels.push([x, h - top - 2, colors[0]]);
+		// a loose spark above some columns, if the box has room for it
+		if (top > 2 && h - top - 2 >= 0 && random() < sparks) {
+			pixels.push([left + x, FLAME_BOX.h - 1 - (top + 2), colors[0]]);
+		}
 	}
 	return pixels;
 }

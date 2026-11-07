@@ -3,7 +3,12 @@ import { createPortal } from 'react-dom';
 import { t } from '../../i18n';
 import { invoke } from '../../lib/ipc';
 import { notifyError } from '../../lib/notify';
-import { isAudioType, isVideoType, type MediaItem } from '../../lib/media';
+import {
+	isAudioType,
+	isVideoType,
+	type MediaItem,
+	type MediaKind,
+} from '../../lib/media';
 import {
 	ANIMATION_KINDS,
 	COMBO_MAX_MARGIN,
@@ -22,8 +27,11 @@ import {
 } from '../../lib/memeboard';
 import { useLibrary } from '../../context/LibraryProvider';
 import { useEscape } from '../../hooks/useDismiss';
+import { useMediaFilters } from '../../hooks/useMediaFilters';
 import { useImportFlow } from '../ImportDialogs';
+import MediaFilterBar from '../MediaFilterBar';
 import MediaThumb from '../MediaThumb';
+import TagManager from '../tags/TagManager';
 import SettingsToggle from '../settings/SettingsToggle';
 import ChoiceChips from '../ui/ChoiceChips';
 import InfoTip from '../ui/InfoTip';
@@ -112,55 +120,101 @@ function Block({
 	);
 }
 
-/** Library items to pick from: visuals or cassettes, plus a "None" tile. Only the chosen tile moves or plays. */
+/**
+ * Library items to pick from: visuals or cassettes, plus a "None" tile, in a scrolling grid with the Library's own
+ * search, sort and tag filter (a library of hundreds is hopeless as a strip). Only the chosen tile moves or plays.
+ */
 function MediaPicker({
 	items,
 	selected,
 	onSelect,
 	disabled,
+	kind,
 }: {
 	items: MediaItem[];
 	selected: string | null;
 	onSelect: (id: string | null) => void;
 	disabled?: boolean;
+	kind: MediaKind;
 }) {
+	const {
+		filters,
+		setFilters,
+		filtered,
+		managingTags,
+		openTags,
+		closeTags,
+		toggleTag,
+	} = useMediaFilters(items);
+	// the current choice stays on the grid even when the search leaves it out
+	const shown = useMemo(() => {
+		const chosen = items.find((item) => item.id === selected);
+		return chosen && !filtered.includes(chosen)
+			? [chosen, ...filtered]
+			: filtered;
+	}, [items, filtered, selected]);
+
 	return (
-		<div className={`meme-picker${disabled ? ' is-disabled' : ''}`}>
-			<button
-				type="button"
-				className={`meme-picker-tile meme-picker-none${selected === null ? ' active' : ''}`}
-				disabled={disabled}
-				onClick={() => onSelect(null)}
-			>
-				{t.memeboard.editor.none}
-			</button>
-			{items.map((item) => {
-				const chosen = selected === item.id;
-				return (
-					<div
-						key={item.id}
-						role="button"
-						tabIndex={disabled ? -1 : 0}
-						aria-pressed={chosen}
-						aria-disabled={disabled}
-						className={`meme-picker-tile${chosen ? ' active' : ''}`}
-						title={item.original_file_name}
-						onClick={() => !disabled && onSelect(item.id)}
-						onKeyDown={(e) => {
-							if (disabled || (e.key !== 'Enter' && e.key !== ' ')) return;
-							e.preventDefault();
-							onSelect(item.id);
-						}}
-					>
-						<MediaThumb
-							item={item}
-							motion={chosen ? 'always' : 'hover'}
-							playable={!disabled && chosen}
-							alt={item.original_file_name}
-						/>
-					</div>
-				);
-			})}
+		<div
+			className={`meme-picker-wrap${disabled ? ' is-disabled' : ''}`}
+			inert={disabled}
+		>
+			{items.length > 0 && (
+				<MediaFilterBar
+					compact
+					kind={kind}
+					filters={filters}
+					onChange={setFilters}
+					onOpenTags={openTags}
+				/>
+			)}
+			<div className="meme-picker">
+				<button
+					type="button"
+					className={`meme-picker-tile meme-picker-none${selected === null ? ' active' : ''}`}
+					disabled={disabled}
+					onClick={() => onSelect(null)}
+				>
+					{t.memeboard.editor.none}
+				</button>
+				{shown.map((item) => {
+					const chosen = selected === item.id;
+					return (
+						<div
+							key={item.id}
+							role="button"
+							tabIndex={disabled ? -1 : 0}
+							aria-pressed={chosen}
+							aria-disabled={disabled}
+							className={`meme-picker-tile${chosen ? ' active' : ''}`}
+							title={item.original_file_name}
+							onClick={() => !disabled && onSelect(item.id)}
+							onKeyDown={(e) => {
+								if (disabled || (e.key !== 'Enter' && e.key !== ' ')) return;
+								e.preventDefault();
+								onSelect(item.id);
+							}}
+						>
+							<MediaThumb
+								item={item}
+								motion={chosen ? 'always' : 'hover'}
+								playable={!disabled && chosen}
+								alt={item.original_file_name}
+							/>
+						</div>
+					);
+				})}
+			</div>
+			{items.length > 0 && filtered.length === 0 && (
+				<small className="meme-field-note">{t.editor.sidebarNoMatches}</small>
+			)}
+			{managingTags && (
+				<TagManager
+					activeFilters={filters.tags}
+					onToggleFilter={toggleTag}
+					onClose={closeTags}
+				/>
+			)}
 		</div>
 	);
 }
@@ -466,21 +520,6 @@ function MemeEditor({
 							format={options.comboHits}
 							onChange={(step) => setAnimation({ ...anim, step })}
 						/>
-						<Slider
-							label={options.comboWindow}
-							min={COMBO_WINDOW_RANGE[0]}
-							max={COMBO_WINDOW_RANGE[1]}
-							step={250}
-							value={anim.window_ms}
-							format={seconds}
-							onChange={(window_ms) => setAnimation({ ...anim, window_ms })}
-							info={
-								<InfoTip
-									text={options.comboInfo}
-									label={t.memeboard.infoLabel}
-								/>
-							}
-						/>
 					</>
 				);
 			default:
@@ -534,6 +573,7 @@ function MemeEditor({
 							<div className="meme-field">
 								<span>{editor.visual}</span>
 								<MediaPicker
+									kind="visual"
 									items={visuals}
 									selected={draft.visual}
 									onSelect={(id) => set('visual', id)}
@@ -542,6 +582,7 @@ function MemeEditor({
 							<div className="meme-field">
 								<span>{editor.sound}</span>
 								<MediaPicker
+									kind="audio"
 									items={sounds}
 									selected={draft.audio}
 									onSelect={(id) => set('audio', id)}
@@ -652,7 +693,24 @@ function MemeEditor({
 								onReset={() => set('playback_speed', 1)}
 								resetLabel={editor.playbackSpeed}
 							/>
-							{anim.kind !== 'combo' && (
+							{anim.kind === 'combo' ? (
+								// a combo's time is its window: how long after the last press it keeps counting and burning
+								<Slider
+									label={editor.time}
+									min={COMBO_WINDOW_RANGE[0]}
+									max={COMBO_WINDOW_RANGE[1]}
+									step={250}
+									value={anim.window_ms}
+									format={seconds}
+									onChange={(window_ms) => setAnimation({ ...anim, window_ms })}
+									info={
+										<InfoTip
+											text={options.comboInfo}
+											label={t.memeboard.infoLabel}
+										/>
+									}
+								/>
+							) : (
 								<Slider
 									label={editor.time}
 									min={MIN_TIME_MS}

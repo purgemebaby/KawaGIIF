@@ -309,9 +309,8 @@ export const en = {
 			margin: 'Margin from the edges',
 			comboStep: 'Flames grow every',
 			comboHits: (n: number) => `${n} presses`,
-			comboWindow: 'Combo window',
 			comboInfo:
-				'Each press within the window adds one, up to 99. Without one, the flames die down and the meme fades out.',
+				'How long the combo lasts after the last press. Each press within this time adds one, up to 99; without one, the flames die down and the meme fades out.',
 		},
 		infoLabel: 'More info',
 		animations: {

@@ -317,9 +317,8 @@ export const es: Strings = {
 			margin: 'Margen con los bordes',
 			comboStep: 'Las llamas crecen cada',
 			comboHits: (n: number) => `${n} pulsaciones`,
-			comboWindow: 'Ventana del combo',
 			comboInfo:
-				'Cada pulsación dentro de la ventana suma uno, hasta 99. Sin pulsar, las llamas se apagan y el meme se desvanece.',
+				'Cuánto dura el combo tras la última pulsación. Cada pulsación dentro de este tiempo suma uno, hasta 99; sin pulsar, las llamas se apagan y el meme se desvanece.',
 		},
 		infoLabel: 'Más información',
 		animations: {

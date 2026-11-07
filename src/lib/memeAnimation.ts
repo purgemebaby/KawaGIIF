@@ -1,3 +1,4 @@
+import { FLAME_BOX } from './comboPixels';
 import {
 	POP_IN_MS,
 	POP_OUT_MS,
@@ -27,13 +28,22 @@ export interface PoseContext {
 	duration: number;
 	/** How fast the movement runs (1 = normal); the meme's length doesn't change. */
 	motionSpeed?: number;
-	/** Combo: this press's count. The first press pops in; later ones only give a little punch. */
+	/** Combo: this press's count. The first press brings the meme in; the next ones only press it like a button. */
 	combo?: number;
 }
 
+// a fall speeds up like a dropped thing, but gently: the last stretch is not a plunge
+const FALL_EASE = 1.4;
+const FALL_TURN_DEG = 40;
+
+// the most a combo's first pop may overshoot its size (see below: never more than its margin leaves it)
+const COMBO_OVERSHOOT = 0.1;
+// pressing a combo meme again dips it a little and lets it spring back, like pressing a button (kg-btn:active)
+const COMBO_PRESS_DIP = 0.08;
+const COMBO_PRESS_MS = 200;
+
 // a combo fades out slowly when its window runs out
 const COMBO_FADE_MS = 600;
-const COMBO_PUNCH_MS = 160;
 
 // at full intensity: px sideways, px up and down, degrees
 const SHAKE_MAX: [number, number, number] = [10, 6, 4];
@@ -159,28 +169,52 @@ export function poseAt(
 				: { ...base, x: across, y: along, opacity: 1 };
 		}
 		case 'fall': {
-			const y = -h + (stageH + 2 * h) * progress * progress;
+			// One fall over the whole meme, from just above the screen to just below it, longer meme, slower fall.
+			// Unlike the movements that repeat, it never starts over: a faster animation speed just ends it sooner, and
+			// once it is out of sight it stays out of sight (no fade either: it leaves by falling).
+			const pad = Math.max(w, h);
+			const fallen =
+				(duration > 0 ? clamp(m / duration, 0, 1) : 1) ** FALL_EASE;
 			const x = clamp(
 				animation.at * stageW - w / 2,
 				0,
 				Math.max(0, stageW - w),
 			);
-			return { ...base, x, y, rotate: progress * 40, opacity: 1 };
+			return {
+				...base,
+				x,
+				y: -pad + (stageH + 2 * pad) * fallen,
+				rotate: fallen * FALL_TURN_DEG,
+				opacity: enter,
+			};
 		}
 		case 'party':
 			// PartyLayer draws the pop-ups; the meme's own layer stays hidden
 			return { ...base, opacity: 0 };
 		case 'combo': {
-			const margin = animation.margin * Math.min(stageW, stageH);
-			const right = animation.corner.endsWith('right');
-			const bottom = animation.corner.startsWith('bottom');
-			const x = right ? stageW - w - margin : margin;
-			const y = bottom ? stageH - h - margin : margin;
+			const [x, y] = comboCorner(animation, w, h, stageW, stageH);
+			// A press restarts `t`. The first one brings the meme in with a pop, which may overshoot only as far as the
+			// margin to the screen's edge allows; the next ones only press it, and it never gets bigger than it is.
 			if ((ctx.combo ?? 1) <= 1) {
-				return { ...base, x, y, scale: Math.max(0, easeOutBack(enter)) };
+				const margin = animation.margin * Math.min(stageW, stageH);
+				const room =
+					1 + Math.min(COMBO_OVERSHOOT, (2 * margin) / Math.max(w, h, 1));
+				return {
+					...base,
+					x,
+					y,
+					scale: clamp(easeOutBack(enter), 0, room),
+					opacity: exit,
+				};
 			}
-			const punch = 1 - clamp(t / COMBO_PUNCH_MS, 0, 1);
-			return { ...base, x, y, opacity: exit, scale: 1 + 0.12 * punch };
+			const settling = 1 - clamp(t / COMBO_PRESS_MS, 0, 1);
+			return {
+				...base,
+				x,
+				y,
+				scale: 1 - COMBO_PRESS_DIP * settling ** 2,
+				opacity: exit,
+			};
 		}
 		case 'path': {
 			const [px, py] = onPath(animation.points, m, ctx);
@@ -192,6 +226,53 @@ export function poseAt(
 // a stacked copy moves this share of the stage's shorter side per copy, round a spiral (the golden angle)
 const STACK_STEP = 0.06;
 const GOLDEN_ANGLE = 2.39996;
+
+type ComboAnimation = Extract<Animation, { kind: 'combo' }>;
+
+/** Top-left of a combo meme: in its corner, `margin` in from the edges. */
+function comboCorner(
+	animation: ComboAnimation,
+	w: number,
+	h: number,
+	stageW: number,
+	stageH: number,
+): [number, number] {
+	const margin = animation.margin * Math.min(stageW, stageH);
+	const right = animation.corner.endsWith('right');
+	const bottom = animation.corner.startsWith('bottom');
+	return [
+		right ? stageW - w - margin : margin,
+		bottom ? stageH - h - margin : margin,
+	];
+}
+
+// the gap between a combo meme and its counter (MemeLayers.css)
+const COUNTER_GAP = 12;
+
+/**
+ * How far (px) the counter's box, beside the meme on the side facing the middle of the screen and centred on it, has to
+ * move so it stays entirely on screen: a top corner has no room above the meme for the flames. `unit` is the cell size.
+ */
+export function comboCounterShift(
+	animation: ComboAnimation,
+	w: number,
+	h: number,
+	stageW: number,
+	stageH: number,
+	unit: number,
+): [number, number] {
+	const [x, y] = comboCorner(animation, w, h, stageW, stageH);
+	const boxW = FLAME_BOX.w * unit;
+	const boxH = FLAME_BOX.h * unit;
+	const left = animation.corner.endsWith('right')
+		? x - COUNTER_GAP - boxW
+		: x + w + COUNTER_GAP;
+	const top = y + h / 2 - boxH / 2;
+	return [
+		clamp(left, 0, Math.max(0, stageW - boxW)) - left,
+		clamp(top, 0, Math.max(0, stageH - boxH)) - top,
+	];
+}
 
 /** The anchor's centre in stage px. `seed` (0..1) places a random anchor; `stack` copies already on screen shift it
  aside, so stacked copies of one meme never sit exactly on top of each other. */

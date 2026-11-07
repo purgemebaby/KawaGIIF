@@ -15,6 +15,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - Images and sounds can be imported straight from the meme editor, with the button or by dropping files on it.
   - Two more animations: **Party** fills the screen with tiny pop-ups of all your saved memes (5–60), and **Combo** sits in a corner with a fighting-game counter (up to x99) whose pixel-art flames grow every few presses, from a faint glow to blue fire, and die down when you stop.
   - The podium is drawn by hand in the app's colours, with the top memes glowing and sparkling.
+  - In Party, videos play too (up to 12 at once; the rest show their poster).
+  - In Fall, a meme falls once over the whole time, slower the longer the meme, and never starts over, whatever the animation speed.
+  - In Combo, the flame box is always the same size and always inside the screen; the flame drawn in it grows and burns brighter with each tier. The first press pops the meme in, later presses give it a small button-like press, and its Time slider is how long the combo lasts.
+  - A meme's plays start over when its image or sound is changed.
+  - The meme editor's pickers are a scrolling grid with the Library's search, sort and tag filter, so a library of hundreds is easy to browse.
   - A meme still plays when Windows has no cursor to report (a locked screen, a Stream Deck press): it shows on the main monitor.
   - A meme lasts as long as its sound (a video uses its own), 10 s at most; the visual loops until the sound ends.
   - Sounds can go to another output, such as a virtual cable (VB-Cable) to play them in a voice chat, or to the speakers and that device at once.

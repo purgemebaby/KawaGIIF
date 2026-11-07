@@ -262,21 +262,29 @@
 	max-width: 360px;
 }
 
-/* Horizontal strip of library items */
-.meme-picker {
+/* The picker: the Library's filter bar over a grid of tiles that scrolls after three rows */
+.meme-picker-wrap {
 	display: flex;
+	flex-direction: column;
 	gap: var(--kg-space-2);
-	overflow-x: auto;
-	padding-bottom: 4px;
+	min-width: 0;
 }
 
-.meme-picker.is-disabled {
+.meme-picker-wrap.is-disabled {
 	opacity: 0.45;
+}
+
+.meme-picker {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, 76px);
+	gap: var(--kg-space-2);
+	max-height: calc(3 * 76px + 2 * var(--kg-space-2) + 8px);
+	padding: 2px 4px 6px 2px;
+	overflow-y: auto;
 }
 
 .meme-picker-tile {
 	position: relative;
-	flex: none;
 	width: 76px;
 	height: 76px;
 	padding: 0;

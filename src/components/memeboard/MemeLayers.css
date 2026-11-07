@@ -37,7 +37,8 @@
 	top: 50%;
 	display: grid;
 	place-items: end center;
-	translate: 0 -50%;
+	/* centred on the meme, then moved back inside the screen if its box would stick out (comboCounterShift) */
+	translate: var(--combo-dx, 0px) calc(-50% + var(--combo-dy, 0px));
 	pointer-events: none;
 }
 
@@ -58,12 +59,13 @@
 .combo-number {
 	position: relative;
 	margin-bottom: 4%;
-	animation: combo-punch 0.22s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+	/* the new count settles from a touch smaller, like a pressed button: never bigger than it is */
+	animation: combo-pop 0.16s ease-out both;
 }
 
-@keyframes combo-punch {
+@keyframes combo-pop {
 	from {
-		transform: scale(1.6);
+		transform: scale(0.82);
 	}
 }
 

@@ -81,6 +81,7 @@ function MemeStageApp() {
 							party={layer.party.map((v) => ({
 								url: convertFileSrc(v.path),
 								mediaType: v.media_type,
+								poster: v.poster ? convertFileSrc(v.poster) : null,
 							}))}
 							combo={layer.combo}
 							stageW={stageW}

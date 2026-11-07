@@ -672,7 +672,7 @@ pub struct StageFire {
     /// How many copies of this meme were already on screen: each stacked copy is placed a little aside.
     pub stack: usize,
     /// Party: the visuals of the pop-ups, one per pop-up (picked at random among the saved memes).
-    pub party: Vec<StageVisual>,
+    pub party: Vec<PartyVisual>,
     /// Combo: this press's count, 1..=MAX_COMBO.
     pub combo: u32,
     /// The layer this play takes over (a combo press on its own meme), instead of adding a new one.
@@ -689,16 +689,26 @@ impl StageVisual {
         }
     }
 
-    /** What a party pop-up shows of an item: the original, or for a video its poster (a still WEBP), if it has one. */
-    fn party_of(item: &MediaItem) -> Option<Self> {
-        if item.media_type != MediaType::Mp4 { return Some(Self::of(item)); }
-        let poster = crate::media_thumbs::thumb_path(&item.stored_file_name);
-        poster.is_file().then(|| Self {
-            path: poster.to_string_lossy().into_owned(),
-            media_type: MediaType::Webp,
-            width: item.info.width,
-            height: item.info.height,
-        })
+}
+
+/**
+ * One party pop-up: the original, plus for a video its poster (a still WEBP, when one has been made). Videos play, but
+ * each playing one is a decoder of its own, so only `MAX_PARTY_VIDEOS` of a party do; the rest show the poster.
+ */
+#[derive(Serialize, Clone)]
+pub struct PartyVisual {
+    #[serde(flatten)]
+    pub visual: StageVisual,
+    pub poster: Option<String>,
+}
+
+impl PartyVisual {
+    fn of(item: &MediaItem) -> Self {
+        let poster = (item.media_type == MediaType::Mp4)
+            .then(|| crate::media_thumbs::thumb_path(&item.stored_file_name))
+            .filter(|path| path.is_file())
+            .map(|path| path.to_string_lossy().into_owned());
+        Self { visual: StageVisual::of(item), poster }
     }
 }
 
@@ -734,6 +744,11 @@ fn meme_duration(meme: &Meme, visual: Option<&MediaItem>, audio: Option<&MediaIt
 
 /** Rough RAM a meme needs while it plays: decoded frames for visuals, decoded samples for sound. Items imported
  before their size was read count as a 1080p frame. */
+/// Frames a playing video keeps decoded at once.
+const VIDEO_BUFFERED_FRAMES: u64 = 8;
+/// How many pop-ups of a party play their video at once. Must match PartyLayer.tsx.
+const MAX_PARTY_VIDEOS: u64 = 12;
+
 /** One decoded RGBA frame of an item (a full-HD guess when its size is unknown). */
 fn frame_bytes(item: &MediaItem) -> u64 {
     const FALLBACK_FRAME: u64 = 1920 * 1080 * 4;
@@ -745,15 +760,25 @@ fn frame_bytes(item: &MediaItem) -> u64 {
 
 /**
  * What a party's pop-ups cost: images with the same URL share their decode in the webview, so each distinct item counts
- * once, as a couple of decoded frames, however many pop-ups show it.
+ * once, as a couple of decoded frames, however many pop-ups show it. A playing video is a decoder of its own: each of
+ * the first `MAX_PARTY_VIDEOS` counts in full, and the others are posters, which share like any image.
  */
 fn party_bytes(items: &[&MediaItem]) -> u64 {
     let mut seen = HashSet::new();
-    items.iter().filter(|item| seen.insert(item.id)).map(|item| frame_bytes(item).saturating_mul(2)).sum()
+    let mut playing = 0;
+    let mut total = 0u64;
+    for item in items {
+        if item.media_type == MediaType::Mp4 && playing < MAX_PARTY_VIDEOS {
+            playing += 1;
+            total = total.saturating_add(frame_bytes(item).saturating_mul(VIDEO_BUFFERED_FRAMES));
+        } else if seen.insert(item.id) {
+            total = total.saturating_add(frame_bytes(item).saturating_mul(2));
+        }
+    }
+    total
 }
 
 fn estimated_bytes(visual: Option<&MediaItem>, audio: Option<&MediaItem>, duration_ms: u32, outputs: u64) -> u64 {
-    const VIDEO_BUFFERED_FRAMES: u64 = 8;
     const PCM_BYTES_PER_MS: u64 = 48 * 2 * 4; // 48 kHz, stereo, f32
     let frame = frame_bytes;
     let visual_bytes = visual.map_or(0, |item| match item.media_type {
@@ -911,7 +936,7 @@ pub fn fire(app: &AppHandle, id: Uuid) -> AppResult<()> {
             speed,
             cursor,
             stack,
-            party: party.iter().filter_map(StageVisual::party_of).collect(),
+            party: party.iter().map(PartyVisual::of).collect(),
             combo,
             replaces,
         };
@@ -1031,6 +1056,11 @@ pub fn check_hotkey(state: State<MemeboardState>, hotkey: String, meme_id: Optio
     state.lock().index.validate_hotkey(&hotkey, &meme_id.unwrap_or(Uuid::nil())).err()
 }
 
+/** A meme's play count after a save: kept while it shows and plays the same files, started over when either changed. */
+fn carried_count(stored: &Meme, saved: &Meme) -> u32 {
+    if stored.visual == saved.visual && stored.audio == saved.audio { stored.fire_count } else { 0 }
+}
+
 /// Adds or replaces a meme. Its hotkey must pass `check_hotkey`; its media must be in the library. Returns it as saved.
 #[tauri::command]
 pub fn save_meme(app: AppHandle, state: State<MemeboardState>, library: State<LibraryState>, meme: Meme) -> AppResult<Meme> {
@@ -1051,7 +1081,7 @@ pub fn save_meme(app: AppHandle, state: State<MemeboardState>, library: State<Li
         // the counter is the backend's: a stale copy from the UI must not reset it
         match inner.index.memes.iter_mut().find(|m| m.id == meme.id) {
             Some(stored) => {
-                meme.fire_count = stored.fire_count;
+                meme.fire_count = carried_count(stored, &meme);
                 *stored = meme.clone();
             }
             None => inner.index.memes.push(meme.clone()),
@@ -1332,6 +1362,25 @@ mod tests {
         let combo = Meme { animation: Animation::Combo { corner: Corner::TopLeft, margin: 5.0, step: 1, window_ms: 10 }, ..base };
         assert_eq!(combo.sanitized().animation,
             Animation::Combo { corner: Corner::TopLeft, margin: MAX_COMBO_MARGIN, step: 2, window_ms: 1_000 });
+    }
+
+    #[test]
+    fn plays_start_over_when_the_meme_gets_other_files() {
+        let stored = Meme { fire_count: 7, visual: Some(Uuid::new_v4()), audio: Some(Uuid::new_v4()), ..index_with(&["F13"]).memes.remove(0) };
+        let renamed = Meme { name: "other".into(), fire_count: 0, ..stored.clone() };
+        assert_eq!(carried_count(&stored, &renamed), 7, "same files: the count stays, whatever the UI sent");
+        assert_eq!(carried_count(&stored, &Meme { visual: Some(Uuid::new_v4()), ..stored.clone() }), 0);
+        assert_eq!(carried_count(&stored, &Meme { audio: None, ..stored.clone() }), 0);
+    }
+
+    #[test]
+    fn a_party_pays_for_the_videos_it_plays_and_shares_the_rest() {
+        let video = item(MediaType::Mp4, Some(5_000), Some(false)); // 100x100: one frame is 40 KB
+        let frame = 100 * 100 * 4;
+        let twenty: Vec<&MediaItem> = std::iter::repeat_n(&video, 20).collect();
+        // 12 decoders in full, the other 8 pop-ups are one shared poster
+        assert_eq!(party_bytes(&twenty), MAX_PARTY_VIDEOS * VIDEO_BUFFERED_FRAMES * frame + 2 * frame);
+        assert_eq!(party_bytes(&twenty[..3]), 3 * VIDEO_BUFFERED_FRAMES * frame);
     }
 
     #[test]
