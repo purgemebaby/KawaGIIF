@@ -211,6 +211,7 @@ function MemeboardScreen() {
 					isNew={editing.isNew}
 					maxMemeMs={view.max_meme_ms}
 					presets={view.presets}
+					partyVisuals={view.memes.flatMap((m) => (m.visual ? [m.visual] : []))}
 					onClose={() => setEditing(null)}
 				/>
 			)}

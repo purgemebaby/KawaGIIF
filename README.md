@@ -63,7 +63,7 @@ KawaGIIF lets you drop any GIF, image or looping video straight onto your screen
 
 **Memeboard**
 
-- Pair an image, GIF or video with an MP3/WAV/OGG sound, pick how it moves (pop, DVD bounce, shake, fall, cross the screen, or a path you record) and give it a global shortcut: `Ctrl+AltGr+1` … `0` by default, up to 10.
+- Pair an image, GIF or video with an MP3/WAV/OGG sound, pick how it moves (pop, DVD bounce, shake, fall, cross the screen, a path you record, a party of tiny pop-ups, or a combo counter with pixel-art flames) and give it a global shortcut: `Ctrl+AltGr+1` … `0` by default, up to 10.
 - Send the sound to a virtual cable to play memes in a voice chat. `Ctrl+AltGr+Backspace` stops everything.
 - `KawaGIIF.exe --fire-meme "name"` plays one from a Stream Deck. To show memes on stream, add the **KawaGIIF memes** window as a Window Capture source in OBS.
 

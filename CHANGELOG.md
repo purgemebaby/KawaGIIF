@@ -13,7 +13,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - The shortcuts are read with a keyboard hook that tells a real Ctrl from AltGr, so AltGr alone still types its character (`|`, `@`, `#`…) and only Ctrl+AltGr plays the meme. While a shortcut is being recorded they are paused, and a combination another meme already has is refused.
   - Cross the screen can come in from a random side and Cross and Fall at a random position, picked anew on each play.
   - Images and sounds can be imported straight from the meme editor, with the button or by dropping files on it.
-  - The podium is gold, silver and bronze, with the top memes glowing and sparkling.
+  - Two more animations: **Party** fills the screen with tiny pop-ups of all your saved memes (5–60), and **Combo** sits in a corner with a fighting-game counter (up to x99) whose pixel-art flames grow every few presses, from a faint glow to blue fire, and die down when you stop.
+  - The podium is drawn by hand in the app's colours, with the top memes glowing and sparkling.
+  - A meme still plays when Windows has no cursor to report (a locked screen, a Stream Deck press): it shows on the main monitor.
   - A meme lasts as long as its sound (a video uses its own), 10 s at most; the visual loops until the sound ends.
   - Sounds can go to another output, such as a virtual cable (VB-Cable) to play them in a voice chat, or to the speakers and that device at once.
   - 1 meme at a time by default, up to 10 in the settings; a meme that wouldn't fit in the free memory is not played.

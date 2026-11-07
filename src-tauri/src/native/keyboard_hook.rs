@@ -124,7 +124,7 @@ pub fn scan_for_code(code: &str) -> Option<u16> {
 
 /** Whether a Ctrl key event comes from a real Ctrl key, not from AltGr. */
 fn is_real_ctrl(vk: u16, scan: u32) -> bool {
-    vk == VK_RCONTROL.0 || (vk == VK_LCONTROL.0 && scan & ALTGR_FAKE_CTRL == 0)
+    vk == VK_RCONTROL.0 || ((vk == VK_LCONTROL.0 || vk == VK_CONTROL.0) && scan & ALTGR_FAKE_CTRL == 0)
 }
 
 /** The scan code the hook compares, with the extended prefix. Injected keys (a Stream Deck) may come without one. */
@@ -144,14 +144,17 @@ fn key_down(vk: u16) -> bool {
     unsafe { GetAsyncKeyState(i32::from(vk)) < 0 }
 }
 
-/** Updates the held modifiers. Returns whether `vk` was a modifier key. */
+/**
+ * Updates the held modifiers. Returns whether `vk` was a modifier key. A key sent by SendInput with a generic VK
+ * (VK_CONTROL, VK_MENU, VK_SHIFT: what a Stream Deck or a script may send) counts as the left one.
+ */
 fn track_modifier(held: &mut Held, vk: u16, scan: u32, down: bool) -> bool {
     match vk {
-        v if v == VK_LCONTROL.0 => { if is_real_ctrl(vk, scan) { held.lctrl = down; } }
+        v if v == VK_LCONTROL.0 || v == VK_CONTROL.0 => { if is_real_ctrl(vk, scan) { held.lctrl = down; } }
         v if v == VK_RCONTROL.0 => held.rctrl = down,
-        v if v == VK_LMENU.0 => held.lalt = down,
+        v if v == VK_LMENU.0 || v == VK_MENU.0 => held.lalt = down,
         v if v == VK_RMENU.0 => held.ralt = down,
-        v if v == VK_LSHIFT.0 => held.lshift = down,
+        v if v == VK_LSHIFT.0 || v == VK_SHIFT.0 => held.lshift = down,
         v if v == VK_RSHIFT.0 => held.rshift = down,
         v if v == VK_LWIN.0 || v == VK_RWIN.0 => held.win = down,
         _ => return false,
@@ -237,5 +240,11 @@ mod tests {
         track_modifier(&mut held, VK_LCONTROL.0, 0x1D, true);
         assert!(held.lctrl);
         assert!(!track_modifier(&mut held, 0x31, 0x02, true), "a digit is not a modifier");
+
+        // SendInput with generic VKs (a script, a Stream Deck)
+        let mut sent = Held::default();
+        track_modifier(&mut sent, VK_CONTROL.0, 0, true);
+        track_modifier(&mut sent, VK_MENU.0, 0, true);
+        assert!(sent.lctrl && sent.lalt);
     }
 }

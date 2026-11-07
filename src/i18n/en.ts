@@ -302,6 +302,16 @@ export const en = {
 			popOut: 'Pop out time',
 			intensity: 'Intensity',
 			dvdColors: 'Change colour on each bounce',
+			partyCount: 'Pop-ups',
+			partyInfo:
+				'Tiny pop-ups of all your saved memes, all over the screen. Its sound plays as usual.',
+			corner: 'Corner',
+			margin: 'Margin from the edges',
+			comboStep: 'Flames grow every',
+			comboHits: (n: number) => `${n} presses`,
+			comboWindow: 'Combo window',
+			comboInfo:
+				'Each press within the window adds one, up to 99. Without one, the flames die down and the meme fades out.',
 		},
 		infoLabel: 'More info',
 		animations: {
@@ -313,6 +323,14 @@ export const en = {
 			cross: 'Cross the screen',
 			fall: 'Fall',
 			path: 'Recorded path',
+			party: 'Party',
+			combo: 'Combo',
+		},
+		corners: {
+			top_left: 'Top left',
+			top_right: 'Top right',
+			bottom_left: 'Bottom left',
+			bottom_right: 'Bottom right',
 		},
 		sides: {
 			left: 'Left',

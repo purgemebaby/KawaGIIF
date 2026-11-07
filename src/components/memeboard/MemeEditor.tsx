@@ -6,11 +6,16 @@ import { notifyError } from '../../lib/notify';
 import { isAudioType, isVideoType, type MediaItem } from '../../lib/media';
 import {
 	ANIMATION_KINDS,
+	COMBO_MAX_MARGIN,
+	COMBO_STEP_RANGE,
+	COMBO_WINDOW_RANGE,
+	PARTY_COUNT_RANGE,
 	POP_MS_RANGE,
 	SPEED_RANGE,
 	defaultAnimation,
 	type Anchor,
 	type Animation,
+	type Corner,
 	type Meme,
 	type Preset,
 	type Side,
@@ -35,6 +40,8 @@ interface MemeEditorProps {
 	isNew: boolean;
 	maxMemeMs: number;
 	presets: Preset[];
+	/** The visuals of every saved meme, which a Party shows. */
+	partyVisuals: string[];
 	onClose: () => void;
 }
 
@@ -46,6 +53,12 @@ interface MonitorInfo {
 	primary: boolean;
 }
 
+const CORNERS: readonly Corner[] = [
+	'top_left',
+	'top_right',
+	'bottom_left',
+	'bottom_right',
+];
 const SIDES: readonly Side[] = ['left', 'right', 'top', 'bottom', 'random'];
 const ANCHORS: readonly Anchor['kind'][] = ['cursor', 'center', 'random'];
 const DEFAULT_STILL_MS = 3000;
@@ -158,6 +171,7 @@ function MemeEditor({
 	isNew,
 	maxMemeMs,
 	presets,
+	partyVisuals,
 	onClose,
 }: MemeEditorProps) {
 	const { items } = useLibrary();
@@ -202,6 +216,12 @@ function MemeEditor({
 	}, [items]);
 
 	const visual = visuals.find((i) => i.id === draft.visual) ?? null;
+	// a Party shows every saved meme's visual, this one's (maybe not saved yet) included
+	const partyItems = useMemo(() => {
+		const ids = new Set(partyVisuals);
+		if (draft.visual) ids.add(draft.visual);
+		return visuals.filter((i) => ids.has(i.id));
+	}, [partyVisuals, draft.visual, visuals]);
 	const sound = sounds.find((i) => i.id === draft.audio) ?? null;
 	const videoVisual = visual !== null && isVideoType(visual.media_type);
 
@@ -215,10 +235,14 @@ function MemeEditor({
 	const naturalMs = mediaMs
 		? Math.round(mediaMs / draft.playback_speed)
 		: DEFAULT_STILL_MS;
-	const durationMs = Math.min(
-		maxMemeMs,
-		Math.max(MIN_TIME_MS, draft.duration_ms ?? naturalMs),
-	);
+	// a combo lasts its window (memeboard.rs meme_duration)
+	const durationMs =
+		draft.animation.kind === 'combo'
+			? draft.animation.window_ms
+			: Math.min(
+					maxMemeMs,
+					Math.max(MIN_TIME_MS, draft.duration_ms ?? naturalMs),
+				);
 
 	// the meme's monitor; one that is gone, or none picked yet, means the primary one
 	const chosen = draft.monitor.kind === 'named' ? draft.monitor.name : null;
@@ -273,6 +297,7 @@ function MemeEditor({
 				motionSpeed={draft.motion_speed}
 				playbackSpeed={draft.playback_speed}
 				aspect={screen.width / screen.height}
+				partyItems={partyItems}
 				onPathDrawn={
 					isPath
 						? (points) => setAnimation({ kind: 'path', points })
@@ -396,6 +421,68 @@ function MemeEditor({
 				);
 			case 'fall':
 				return positionOptions(anim, 'x');
+			case 'party':
+				return (
+					<Slider
+						label={options.partyCount}
+						min={PARTY_COUNT_RANGE[0]}
+						max={PARTY_COUNT_RANGE[1]}
+						step={1}
+						value={anim.count}
+						format={String}
+						onChange={(count) => setAnimation({ ...anim, count })}
+						info={
+							<InfoTip text={options.partyInfo} label={t.memeboard.infoLabel} />
+						}
+					/>
+				);
+			case 'combo':
+				return (
+					<>
+						<div className="meme-field">
+							<span>{options.corner}</span>
+							<ChoiceChips
+								options={CORNERS}
+								value={anim.corner}
+								label={(corner) => t.memeboard.corners[corner]}
+								onChange={(corner) => setAnimation({ ...anim, corner })}
+							/>
+						</div>
+						<Slider
+							label={options.margin}
+							min={0}
+							max={COMBO_MAX_MARGIN}
+							step={0.01}
+							value={anim.margin}
+							format={percent}
+							onChange={(margin) => setAnimation({ ...anim, margin })}
+						/>
+						<Slider
+							label={options.comboStep}
+							min={COMBO_STEP_RANGE[0]}
+							max={COMBO_STEP_RANGE[1]}
+							step={1}
+							value={anim.step}
+							format={options.comboHits}
+							onChange={(step) => setAnimation({ ...anim, step })}
+						/>
+						<Slider
+							label={options.comboWindow}
+							min={COMBO_WINDOW_RANGE[0]}
+							max={COMBO_WINDOW_RANGE[1]}
+							step={250}
+							value={anim.window_ms}
+							format={seconds}
+							onChange={(window_ms) => setAnimation({ ...anim, window_ms })}
+							info={
+								<InfoTip
+									text={options.comboInfo}
+									label={t.memeboard.infoLabel}
+								/>
+							}
+						/>
+					</>
+				);
 			default:
 				return null;
 		}
@@ -565,24 +652,26 @@ function MemeEditor({
 								onReset={() => set('playback_speed', 1)}
 								resetLabel={editor.playbackSpeed}
 							/>
-							<Slider
-								label={editor.time}
-								min={MIN_TIME_MS}
-								max={maxMemeMs}
-								step={100}
-								value={durationMs}
-								format={seconds}
-								onChange={(v) => set('duration_ms', v)}
-								// back to "as long as its sound"
-								onReset={() => set('duration_ms', null)}
-								resetLabel={editor.time}
-								info={
-									<InfoTip
-										text={editor.timeInfo}
-										label={t.memeboard.infoLabel}
-									/>
-								}
-							/>
+							{anim.kind !== 'combo' && (
+								<Slider
+									label={editor.time}
+									min={MIN_TIME_MS}
+									max={maxMemeMs}
+									step={100}
+									value={durationMs}
+									format={seconds}
+									onChange={(v) => set('duration_ms', v)}
+									// back to "as long as its sound"
+									onReset={() => set('duration_ms', null)}
+									resetLabel={editor.time}
+									info={
+										<InfoTip
+											text={editor.timeInfo}
+											label={t.memeboard.infoLabel}
+										/>
+									}
+								/>
+							)}
 							<Slider
 								label={editor.volume}
 								min={0}

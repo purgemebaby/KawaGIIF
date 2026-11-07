@@ -310,6 +310,16 @@ export const es: Strings = {
 			popOut: 'Tiempo de salida',
 			intensity: 'Intensidad',
 			dvdColors: 'Cambiar de color en cada rebote',
+			partyCount: 'Pop-ups',
+			partyInfo:
+				'Pop-ups diminutos de todos tus memes guardados, por toda la pantalla. Su sonido suena como siempre.',
+			corner: 'Esquina',
+			margin: 'Margen con los bordes',
+			comboStep: 'Las llamas crecen cada',
+			comboHits: (n: number) => `${n} pulsaciones`,
+			comboWindow: 'Ventana del combo',
+			comboInfo:
+				'Cada pulsación dentro de la ventana suma uno, hasta 99. Sin pulsar, las llamas se apagan y el meme se desvanece.',
 		},
 		infoLabel: 'Más información',
 		animations: {
@@ -321,6 +331,14 @@ export const es: Strings = {
 			cross: 'Cruzar la pantalla',
 			fall: 'Caer',
 			path: 'Trayectoria grabada',
+			party: 'Fiesta',
+			combo: 'Combo',
+		},
+		corners: {
+			top_left: 'Arriba izquierda',
+			top_right: 'Arriba derecha',
+			bottom_left: 'Abajo izquierda',
+			bottom_right: 'Abajo derecha',
 		},
 		sides: {
 			left: 'Izquierda',

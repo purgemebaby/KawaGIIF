@@ -27,7 +27,7 @@ const MEDIA_ID_HEADER: &str = "media-id";
 pub fn thumbs_dir() -> PathBuf { config::data_dir().join("thumbs") }
 
 /** The thumbnail of a media file, named after the file's stem. */
-fn thumb_path(stored_file_name: &str) -> PathBuf {
+pub(crate) fn thumb_path(stored_file_name: &str) -> PathBuf {
     let stem = Path::new(stored_file_name).file_stem().unwrap_or_default().to_string_lossy();
     thumbs_dir().join(format!("{stem}.webp"))
 }

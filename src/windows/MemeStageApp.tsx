@@ -17,15 +17,29 @@ function useStageSize(): [number, number] {
 	return size;
 }
 
+/** A layer on the stage. `key` stays the same when a combo press takes it over, so its visual isn't loaded again. */
+type Layer = StageFire & { key: string };
+
+/** Adds a fired meme, or puts it in place of the layer it takes over (keeping that layer's key). */
+function withFired(layers: Layer[], fired: StageFire): Layer[] {
+	const at = fired.replaces
+		? layers.findIndex((l) => l.instance === fired.replaces)
+		: -1;
+	if (at < 0) return [...layers, { ...fired, key: fired.instance }];
+	const next = [...layers];
+	next[at] = { ...fired, key: layers[at].key };
+	return next;
+}
+
 // The memeboard's overlay: every meme on screen is one layer here. Click-through, never focused.
 function MemeStageApp() {
-	const [layers, setLayers] = useState<StageFire[]>([]);
+	const [layers, setLayers] = useState<Layer[]>([]);
 	const [stageW, stageH] = useStageSize();
 
 	useEffect(() => {
 		const offs = [
 			listenToSelf<StageFire>('meme-fire', (e) =>
-				setLayers((prev) => [...prev, e.payload]),
+				setLayers((prev) => withFired(prev, e.payload)),
 			),
 			listenToSelf<string>('meme-end', (e) =>
 				setLayers((prev) => prev.filter((l) => l.instance !== e.payload)),
@@ -51,7 +65,7 @@ function MemeStageApp() {
 				(layer) =>
 					layer.visual && (
 						<MemeLayer
-							key={layer.instance}
+							key={layer.key}
 							url={convertFileSrc(layer.visual.path)}
 							mediaType={layer.visual.media_type}
 							naturalW={layer.visual.width}
@@ -64,6 +78,11 @@ function MemeStageApp() {
 							motionSpeed={layer.meme.motion_speed}
 							cursor={layer.cursor}
 							stack={layer.stack}
+							party={layer.party.map((v) => ({
+								url: convertFileSrc(v.path),
+								mediaType: v.media_type,
+							}))}
+							combo={layer.combo}
 							stageW={stageW}
 							stageH={stageH}
 							onDone={() => remove(layer.instance)}

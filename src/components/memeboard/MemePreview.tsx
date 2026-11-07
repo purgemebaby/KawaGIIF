@@ -1,4 +1,5 @@
 import {
+	useEffect,
 	useLayoutEffect,
 	useMemo,
 	useRef,
@@ -7,11 +8,13 @@ import {
 } from 'react';
 import { invoke } from '../../lib/ipc';
 import { notifyError } from '../../lib/notify';
-import type { MediaItem } from '../../lib/media';
+import { isVideoType, type MediaItem } from '../../lib/media';
+import { mediaFileUrl, thumbFileUrl } from '../../lib/mediaUrl';
 import type { Anchor, Animation, PathPoint } from '../../lib/memeboard';
 import { seedOf, sketchStroke } from '../../lib/sketch';
-import { useMediaFiles } from '../../hooks/useMediaFiles';
+import { useMediaDirs, useMediaFiles } from '../../hooks/useMediaFiles';
 import MemeLayer from './MemeLayer';
+import type { PartyMedia } from './PartyLayer';
 
 interface MemePreviewProps {
 	visual: MediaItem | null;
@@ -26,7 +29,12 @@ interface MemePreviewProps {
 	aspect: number;
 	/** Set while "Recorded path" is chosen: dragging on the preview draws a new path. */
 	onPathDrawn?: (points: PathPoint[]) => void;
+	/** Party: the saved memes' visuals its pop-ups show. */
+	partyItems?: MediaItem[];
 }
+
+// the preview presses a combo meme this often, going up to the blue flames and starting over
+const COMBO_PRESS_MS = 650;
 
 // The cursor of the preview: a little left of centre, so Cursor and Centre look different.
 const PREVIEW_CURSOR: [number, number] = [0.35, 0.4];
@@ -43,12 +51,40 @@ function MemePreview({
 	playbackSpeed,
 	aspect,
 	onPathDrawn,
+	partyItems = [],
 }: MemePreviewProps) {
 	const boxRef = useRef<HTMLDivElement>(null);
 	const [box, setBox] = useState<[number, number]>([0, 0]);
 	const [stroke, setStroke] = useState<PathPoint[] | null>(null);
 	const startRef = useRef(0);
 	const { url } = useMediaFiles(visual);
+	const dirs = useMediaDirs();
+
+	// what the stage gets for a party: the originals, videos as their still poster
+	const partyMedia = useMemo<PartyMedia[]>(
+		() =>
+			dirs
+				? partyItems.map((item) =>
+						isVideoType(item.media_type)
+							? { url: thumbFileUrl(dirs, item), mediaType: 'webp' }
+							: { url: mediaFileUrl(dirs, item), mediaType: item.media_type },
+					)
+				: [],
+		[dirs, partyItems],
+	);
+
+	// a combo shows its counter by pressing on its own: up one each time, past the last flame tier, then over again
+	const comboTop = animation.kind === 'combo' ? 4 * animation.step + 1 : 0;
+	const [combo, setCombo] = useState(1);
+	useEffect(() => {
+		if (!comboTop) return;
+		setCombo(1);
+		const timer = window.setInterval(
+			() => setCombo((c) => (c >= comboTop ? 1 : c + 1)),
+			COMBO_PRESS_MS,
+		);
+		return () => window.clearInterval(timer);
+	}, [comboTop]);
 
 	useLayoutEffect(() => {
 		const el = boxRef.current;
@@ -148,6 +184,8 @@ function MemePreview({
 					stageH={box[1]}
 					speed={playbackSpeed}
 					motionSpeed={motionSpeed}
+					party={partyMedia}
+					combo={comboTop ? combo : 0}
 					loop
 				/>
 			)}

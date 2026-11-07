@@ -24,7 +24,20 @@ export type Animation =
 	| { kind: 'cross'; from: Side; at: number; random_at: boolean }
 	/** `at`: where along the width it falls, 0..1, or anywhere with `random_at`. */
 	| { kind: 'fall'; at: number; random_at: boolean }
-	| { kind: 'path'; points: PathPoint[] };
+	| { kind: 'path'; points: PathPoint[] }
+	/** Tiny pop-ups of the saved memes' media, `count` of them (5..60). */
+	| { kind: 'party'; count: number }
+	/** In a corner, `margin` (0..0.2 of the shorter side) in: a combo counter that grows flames every `step` presses
+	 and resets after `window_ms` without one. */
+	| {
+			kind: 'combo';
+			corner: Corner;
+			margin: number;
+			step: number;
+			window_ms: number;
+	  };
+
+export type Corner = 'top_left' | 'top_right' | 'bottom_left' | 'bottom_right';
 
 type AnimationKind = Animation['kind'];
 
@@ -116,6 +129,12 @@ export interface StageFire {
 	cursor: [number, number];
 	/** How many copies of this meme were already on screen. */
 	stack: number;
+	/** Party: one visual per pop-up. */
+	party: StageVisual[];
+	/** Combo: this press's count (1..99); 0 for other animations. */
+	combo: number;
+	/** The layer this play takes over (a combo press on its own meme) instead of adding one. */
+	replaces: string | null;
 }
 
 export const ANIMATION_KINDS: AnimationKind[] = [
@@ -127,7 +146,16 @@ export const ANIMATION_KINDS: AnimationKind[] = [
 	'cross',
 	'fall',
 	'path',
+	'party',
+	'combo',
 ];
+
+// must match memeboard.rs
+export const PARTY_COUNT_RANGE: [number, number] = [5, 60];
+export const COMBO_STEP_RANGE: [number, number] = [2, 6];
+export const COMBO_WINDOW_RANGE: [number, number] = [1000, 10_000];
+export const COMBO_MAX_MARGIN = 0.2;
+export const MAX_COMBO = 99;
 
 // Defaults and ranges of the animation options; memeboard.rs clamps to the same.
 export const POP_IN_MS = 280;
@@ -151,6 +179,16 @@ export function defaultAnimation(kind: AnimationKind): Animation {
 			return { kind, colors: true };
 		case 'shake':
 			return { kind, intensity: SHAKE_INTENSITY };
+		case 'party':
+			return { kind, count: 20 };
+		case 'combo':
+			return {
+				kind,
+				corner: 'bottom_right',
+				margin: 0.04,
+				step: 3,
+				window_ms: 3000,
+			};
 		default:
 			return { kind };
 	}

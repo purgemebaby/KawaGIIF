@@ -408,11 +408,11 @@ pub fn list_monitors(app: AppHandle) -> crate::error::AppResult<Vec<MonitorInfo>
 /**
  * Covers the chosen monitor (the one under the cursor when none is chosen or it was unplugged) with the stage and shows
  * it without activating it. Returns where the cursor is, as a fraction (0..=1) of that monitor, clamped when the
- * cursor is on another one.
+ * cursor is on another one, or the middle when Windows has no cursor to give (a locked screen, the secure desktop).
  */
 pub fn show_meme_stage(app: &AppHandle, choice: &crate::memeboard::MonitorChoice) -> crate::error::AppResult<(f64, f64)> {
     let window = meme_stage(app).ok_or(crate::error::AppError::MissingStageWindow)?;
-    let cursor = app.cursor_position()?;
+    let cursor = app.cursor_position().ok();
     let monitor = stage_monitor(app, choice)?;
     let (pos, size) = (*monitor.position(), *monitor.size());
 
@@ -428,18 +428,22 @@ pub fn show_meme_stage(app: &AppHandle, choice: &crate::memeboard::MonitorChoice
     });
 
     let fraction = |at: f64, start: i32, len: u32| ((at - f64::from(start)) / f64::from(len.max(1))).clamp(0.0, 1.0);
-    Ok((fraction(cursor.x, pos.x, size.width), fraction(cursor.y, pos.y, size.height)))
+    Ok(cursor.map_or((0.5, 0.5), |c| (fraction(c.x, pos.x, size.width), fraction(c.y, pos.y, size.height))))
 }
 
-/** The monitor a meme shows on: the chosen one if still connected, else the one under the cursor, else the primary. */
+/** The monitor a meme shows on: the chosen one if still connected, else the one under the cursor, else the primary
+ (also when there is no cursor to ask, as with a locked screen: a Stream Deck or --fire-meme still plays). */
 fn stage_monitor(app: &AppHandle, choice: &crate::memeboard::MonitorChoice) -> crate::error::AppResult<tauri::Monitor> {
     if let crate::memeboard::MonitorChoice::Named { name } = choice {
         if let Some(monitor) = app.available_monitors()?.into_iter().find(|m| m.name() == Some(name)) {
             return Ok(monitor);
         }
     }
-    let cursor = app.cursor_position()?;
-    app.monitor_from_point(cursor.x, cursor.y)?
+    let under_cursor = match app.cursor_position() {
+        Ok(cursor) => app.monitor_from_point(cursor.x, cursor.y)?,
+        Err(_) => None,
+    };
+    under_cursor
         .or(app.primary_monitor()?)
         .ok_or(crate::error::AppError::MissingStageWindow)
 }

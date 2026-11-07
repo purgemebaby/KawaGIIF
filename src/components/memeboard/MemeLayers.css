@@ -1,0 +1,131 @@
+/* Shared by the meme stage and the editor preview: the Party pop-ups and the Combo counter. */
+
+/* Party: tiny pop-ups that pop in, wait, and pop out at the very end */
+.party-layer {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+}
+
+.party-pop {
+	position: absolute;
+	object-fit: contain;
+	transform: rotate(var(--tilt)) scale(0);
+	animation: party-pop var(--life) linear both;
+}
+
+@keyframes party-pop {
+	0% {
+		transform: rotate(var(--tilt)) scale(0);
+		animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
+	}
+	12% {
+		transform: rotate(var(--tilt)) scale(1);
+	}
+	90% {
+		transform: rotate(var(--tilt)) scale(1);
+		animation-timing-function: ease-in;
+	}
+	100% {
+		transform: rotate(var(--tilt)) scale(0);
+	}
+}
+
+/* Combo: the counter beside the meme, on the side facing the middle of the screen */
+.combo-counter {
+	position: absolute;
+	top: 50%;
+	display: grid;
+	place-items: end center;
+	translate: 0 -50%;
+	pointer-events: none;
+}
+
+.combo-counter--left {
+	right: calc(100% + 12px);
+}
+
+.combo-counter--right {
+	left: calc(100% + 12px);
+}
+
+/* the number and its flames share one cell: the flames rise from behind the number */
+.combo-counter > svg {
+	grid-area: 1 / 1;
+	image-rendering: pixelated;
+}
+
+.combo-number {
+	position: relative;
+	margin-bottom: 4%;
+	animation: combo-punch 0.22s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes combo-punch {
+	from {
+		transform: scale(1.6);
+	}
+}
+
+/* the flames die down over the combo window: a press starts a new counter at full strength */
+.combo-flames {
+	transform-origin: bottom center;
+	animation: combo-cool var(--combo-window) linear both;
+}
+
+@keyframes combo-cool {
+	from {
+		opacity: 1;
+		transform: scale(1);
+	}
+	to {
+		opacity: 0.15;
+		transform: scale(0.55);
+	}
+}
+
+/* three sprite frames, each shown for a third of the loop */
+.combo-flame-frame {
+	opacity: 0;
+	animation: combo-flicker 0.36s steps(1) infinite;
+}
+
+.combo-flame-frame:nth-child(2) {
+	animation-delay: -0.12s;
+}
+
+.combo-flame-frame:nth-child(3) {
+	animation-delay: -0.24s;
+}
+
+@keyframes combo-flicker {
+	0% {
+		opacity: 1;
+	}
+	33.34% {
+		opacity: 0;
+	}
+}
+
+/* Without motion everything just shows, still: the first sprite frame, the pop-ups at full size. (The global reduced
+   motion rule cuts animations to an instant, which would leave the pop-ups at their final scale of 0.) */
+@media (prefers-reduced-motion: reduce) {
+	.combo-flame-frame:first-child {
+		opacity: 1;
+	}
+
+	.combo-flame-frame:not(:first-child) {
+		display: none;
+	}
+
+	.combo-flame-frame,
+	.combo-flames,
+	.combo-number,
+	.party-pop {
+		animation-name: none !important;
+	}
+
+	.party-pop {
+		transform: rotate(var(--tilt)) scale(1);
+	}
+}

@@ -27,7 +27,13 @@ export interface PoseContext {
 	duration: number;
 	/** How fast the movement runs (1 = normal); the meme's length doesn't change. */
 	motionSpeed?: number;
+	/** Combo: this press's count. The first press pops in; later ones only give a little punch. */
+	combo?: number;
 }
+
+// a combo fades out slowly when its window runs out
+const COMBO_FADE_MS = 600;
+const COMBO_PUNCH_MS = 160;
 
 // at full intensity: px sideways, px up and down, degrees
 const SHAKE_MAX: [number, number, number] = [10, 6, 4];
@@ -84,7 +90,12 @@ export function poseAt(
 	const cy = clamp(ctx.cy, h / 2, Math.max(h / 2, stageH - h / 2));
 	// only Pop has its own timings; the rest fade in and out with the defaults
 	const enterMs = animation.kind === 'pop' ? animation.enter_ms : POP_IN_MS;
-	const exitMs = animation.kind === 'pop' ? animation.exit_ms : POP_OUT_MS;
+	const exitMs =
+		animation.kind === 'pop'
+			? animation.exit_ms
+			: animation.kind === 'combo'
+				? COMBO_FADE_MS
+				: POP_OUT_MS;
 	const enter = clamp(t / enterMs, 0, 1);
 	const exit = clamp((duration - t) / exitMs, 0, 1);
 	const base: Pose = {
@@ -155,6 +166,21 @@ export function poseAt(
 				Math.max(0, stageW - w),
 			);
 			return { ...base, x, y, rotate: progress * 40, opacity: 1 };
+		}
+		case 'party':
+			// PartyLayer draws the pop-ups; the meme's own layer stays hidden
+			return { ...base, opacity: 0 };
+		case 'combo': {
+			const margin = animation.margin * Math.min(stageW, stageH);
+			const right = animation.corner.endsWith('right');
+			const bottom = animation.corner.startsWith('bottom');
+			const x = right ? stageW - w - margin : margin;
+			const y = bottom ? stageH - h - margin : margin;
+			if ((ctx.combo ?? 1) <= 1) {
+				return { ...base, x, y, scale: Math.max(0, easeOutBack(enter)) };
+			}
+			const punch = 1 - clamp(t / COMBO_PUNCH_MS, 0, 1);
+			return { ...base, x, y, opacity: exit, scale: 1 + 0.12 * punch };
 		}
 		case 'path': {
 			const [px, py] = onPath(animation.points, m, ctx);

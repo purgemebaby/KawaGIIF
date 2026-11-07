@@ -13,6 +13,8 @@ import {
 	visualSize,
 } from '../../lib/memeAnimation';
 import GifCanvasPlayer from '../GifCanvasPlayer';
+import ComboCounter from './ComboCounter';
+import PartyLayer, { type PartyMedia } from './PartyLayer';
 
 interface MemeLayerProps {
 	url: string;
@@ -35,6 +37,10 @@ interface MemeLayerProps {
 	motionSpeed?: number;
 	/** Copies of this meme already on screen: this one is placed a little aside. */
 	stack?: number;
+	/** Party: what the pop-ups show. */
+	party?: PartyMedia[];
+	/** Combo: this press's count. */
+	combo?: number;
 	onDone?: () => void;
 }
 
@@ -55,6 +61,8 @@ function MemeLayer({
 	speed = 1,
 	motionSpeed = 1,
 	stack = 0,
+	party = [],
+	combo = 0,
 	onDone,
 }: MemeLayerProps) {
 	const ref = useRef<HTMLDivElement>(null);
@@ -82,6 +90,7 @@ function MemeLayer({
 			cy,
 			duration: durationMs,
 			motionSpeed,
+			combo,
 		};
 		let start = performance.now();
 		let frame = 0;
@@ -116,6 +125,7 @@ function MemeLayer({
 		motionSpeed,
 		seed,
 		stack,
+		combo,
 		stageH,
 		stageW,
 		w,
@@ -125,12 +135,40 @@ function MemeLayer({
 		if (natural[0] === null || natural[1] === null) setNatural([nw, nh]);
 	};
 
+	if (animation.kind === 'party') {
+		return (
+			<PartyLayer
+				media={party}
+				count={animation.count}
+				durationMs={durationMs}
+				stageW={stageW}
+				stageH={stageH}
+				loop={loop}
+				onDone={onDone}
+			/>
+		);
+	}
+
+	// one pixel-art cell: about a twentieth of the meme, never too fine or too coarse
+	const cell = Math.round(Math.min(10, Math.max(3, Math.min(w, h) / 20)));
+
 	return (
 		<div
 			ref={ref}
 			className="meme-layer"
 			style={{ width: w, height: h, opacity: 0 }}
 		>
+			{animation.kind === 'combo' && (
+				<ComboCounter
+					// a new count restarts its punch and lets the flames die down from full again
+					key={combo}
+					combo={combo}
+					step={animation.step}
+					windowMs={animation.window_ms}
+					side={animation.corner.endsWith('right') ? 'left' : 'right'}
+					unit={cell}
+				/>
+			)}
 			{isVideoType(mediaType) && (
 				<video
 					src={url}

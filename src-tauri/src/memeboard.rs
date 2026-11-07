@@ -93,7 +93,30 @@ pub enum Animation {
         random_at: bool,
     },
     Path { points: Vec<PathPoint> },
+    /// Tiny pop-ups of every saved meme's visual, `count` of them, scattered over the screen.
+    Party {
+        #[serde(default = "default_party")]
+        count: u32,
+    },
+    /// Sits in a corner, `margin` (0..=0.2 of the shorter side) in from the edges, with a fighting-game combo counter:
+    /// a press within `window_ms` of the last one adds one (up to `MAX_COMBO`), and every `step` presses the flames
+    /// grow a tier. With no press for `window_ms` it fades out and the next press starts at 1 again.
+    Combo {
+        #[serde(default)]
+        corner: Corner,
+        #[serde(default = "default_combo_margin")]
+        margin: f32,
+        #[serde(default = "default_combo_step")]
+        step: u32,
+        #[serde(default = "default_combo_window")]
+        window_ms: u32,
+    },
 }
+
+/** Where a combo meme sits. */
+#[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Debug, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum Corner { TopLeft, TopRight, BottomLeft, #[default] BottomRight }
 
 impl Default for Animation {
     fn default() -> Self { Self::Pop { enter_ms: default_pop_in(), exit_ms: default_pop_out() } }
@@ -126,6 +149,16 @@ fn default_pop_out() -> u32 { 220 }
 fn default_true() -> bool { true }
 fn default_shake() -> f32 { 0.25 }
 fn half() -> f32 { 0.5 }
+const PARTY_COUNT: std::ops::RangeInclusive<u32> = 5..=60;
+fn default_party() -> u32 { 20 }
+const COMBO_STEP: std::ops::RangeInclusive<u32> = 2..=6;
+const COMBO_WINDOW_MS: std::ops::RangeInclusive<u32> = 1_000..=MAX_MEME_MS;
+const MAX_COMBO_MARGIN: f32 = 0.2;
+/// The counter stops here: two digits, like the games.
+pub const MAX_COMBO: u32 = 99;
+fn default_combo_margin() -> f32 { 0.04 }
+fn default_combo_step() -> u32 { 3 }
+fn default_combo_window() -> u32 { 3_000 }
 
 /** Where the visual appears. `Fixed` is a fraction (0..=1) of the monitor. */
 #[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Debug, Default)]
@@ -267,6 +300,12 @@ impl Meme {
             }
             Animation::Shake { intensity } => *intensity = finite_or(*intensity, default_shake()).clamp(0.0, 1.0),
             Animation::Cross { at, .. } | Animation::Fall { at, .. } => *at = finite_or(*at, 0.5).clamp(0.0, 1.0),
+            Animation::Party { count } => *count = (*count).clamp(*PARTY_COUNT.start(), *PARTY_COUNT.end()),
+            Animation::Combo { margin, step, window_ms, .. } => {
+                *margin = finite_or(*margin, default_combo_margin()).clamp(0.0, MAX_COMBO_MARGIN);
+                *step = (*step).clamp(*COMBO_STEP.start(), *COMBO_STEP.end());
+                *window_ms = (*window_ms).clamp(*COMBO_WINDOW_MS.start(), *COMBO_WINDOW_MS.end());
+            }
             _ => {}
         }
         if let Animation::Path { points } = &mut self.animation {
@@ -471,6 +510,8 @@ struct Inner {
     stop_conflict: bool,
     showing: Vec<Showing>,
     last_fired: HashMap<Uuid, Instant>,
+    /// Each combo meme's counter and when it was last pressed.
+    combos: HashMap<Uuid, (u32, Instant)>,
     /// A play count changed and a save is scheduled (`save_counts_soon`).
     save_pending: bool,
 }
@@ -484,6 +525,7 @@ impl Default for MemeboardState {
             stop_conflict: false,
             showing: Vec::new(),
             last_fired: HashMap::new(),
+            combos: HashMap::new(),
             save_pending: false,
         }))
     }
@@ -629,6 +671,43 @@ pub struct StageFire {
     pub cursor: (f64, f64),
     /// How many copies of this meme were already on screen: each stacked copy is placed a little aside.
     pub stack: usize,
+    /// Party: the visuals of the pop-ups, one per pop-up (picked at random among the saved memes).
+    pub party: Vec<StageVisual>,
+    /// Combo: this press's count, 1..=MAX_COMBO.
+    pub combo: u32,
+    /// The layer this play takes over (a combo press on its own meme), instead of adding a new one.
+    pub replaces: Option<Uuid>,
+}
+
+impl StageVisual {
+    fn of(item: &MediaItem) -> Self {
+        Self {
+            path: media_path(item).to_string_lossy().into_owned(),
+            media_type: item.media_type,
+            width: item.info.width,
+            height: item.info.height,
+        }
+    }
+
+    /** What a party pop-up shows of an item: the original, or for a video its poster (a still WEBP), if it has one. */
+    fn party_of(item: &MediaItem) -> Option<Self> {
+        if item.media_type != MediaType::Mp4 { return Some(Self::of(item)); }
+        let poster = crate::media_thumbs::thumb_path(&item.stored_file_name);
+        poster.is_file().then(|| Self {
+            path: poster.to_string_lossy().into_owned(),
+            media_type: MediaType::Webp,
+            width: item.info.width,
+            height: item.info.height,
+        })
+    }
+}
+
+/** The count of a combo press: one more than the last if it came within `window`, else 1 again; never past MAX_COMBO. */
+fn next_combo(previous: Option<(u32, Instant)>, now: Instant, window: Duration) -> u32 {
+    match previous {
+        Some((count, at)) if now.duration_since(at) < window => (count + 1).min(MAX_COMBO),
+        _ => 1,
+    }
 }
 
 fn media_path(item: &MediaItem) -> PathBuf { crate::library::media_dir().join(&item.stored_file_name) }
@@ -647,20 +726,36 @@ fn media_length(visual: Option<&MediaItem>, audio: Option<&MediaItem>) -> Option
 /** How long a meme lasts, in real time: its own `duration_ms` when set, else its media played at `speed`, else
  `DEFAULT_STILL_MS`. Never more than `MAX_MEME_MS`; a time longer than the media loops it. */
 fn meme_duration(meme: &Meme, visual: Option<&MediaItem>, audio: Option<&MediaItem>, speed: f32) -> u32 {
+    // a combo stays up for its window, so the next press can still count
+    if let Animation::Combo { window_ms, .. } = meme.animation { return window_ms.clamp(100, MAX_MEME_MS); }
     let natural = media_length(visual, audio).map(|ms| (ms as f32 / speed.max(0.01)).round() as u32);
     meme.duration_ms.or(natural).unwrap_or(DEFAULT_STILL_MS).clamp(100, MAX_MEME_MS)
 }
 
 /** Rough RAM a meme needs while it plays: decoded frames for visuals, decoded samples for sound. Items imported
  before their size was read count as a 1080p frame. */
-fn estimated_bytes(visual: Option<&MediaItem>, audio: Option<&MediaItem>, duration_ms: u32, outputs: u64) -> u64 {
+/** One decoded RGBA frame of an item (a full-HD guess when its size is unknown). */
+fn frame_bytes(item: &MediaItem) -> u64 {
     const FALLBACK_FRAME: u64 = 1920 * 1080 * 4;
-    const VIDEO_BUFFERED_FRAMES: u64 = 8;
-    const PCM_BYTES_PER_MS: u64 = 48 * 2 * 4; // 48 kHz, stereo, f32
-    let frame = |item: &MediaItem| match (item.info.width, item.info.height) {
+    match (item.info.width, item.info.height) {
         (Some(w), Some(h)) => u64::from(w) * u64::from(h) * 4,
         _ => FALLBACK_FRAME,
-    };
+    }
+}
+
+/**
+ * What a party's pop-ups cost: images with the same URL share their decode in the webview, so each distinct item counts
+ * once, as a couple of decoded frames, however many pop-ups show it.
+ */
+fn party_bytes(items: &[&MediaItem]) -> u64 {
+    let mut seen = HashSet::new();
+    items.iter().filter(|item| seen.insert(item.id)).map(|item| frame_bytes(item).saturating_mul(2)).sum()
+}
+
+fn estimated_bytes(visual: Option<&MediaItem>, audio: Option<&MediaItem>, duration_ms: u32, outputs: u64) -> u64 {
+    const VIDEO_BUFFERED_FRAMES: u64 = 8;
+    const PCM_BYTES_PER_MS: u64 = 48 * 2 * 4; // 48 kHz, stereo, f32
+    let frame = frame_bytes;
     let visual_bytes = visual.map_or(0, |item| match item.media_type {
         MediaType::Gif => frame(item).saturating_mul(u64::from(item.info.frame_count.unwrap_or(1).max(1))),
         MediaType::Mp4 => frame(item).saturating_mul(VIDEO_BUFFERED_FRAMES),
@@ -730,6 +825,10 @@ pub fn fire(app: &AppHandle, id: Uuid) -> AppResult<()> {
     let visual = visual.filter(|v| !v.media_type.is_audio());
     let audio = audio.filter(|a| a.media_type.is_audio());
     if visual.is_none() && audio.is_none() { return Err(AppError::MemeEmpty); }
+    let party = match meme.animation {
+        Animation::Party { count } => party_picks(app, count),
+        _ => Vec::new(),
+    };
     // an MP4 with sound plays its own track (decoded by the audio thread, so it follows the output setting) instead of the meme's
     let video_sound = visual.as_ref().filter(|v| v.media_type == MediaType::Mp4 && v.info.has_audio == Some(true));
     let sound_file = video_sound.or(audio.as_ref().filter(|_| visual.as_ref().is_none_or(|v| v.media_type != MediaType::Mp4)));
@@ -738,19 +837,23 @@ pub fn fire(app: &AppHandle, id: Uuid) -> AppResult<()> {
     let speed = meme.playback_speed * meme.behaviour.pick_speed();
     let duration_ms = meme_duration(&meme, visual.as_ref(), audio.as_ref(), speed);
     let outputs = if matches!(settings.audio_output, config::AudioOutput::DefaultPlusDevice(_)) { 2 } else { 1 };
-    let bytes = estimated_bytes(visual.as_ref(), sound_file, duration_ms, outputs);
+    let bytes = estimated_bytes(visual.as_ref(), sound_file, duration_ms, outputs)
+        .saturating_add(party_bytes(&party.iter().collect::<Vec<_>>()));
     let max_concurrent = settings.meme_max_concurrent.clamp(1, config::MAX_MEME_CONCURRENCY) as usize;
 
     let instance = Uuid::new_v4();
     let monitor = visual.as_ref().and_then(|_| window_manager::meme_monitor_name(app, &meme.monitor));
-    let (evicted, stack) = {
+    let is_combo = matches!(meme.animation, Animation::Combo { .. });
+    // a combo press always replaces its own meme: the counter carries on in the new one
+    let refire = if is_combo { Refire::Restart } else { meme.behaviour.refire };
+    let (evicted, stack, combo, replaces) = {
         let state = app.state::<MemeboardState>();
         let mut inner = state.lock();
         let now = Instant::now();
         let cooldown = Duration::from_millis(u64::from(meme.behaviour.cooldown_ms));
         if inner.last_fired.get(&id).is_some_and(|at| now.duration_since(*at) < cooldown) { return Ok(()); }
         inner.showing.retain(|s| s.until > now);
-        let Some(mut evict) = make_room(&inner.showing, id, meme.behaviour.refire, max_concurrent) else { return Ok(()); };
+        let Some(mut evict) = make_room(&inner.showing, id, refire, max_concurrent) else { return Ok(()); };
         evict_other_monitors(&inner.showing, monitor.as_deref(), &mut evict);
         // nothing changes unless the new meme also fits in memory
         let kept_bytes: u64 = inner.showing.iter().enumerate()
@@ -759,17 +862,30 @@ pub fn fire(app: &AppHandle, id: Uuid) -> AppResult<()> {
             .sum();
         if !fits_in_memory(bytes, kept_bytes, available_memory()) { return Err(AppError::MemeTooHeavy); }
         let mut evicted = Vec::with_capacity(evict.len());
-        for index in evict.into_iter().rev() { evicted.push(inner.showing.remove(index).instance); }
+        let mut replaces = None;
+        for index in evict.into_iter().rev() {
+            let old = inner.showing.remove(index);
+            // a combo press takes over its own meme's layer on the stage: the GIF stays loaded, only the count moves on
+            if is_combo && old.meme == id && replaces.is_none() { replaces = Some(old.instance); }
+            evicted.push(old.instance);
+        }
         let until = now + Duration::from_millis(u64::from(duration_ms));
         let stack = inner.showing.iter().filter(|s| s.meme == id).count();
         inner.showing.push(Showing { instance, meme: id, bytes, until, monitor });
         inner.last_fired.insert(id, now);
+        let combo = if let Animation::Combo { window_ms, .. } = meme.animation {
+            let count = next_combo(inner.combos.get(&id).copied(), now, Duration::from_millis(u64::from(window_ms)));
+            inner.combos.insert(id, (count, now));
+            count
+        } else {
+            0
+        };
         if let Some(stored) = inner.index.memes.iter_mut().find(|m| m.id == id) { stored.fire_count += 1; }
         let schedule = !inner.save_pending;
         inner.save_pending = true;
         drop(inner);
         if schedule { save_counts_soon(app); }
-        (evicted, stack)
+        (evicted, stack, combo, replaces)
     };
 
     let sound = app.state::<AudioState>();
@@ -781,28 +897,40 @@ pub fn fire(app: &AppHandle, id: Uuid) -> AppResult<()> {
         sound.play(instance, Sound { path: media_path(file), volume, speed, max })?;
     }
 
-    for old in &evicted { let _ = app.emit_to(window_manager::MEME_STAGE_LABEL, "meme-end", old); }
+    for old in evicted.iter().filter(|old| Some(**old) != replaces) {
+        let _ = app.emit_to(window_manager::MEME_STAGE_LABEL, "meme-end", old);
+    }
     if let Some(visual) = &visual {
         let cursor = window_manager::show_meme_stage(app, &meme.monitor)?;
         let payload = StageFire {
             instance,
-            visual: Some(StageVisual {
-                path: media_path(visual).to_string_lossy().into_owned(),
-                media_type: visual.media_type,
-                width: visual.info.width,
-                height: visual.info.height,
-            }),
+            visual: Some(StageVisual::of(visual)),
             // a random side or position is picked here, once per play
             meme: Meme { animation: meme.animation.resolved(), ..meme },
             duration_ms,
             speed,
             cursor,
             stack,
+            party: party.iter().filter_map(StageVisual::party_of).collect(),
+            combo,
+            replaces,
         };
         let _ = app.emit_to(window_manager::MEME_STAGE_LABEL, "meme-fire", payload);
     }
     notify_memeboard_changed(app);
     Ok(())
+}
+
+/** `count` random picks (repeats allowed) among the visuals of every saved meme that has one in the library. */
+fn party_picks(app: &AppHandle, count: u32) -> Vec<MediaItem> {
+    let visuals: Vec<Uuid> = app.state::<MemeboardState>().lock().index.memes.iter().filter_map(|m| m.visual).collect();
+    let library = app.state::<LibraryState>();
+    let index = library.lock();
+    let pool: Vec<&MediaItem> = visuals.iter()
+        .filter_map(|id| index.find(id).filter(|item| !item.media_type.is_audio() && index.has_file(id)))
+        .collect();
+    if pool.is_empty() { return Vec::new(); }
+    (0..count).map(|_| pool[((random_unit() * pool.len() as f32) as usize).min(pool.len() - 1)].clone()).collect()
 }
 
 const COUNT_SAVE_DELAY: Duration = Duration::from_secs(2);
@@ -828,7 +956,12 @@ pub fn flush_counts(app: &AppHandle) {
 /** Stops every sound and clears the stage. */
 pub fn stop_all(app: &AppHandle) {
     app.state::<AudioState>().stop_all();
-    app.state::<MemeboardState>().lock().showing.clear();
+    {
+        let state = app.state::<MemeboardState>();
+        let mut inner = state.lock();
+        inner.showing.clear();
+        inner.combos.clear();
+    }
     let _ = app.emit_to(window_manager::MEME_STAGE_LABEL, "meme-clear", ());
     window_manager::hide_meme_stage(app);
 }
@@ -1175,6 +1308,39 @@ mod tests {
         }
         let fixed = Animation::Cross { from: Side::Top, at: 0.3, random_at: false };
         assert_eq!(fixed.resolved(), fixed);
+    }
+
+    #[test]
+    fn combo_counts_within_its_window_and_stops_at_99() {
+        let now = Instant::now();
+        let window = Duration::from_secs(3);
+        assert_eq!(next_combo(None, now, window), 1);
+        assert_eq!(next_combo(Some((4, now - Duration::from_secs(1))), now, window), 5);
+        assert_eq!(next_combo(Some((4, now - Duration::from_secs(4))), now, window), 1, "too late: back to 1");
+        assert_eq!(next_combo(Some((MAX_COMBO, now)), now, window), MAX_COMBO);
+    }
+
+    #[test]
+    fn party_and_combo_load_with_defaults_and_are_clamped() {
+        let load = |json: &str| serde_json::from_str::<Animation>(json).unwrap();
+        assert_eq!(load(r#"{"kind":"party"}"#), Animation::Party { count: 20 });
+        assert_eq!(load(r#"{"kind":"combo"}"#),
+            Animation::Combo { corner: Corner::BottomRight, margin: 0.04, step: 3, window_ms: 3_000 });
+        let base = index_with(&["F13"]).memes.remove(0);
+        let party = Meme { animation: Animation::Party { count: 900 }, ..base.clone() };
+        assert_eq!(party.sanitized().animation, Animation::Party { count: 60 });
+        let combo = Meme { animation: Animation::Combo { corner: Corner::TopLeft, margin: 5.0, step: 1, window_ms: 10 }, ..base };
+        assert_eq!(combo.sanitized().animation,
+            Animation::Combo { corner: Corner::TopLeft, margin: MAX_COMBO_MARGIN, step: 2, window_ms: 1_000 });
+    }
+
+    #[test]
+    fn a_party_counts_each_distinct_item_once() {
+        let gif = item(MediaType::Gif, Some(800), None);
+        let other = item(MediaType::Png, None, None);
+        let one = party_bytes(&[&gif]);
+        assert_eq!(party_bytes(&[&gif, &gif, &gif]), one);
+        assert!(party_bytes(&[&gif, &other]) > one);
     }
 
     #[test]
