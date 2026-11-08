@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { t } from '../../i18n';
 import { invoke } from '../../lib/ipc';
+import { loadConfig } from '../../lib/config';
 import { notifyError } from '../../lib/notify';
 import {
 	isAudioType,
@@ -13,7 +14,7 @@ import {
 	ANIMATION_KINDS,
 	COMBO_MAX_MARGIN,
 	COMBO_STEP_RANGE,
-	COMBO_WINDOW_RANGE,
+	COMBO_WINDOW_MIN,
 	PARTY_COUNT_RANGE,
 	POP_MS_RANGE,
 	SPEED_RANGE,
@@ -237,9 +238,14 @@ function MemeEditor({
 	const [hotkeyOk, setHotkeyOk] = useState(true);
 	const [saving, setSaving] = useState(false);
 	const [monitors, setMonitors] = useState<MonitorInfo[]>([]);
+	// how many memes the settings let show at once (1 until it is read: the cautious answer)
+	const [maxConcurrent, setMaxConcurrent] = useState(1);
 	useEscape(true, onClose);
 
 	useEffect(() => {
+		loadConfig()
+			.then((config) => setMaxConcurrent(config.meme_max_concurrent))
+			.catch(() => {});
 		invoke<MonitorInfo[]>('list_monitors')
 			.then((list) => setMonitors(list ?? []))
 			.catch(() => setMonitors([]));
@@ -629,6 +635,7 @@ function MemeEditor({
 							/>
 							<BehaviourPanel
 								behaviour={draft.behaviour}
+								maxConcurrent={maxConcurrent}
 								onChange={(behaviour) => set('behaviour', behaviour)}
 							/>
 						</Block>
@@ -697,8 +704,8 @@ function MemeEditor({
 								// a combo's time is its window: how long after the last press it keeps counting and burning
 								<Slider
 									label={editor.time}
-									min={COMBO_WINDOW_RANGE[0]}
-									max={COMBO_WINDOW_RANGE[1]}
+									min={COMBO_WINDOW_MIN}
+									max={maxMemeMs}
 									step={250}
 									value={anim.window_ms}
 									format={seconds}
@@ -724,7 +731,7 @@ function MemeEditor({
 									resetLabel={editor.time}
 									info={
 										<InfoTip
-											text={editor.timeInfo}
+											text={editor.timeInfo(maxMemeMs / 1000)}
 											label={t.memeboard.infoLabel}
 										/>
 									}

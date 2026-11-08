@@ -268,8 +268,8 @@ export const es: Strings = {
 			motionSpeed: 'Velocidad de la animación',
 			playbackSpeed: 'Velocidad de reproducción',
 			time: 'Tiempo',
-			timeInfo:
-				'Cuánto dura el meme, 10 s como máximo. Por defecto lo que dure su sonido. Un tiempo mayor lo repite.',
+			timeInfo: (maxSeconds: number) =>
+				`Cuánto dura el meme, ${maxSeconds} s como máximo. Por defecto lo que dure su sonido. Un tiempo mayor lo repite.`,
 			volume: 'Volumen',
 			xAt: 'X',
 			yAt: 'Y',
@@ -294,6 +294,8 @@ export const es: Strings = {
 				stack: 'Suma otro encima',
 				ignore: 'Ignora la pulsación',
 			},
+			stackLimited:
+				'Los ajustes de la Memeboard permiten solo 1 meme a la vez (Memes a la vez), así que cada pulsación sustituye a la anterior. Súbelo allí para apilar.',
 			pitch: 'Tono al azar en cada uso',
 			pitchRange: 'Variación',
 		},

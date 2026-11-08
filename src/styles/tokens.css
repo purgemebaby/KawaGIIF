@@ -80,13 +80,18 @@
 	);
 
 	--kg-btn-radius: var(--kg-radius-pill);
-	--kg-btn-gradient: linear-gradient(
-		135deg,
-		var(--kg-accent) 45%,
-		var(--kg-accent-2) 150%
+	--kg-btn-glow: 0 0 16px rgb(var(--kg-accent-rgb) / 0.35);
+	/* 45° pen hatch as a 7 px tile (lines at the corners and the middle), so moving it by 7 px loops without a seam:
+	   the slider fill and the primary button */
+	--kg-hatch: linear-gradient(
+		45deg,
+		var(--kg-accent) 0 6.25%,
+		transparent 6.25% 43.75%,
+		var(--kg-accent) 43.75% 56.25%,
+		transparent 56.25% 93.75%,
+		var(--kg-accent) 93.75%
 	);
-	--kg-btn-glow: 0 4px 18px rgb(var(--kg-accent-rgb) / 0.45);
-	--kg-btn-glow-danger: 0 4px 18px rgb(var(--kg-danger-rgb) / 0.45);
+	--kg-hatch-size: 7px;
 
 	--kg-dur-fast: 140ms;
 	--kg-dur-med: 260ms;

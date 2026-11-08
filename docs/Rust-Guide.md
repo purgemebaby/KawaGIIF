@@ -291,7 +291,7 @@ Thumbnails live in `thumbs/<stored stem>.webp` (longest side 320 px, lossless WE
 **memeboard.rs**
 | Command | Args | Returns |
 |---|---|---|
-| `list_memes` | — | `MemeboardView` (`memes` with `hotkey_conflict`, `stop_hotkey`, `stop_conflict`, `presets`, `max_hotkeys` = 10, `max_meme_ms` = 10 000) |
+| `list_memes` | — | `MemeboardView` (`memes` with `hotkey_conflict`, `stop_hotkey`, `stop_conflict`, `presets`, `max_hotkeys` = 10, `max_meme_ms` = 20 000) |
 | `new_meme` | `name: String` | `Meme` (not saved; first free default hotkey `Ctrl+Alt+Digit1..0`, shown as Ctrl+AltGr+N) |
 | `check_hotkey` | `hotkey: String, meme_id: Option<Uuid>` (none = the Stop all shortcut) | `Option<HotkeyRefusal>` (`invalid`, `needs_modifier`, `reserved`, `duplicate`, `limit`) |
 | `pause_meme_hotkeys` | `paused: bool` | — (while a shortcut field records; lifted by itself after 15 s without renewal) |
@@ -310,7 +310,7 @@ Thumbnails live in `thumbs/<stored stem>.webp` (longest side 320 px, lossless WE
 | `simplify_meme_path` | `points: Vec<PathPoint>, width: f64, height: f64` (the path drawn on the editor preview, fractions of it; the preview size in px) | `Vec<PathPoint>` (thinned with Visvalingam-Whyatt to triangles ≥ 40 px² and at most 240 points) |
 | `list_monitors` (window_manager.rs) | — | `AppResult<Vec<MonitorInfo>>` (`{ name, width, height, primary }`, physical px) |
 
-Memes live in `%LOCALAPPDATA%\KawaGIIF\memeboard.json`. A meme lasts as long as its sound (an MP4's own track, decoded by the audio thread so it follows the output device), else its `duration_ms` or one GIF loop, never more than 10 s; a faster random speed shortens it. `KawaGIIF.exe --fire-meme <id|name>` fires one from outside (a second launch passes its args through the single-instance plugin).
+Memes live in `%LOCALAPPDATA%\KawaGIIF\memeboard.json`. A meme lasts as long as its sound (an MP4's own track, decoded by the audio thread so it follows the output device), else its `duration_ms` or one GIF loop, never more than 20 s; a faster random speed shortens it. `KawaGIIF.exe --fire-meme <id|name>` fires one from outside (a second launch passes its args through the single-instance plugin).
 
 **template.rs**
 | Command | Args | Returns |

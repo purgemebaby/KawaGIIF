@@ -26,7 +26,7 @@ use crate::window_manager;
   plugin only probes each hotkey, to flag one another app already holds.
 */
 
-pub const MAX_MEME_MS: u32 = 10_000;
+pub const MAX_MEME_MS: u32 = 20_000;
 pub const MAX_HOTKEYS: usize = 10;
 const DEFAULT_STILL_MS: u32 = 3_000;
 const MAX_NAME_CHARS: usize = 60;
@@ -1275,11 +1275,11 @@ mod tests {
     }
 
     #[test]
-    fn duration_follows_the_media_unless_set_and_stops_at_ten_seconds() {
+    fn duration_follows_the_media_unless_set_and_stops_at_the_cap() {
         let meme = index_with(&["F13"]).memes.remove(0);
         let gif = item(MediaType::Gif, Some(800), None);
         let short = item(MediaType::Mp3, Some(3_000), Some(true));
-        let long = item(MediaType::Wav, Some(20_000), Some(true));
+        let long = item(MediaType::Wav, Some(30_000), Some(true));
         let video = item(MediaType::Mp4, Some(4_500), Some(true));
         let silent_video = item(MediaType::Mp4, Some(4_500), Some(false));
         assert_eq!(meme_duration(&meme, Some(&gif), Some(&short), 1.0), 3_000);

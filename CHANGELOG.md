@@ -19,9 +19,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - In Fall, a meme falls once over the whole time, slower the longer the meme, and never starts over, whatever the animation speed.
   - In Combo, the flame box is always the same size and always inside the screen; the flame drawn in it grows and burns brighter with each tier. The first press pops the meme in, later presses give it a small button-like press, and its Time slider is how long the combo lasts.
   - A meme's plays start over when its image or sound is changed.
+  - A meme set to "Add another on top" says so in its editor when "Memes at once" is 1 in the Memeboard settings, since then each press can only replace the last one.
   - The meme editor's pickers are a scrolling grid with the Library's search, sort and tag filter, so a library of hundreds is easy to browse.
   - A meme still plays when Windows has no cursor to report (a locked screen, a Stream Deck press): it shows on the main monitor.
-  - A meme lasts as long as its sound (a video uses its own), 10 s at most; the visual loops until the sound ends.
+  - A meme lasts as long as its sound (a video uses its own), 20 s at most; the visual loops until the sound ends.
   - Sounds can go to another output, such as a virtual cable (VB-Cable) to play them in a voice chat, or to the speakers and that device at once.
   - 1 meme at a time by default, up to 10 in the settings; a meme that wouldn't fit in the free memory is not played.
   - Cooldown, what pressing again does (restart, stack, ignore), random speed and pitch, and presets to reuse a look and behaviour.
@@ -33,6 +34,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - The Library, the editor's Storage panel and the meme pickers show small thumbnails instead of the original files: GIFs and animated WEBPs move only under the pointer, and videos show a poster until hovered. With a large library this cuts the app's memory use a lot.
 - The home ring shows only big icons; hovering a sector lights its neon edge, the icon steps inwards and the name flickers on along the edge.
+- Filled buttons (Save, Update, Import, Done…) drop the purple-to-pink gradient for the sliders' pen hatch inside a hand-drawn outline: the hatch slides under the pointer and the two strokes meet when pressed.
 - Imports now read each file's real codec (audio track and first packet, image header, first GIF frame, MP4 tracks) instead of trusting its first bytes, so a renamed or corrupt file is refused.
 
 ## [0.1.2] - 2026-10-28

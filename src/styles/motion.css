@@ -309,10 +309,12 @@
 	display: none;
 }
 
-/* the button hatch still fills with nav animations off, just without the fade */
+/* the button hatch still fills with nav animations off, just without the fade or the slide */
+:root[data-nav-animations='off'] .kg-btn--primary::before,
 :root[data-nav-animations='off'] .kg-btn--secondary::before,
 :root[data-nav-animations='off'] .kg-btn--danger::before {
 	transition: none;
+	animation: none;
 }
 
 /* A paw presses or pulls a panel's tab. */
@@ -412,6 +414,7 @@
 	}
 
 	/* the button hatch appears instantly instead of fading */
+	.kg-btn--primary::before,
 	.kg-btn--secondary::before,
 	.kg-btn--danger::before {
 		transition: none;

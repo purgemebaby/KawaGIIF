@@ -260,8 +260,8 @@ export const en = {
 			motionSpeed: 'Animation speed',
 			playbackSpeed: 'Playback speed',
 			time: 'Time',
-			timeInfo:
-				'How long the meme lasts, 10 s at most. By default as long as its sound. A longer time repeats it.',
+			timeInfo: (maxSeconds: number) =>
+				`How long the meme lasts, ${maxSeconds} s at most. By default as long as its sound. A longer time repeats it.`,
 			volume: 'Volume',
 			xAt: 'X',
 			yAt: 'Y',
@@ -286,6 +286,8 @@ export const en = {
 				stack: 'Add another on top',
 				ignore: 'Ignore the press',
 			},
+			stackLimited:
+				'The Memeboard settings allow only 1 meme at a time (Memes at once), so each press replaces the last one. Raise it there to stack.',
 			pitch: 'Random pitch on each play',
 			pitchRange: 'Variation',
 		},

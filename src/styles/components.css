@@ -49,22 +49,52 @@
 	cursor: not-allowed;
 }
 
-/* Solid pill: lifts and glows on hover. */
+/* Filled with the slider's pen hatch: on hover the hatch slides like a slider being dragged, and pressing
+   lands the second pass on the first. */
 .kg-btn--primary {
-	--kg-btn-ink: transparent;
-	background: var(--kg-btn-gradient);
-	color: var(--kg-fg-on-accent);
+	--kg-btn-ink: var(--kg-accent);
+	background-color: color-mix(in srgb, var(--kg-accent) 16%, transparent);
+	color: var(--kg-px-light);
 	font-weight: 600;
 }
 
+.kg-btn--primary::before {
+	content: '';
+	position: absolute;
+	z-index: -1;
+	inset: 0;
+	border-radius: inherit;
+	background: var(--kg-hatch) 0 0 / var(--kg-hatch-size) var(--kg-hatch-size);
+	opacity: 0.5;
+	transition: opacity var(--kg-dur-med) var(--kg-ease-out);
+}
+
 .kg-btn--primary::after {
-	display: none; /* no second pass on the solid pill */
+	transition:
+		border-color var(--kg-dur-fast) var(--kg-ease-out),
+		opacity var(--kg-dur-fast) var(--kg-ease-out),
+		transform var(--kg-dur-fast) var(--kg-ease-out);
 }
 
 .kg-btn--primary:hover:not(:disabled) {
+	--kg-btn-ink: var(--kg-accent-strong);
 	box-shadow: var(--kg-btn-glow);
-	filter: brightness(1.1);
 	transform: translateY(-1px);
+}
+
+.kg-btn--primary:hover:not(:disabled)::before {
+	opacity: 0.9;
+	animation: kg-hatch-slide 0.6s linear infinite;
+}
+
+.kg-btn--primary:active:not(:disabled) {
+	box-shadow: none;
+	transform: translateY(1px);
+}
+
+.kg-btn--primary:active:not(:disabled)::after {
+	opacity: 0.8;
+	transform: none;
 }
 
 /* Neutral ink at rest, accent on hover. */
@@ -357,34 +387,26 @@
 	transition: border-color var(--kg-dur-fast) var(--kg-ease-out);
 }
 
-/* The hatch of .kg-btn--secondary, drawn as a 7 px tile (lines at the corners and the middle) so moving it by 7 px
-   loops without a seam. */
+/* The pen hatch (tokens.css), sliding while dragged. */
 .kg-slider-fill {
 	position: absolute;
 	inset: 0 auto 0 0;
 	width: calc(var(--ratio) * 100%);
 	border-right: 1.5px solid var(--kg-accent);
 	background-color: color-mix(in srgb, var(--kg-accent) 10%, transparent);
-	background-image: linear-gradient(
-		45deg,
-		var(--kg-accent) 0 6.25%,
-		transparent 6.25% 43.75%,
-		var(--kg-accent) 43.75% 56.25%,
-		transparent 56.25% 93.75%,
-		var(--kg-accent) 93.75%
-	);
-	background-size: 7px 7px;
+	background-image: var(--kg-hatch);
+	background-size: var(--kg-hatch-size) var(--kg-hatch-size);
 	opacity: 0.9;
 	pointer-events: none;
 }
 
 .kg-slider[data-dragging] .kg-slider-fill {
-	animation: kg-slider-hatch 0.4s linear infinite;
+	animation: kg-hatch-slide 0.4s linear infinite;
 }
 
-@keyframes kg-slider-hatch {
+@keyframes kg-hatch-slide {
 	to {
-		background-position: 7px 0;
+		background-position: var(--kg-hatch-size) 0;
 	}
 }
 
@@ -426,7 +448,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-	.kg-slider[data-dragging] .kg-slider-fill {
+	.kg-slider[data-dragging] .kg-slider-fill,
+	.kg-btn--primary:hover:not(:disabled)::before {
 		animation: none;
 	}
 }

@@ -9,8 +9,8 @@ use crate::memeboard::{PathPoint, MAX_MEME_MS};
  tremor over a long stroke survives, since a triangle grows with its base. */
 const MIN_AREA_PX2: f64 = 40.0;
 const MAX_POINTS: usize = 240;
-/** A drawn path never has more samples than this (10 s at the 60 Hz a pointer reports). */
-const MAX_SAMPLES: usize = 1200;
+/** A drawn path never has more samples than this (20 s, the most a meme lasts, at the 60 Hz a pointer reports). */
+const MAX_SAMPLES: usize = 2400;
 
 
 

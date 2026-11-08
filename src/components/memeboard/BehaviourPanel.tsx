@@ -8,6 +8,8 @@ import Slider from '../ui/Slider';
 interface BehaviourPanelProps {
 	behaviour: Behaviour;
 	onChange: (behaviour: Behaviour) => void;
+	/** "Memes at once" of the Memeboard settings: with 1, nothing can be stacked. */
+	maxConcurrent: number;
 }
 
 const REFIRES: readonly Refire[] = ['restart', 'stack', 'ignore'];
@@ -18,7 +20,11 @@ const MAX_JITTER = 0.5;
 const DEFAULT_JITTER = 0.12;
 
 /** What pressing the shortcut does: the cooldown, what a second press does, and a pitch that can vary at random. */
-function BehaviourPanel({ behaviour, onChange }: BehaviourPanelProps) {
+function BehaviourPanel({
+	behaviour,
+	onChange,
+	maxConcurrent,
+}: BehaviourPanelProps) {
 	const text = t.memeboard.behaviour;
 	const set = (patch: Partial<Behaviour>) =>
 		onChange({ ...behaviour, ...patch });
@@ -50,6 +56,10 @@ function BehaviourPanel({ behaviour, onChange }: BehaviourPanelProps) {
 					onChange={(refire) => set({ refire })}
 					ariaLabel={text.refire}
 				/>
+				{/* the setting wins over this choice: say so, instead of a meme that silently restarts */}
+				{behaviour.refire === 'stack' && maxConcurrent <= 1 && (
+					<small className="meme-field-note">{text.stackLimited}</small>
+				)}
 			</div>
 			<SettingsToggle
 				checked={randomPitch}

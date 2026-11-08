@@ -111,7 +111,7 @@ const MOCK_RESPONSES: Record<string, unknown> = {
 		stop_conflict: false,
 		presets: [],
 		max_hotkeys: 10,
-		max_meme_ms: 10_000,
+		max_meme_ms: 20_000,
 	},
 	list_monitors: [
 		{ name: '\\\\.\\DISPLAY1', width: 1920, height: 1080, primary: true },

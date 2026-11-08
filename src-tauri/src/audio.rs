@@ -89,7 +89,7 @@ impl Engine {
         for sink in &self.sinks {
             // each device decodes on its own: a source can only feed one mixer
             let file = std::fs::File::open(&sound.path).map_err(|e| e.to_string())?;
-            // repeats when the meme lasts longer than the file; the decoded copy is a few MB at most (≤ 10 s)
+            // repeats when the meme lasts longer than the file; the decoded copy is a few MB at most (≤ 20 s)
             let source = Decoder::try_from(file).map_err(|e| e.to_string())?
                 .buffered()
                 .repeat_infinite()

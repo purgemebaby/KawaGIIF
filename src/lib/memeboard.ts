@@ -158,7 +158,8 @@ export const ANIMATION_KINDS: AnimationKind[] = [
 // must match memeboard.rs
 export const PARTY_COUNT_RANGE: [number, number] = [5, 60];
 export const COMBO_STEP_RANGE: [number, number] = [2, 6];
-export const COMBO_WINDOW_RANGE: [number, number] = [1000, 10_000];
+// the longest window is the most a meme lasts (`max_meme_ms`)
+export const COMBO_WINDOW_MIN = 1000;
 export const COMBO_MAX_MARGIN = 0.2;
 
 // Defaults and ranges of the animation options; memeboard.rs clamps to the same.

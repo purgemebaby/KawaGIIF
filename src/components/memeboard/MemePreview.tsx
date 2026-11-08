@@ -117,7 +117,7 @@ function MemePreview({
 	const onPointerMove = (e: PointerEvent) => {
 		if (!stroke) return;
 		const point = pointOf(e);
-		// past the 10 s of a meme the stroke just stops growing
+		// past the most a meme lasts the stroke just stops growing
 		if (point.t >= maxMs) return;
 		setStroke((s) => s && [...s, point]);
 	};
