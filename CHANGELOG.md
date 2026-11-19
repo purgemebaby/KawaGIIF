@@ -9,7 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Added
 
 - **Memeboard**, a new section on the home ring. A meme pairs an image, GIF or video with a sound, an animation (pop, still, DVD bounce, bounce, shake, cross the screen, fall, or a path you record with the mouse) and a global shortcut.
-  - Up to 10 shortcuts, `Ctrl+AltGr+1` … `Ctrl+AltGr+0` by default. Windows and common app shortcuts are refused, and one already taken by another app is flagged instead of failing silently. `Ctrl+AltGr+Backspace` stops everything.
+  - Up to 10 shortcuts, `Ctrl+AltGr+1` … `Ctrl+AltGr+0` by default. Windows and common app shortcuts are refused, and one already taken by another app is flagged instead of failing silently. `Ctrl+AltGr+Backspace` stops everything. Win + a number works too: while a meme has it, it takes over opening that pinned taskbar app, and releasing Win doesn't open the Start menu.
   - The shortcuts are read with a keyboard hook that tells a real Ctrl from AltGr, so AltGr alone still types its character (`|`, `@`, `#`…) and only Ctrl+AltGr plays the meme. While a shortcut is being recorded they are paused, and a combination another meme already has is refused.
   - Cross the screen can come in from a random side and Cross and Fall at a random position, picked anew on each play.
   - Images and sounds can be imported straight from the meme editor, with the button or by dropping files on it.

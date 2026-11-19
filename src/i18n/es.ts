@@ -280,7 +280,10 @@ export const es: Strings = {
 			hotkeyPlaceholder: 'Haz clic y pulsa las teclas',
 			hotkeyListening: 'Pulsa las teclas…',
 			hotkeyClear: 'Quitar atajo',
-			hotkeyHint: 'Usa Ctrl + AltGr (o Ctrl + Alt) con una tecla.',
+			hotkeyHint:
+				'Usa Ctrl + AltGr (o Ctrl + Alt) con una tecla, o Win con un número.',
+			hotkeyWinNote:
+				'Mientras un meme lo tenga, Win + este número ya no abre esa app anclada de la barra de tareas.',
 			preview: 'Vista previa',
 			save: 'Guardar meme',
 			needsMedia: 'Elige antes una imagen o un sonido.',

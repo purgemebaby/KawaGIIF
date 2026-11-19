@@ -17,13 +17,15 @@ use crate::audio::{AudioState, Sound};
 use crate::config;
 use crate::error::{AppError, AppResult};
 use crate::library::{LibraryState, MediaItem, MediaType};
-use crate::native::keyboard_hook::{self, KeyCombo};
+use crate::native::keyboard_hook::{self, HookEvent, KeyCombo};
 use crate::window_manager;
 
 /* Personal Note for me:
 - The hotkeys don't go through RegisterHotKey (the global-shortcut plugin) any more: it can't tell Ctrl+AltGr from
   AltGr, so it stole AltGr+1 (`|`). The keyboard hook matches a `KeyCombo` (scan code + real modifiers) instead. The
   plugin only probes each hotkey, to flag one another app already holds.
+- Win + a digit (alone) can be a meme's hotkey too: it takes over the taskbar's "open pinned app N" while a meme holds
+  it, and is never probed (taking it from the taskbar is the point). See keyboard_hook.rs for the Start menu mask.
 */
 
 pub const MAX_MEME_MS: u32 = 20_000;
@@ -330,9 +332,10 @@ fn finite_or(value: f32, fallback: f32) -> f32 { if value.is_finite() { value } 
 pub enum HotkeyRefusal {
     /// Not `Mods+Code`, or an unknown key.
     Invalid,
-    /// A letter, digit or symbol needs two of Ctrl/Alt/Shift; other keys need Ctrl or Alt. Only F13-F24 go bare.
+    /// A letter, digit or symbol needs two of Ctrl/Alt/Shift; other keys need Ctrl or Alt. Only F13-F24 go bare,
+    /// and Win only goes with a lone digit.
     NeedsModifier,
-    /// Windows or other apps rely on it (Alt+Tab, Ctrl+C, Win+…).
+    /// Windows or other apps rely on it (Alt+Tab, Ctrl+C, Win+D…).
     Reserved,
     /// Another meme, or the stop hotkey, already has it.
     Duplicate,
@@ -340,15 +343,15 @@ pub enum HotkeyRefusal {
     Limit,
 }
 
-/** A parsed hotkey: which of Ctrl/Alt/Shift it holds and its key. */
+/** A parsed hotkey: which of Ctrl/Alt/Shift/Win it holds and its key. */
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-struct Hotkey { ctrl: bool, alt: bool, shift: bool, code: Code }
+struct Hotkey { ctrl: bool, alt: bool, shift: bool, win: bool, code: Code }
 impl Hotkey {
-    /// Parses the canonical `Ctrl+Alt+Shift+Code` form; modifiers may come in any order and any case.
+    /// Parses the canonical `Win+Ctrl+Alt+Shift+Code` form; modifiers may come in any order and any case.
     fn parse(raw: &str) -> Result<Self, HotkeyRefusal> {
         let mut parts: Vec<&str> = raw.split('+').map(str::trim).collect();
         let key = parts.pop().filter(|k| !k.is_empty()).ok_or(HotkeyRefusal::Invalid)?;
-        let (mut ctrl, mut alt, mut shift) = (false, false, false);
+        let (mut ctrl, mut alt, mut shift, mut win) = (false, false, false, false);
         for part in parts {
             match part.to_ascii_lowercase().as_str() {
                 "ctrl" | "control" => ctrl = true,
@@ -356,17 +359,18 @@ impl Hotkey {
                 "altgr" => { ctrl = true; alt = true; }
                 "alt" => alt = true,
                 "shift" => shift = true,
-                "win" | "super" | "meta" | "cmd" => return Err(HotkeyRefusal::Reserved),
+                "win" | "super" | "meta" | "cmd" => win = true,
                 _ => return Err(HotkeyRefusal::Invalid),
             }
         }
         let code = Code::from_str(key).map_err(|_| HotkeyRefusal::Invalid)?;
         if is_modifier_key(code) { return Err(HotkeyRefusal::Invalid); }
-        Ok(Self { ctrl, alt, shift, code })
+        Ok(Self { ctrl, alt, shift, win, code })
     }
 
     fn canonical(self) -> String {
         let mut out = String::new();
+        if self.win { out.push_str("Win+"); }
         if self.ctrl { out.push_str("Ctrl+"); }
         if self.alt { out.push_str("Alt+"); }
         if self.shift { out.push_str("Shift+"); }
@@ -379,13 +383,14 @@ impl Hotkey {
         if self.ctrl { mods |= Modifiers::CONTROL; }
         if self.alt { mods |= Modifiers::ALT; }
         if self.shift { mods |= Modifiers::SHIFT; }
+        if self.win { mods |= Modifiers::SUPER; }
         Shortcut::new((!mods.is_empty()).then_some(mods), self.code)
     }
 
     /// What the keyboard hook matches. `None` for a key the hook has no scan code for.
     fn combo(self) -> Option<KeyCombo> {
         let scan = keyboard_hook::scan_for_code(&self.code.to_string())?;
-        Some(KeyCombo { scan, ctrl: self.ctrl, alt: self.alt, shift: self.shift })
+        Some(KeyCombo { scan, ctrl: self.ctrl, alt: self.alt, shift: self.shift, win: self.win })
     }
 
     fn modifier_count(self) -> usize { usize::from(self.ctrl) + usize::from(self.alt) + usize::from(self.shift) }
@@ -394,6 +399,11 @@ impl Hotkey {
     fn check_rules(self) -> Result<(), HotkeyRefusal> {
         use Code::*;
         if self.code == PrintScreen || self.code == Pause { return Err(HotkeyRefusal::Reserved); }
+        // Windows owns nearly every Win combo (Win+D, Win+L, Win+Shift+S…); only the taskbar's Win+N can be taken
+        if self.win {
+            let lone_digit = self.modifier_count() == 0 && self.code.to_string().starts_with("Digit");
+            return if lone_digit { Ok(()) } else { Err(HotkeyRefusal::Reserved) };
+        }
         let only = |ctrl, alt, shift| self.ctrl == ctrl && self.alt == alt && self.shift == shift;
         let reserved = match self.code {
             Tab => self.alt || self.ctrl,
@@ -562,8 +572,12 @@ pub fn sync_hotkeys(app: &AppHandle) {
     notify_memeboard_changed(app);
 }
 
-/** Whether no other app holds `hotkey` through RegisterHotKey: registering it must work (it is released at once). */
+/**
+ * Whether no other app holds `hotkey` through RegisterHotKey: registering it must work (it is released at once).
+ * Win + a digit is the taskbar's, which a meme takes over on purpose, so it isn't probed.
+ */
 fn is_free(app: &AppHandle, hotkey: Hotkey) -> bool {
+    if hotkey.win { return true; }
     let shortcuts = app.global_shortcut();
     let shortcut = hotkey.shortcut();
     let free = shortcuts.register(shortcut).is_ok();
@@ -576,7 +590,17 @@ pub fn start_hotkeys(app: &AppHandle) {
     let Some(pressed) = keyboard_hook::start() else { return; };
     let app = app.clone();
     std::thread::spawn(move || {
-        for combo in pressed {
+        for event in pressed {
+            let combo = match event {
+                HookEvent::Pressed(combo) => combo,
+                // Win + a digit, which the shortcut field being recorded can't see itself
+                HookEvent::Recorded(combo) => {
+                    if let Some(digit) = keyboard_hook::digit_code(combo.scan) {
+                        let _ = app.emit("meme-hotkey-recorded", format!("Win+{digit}"));
+                    }
+                    continue;
+                }
+            };
             let (meme, is_stop) = {
                 let state = app.state::<MemeboardState>();
                 let inner = state.lock();
@@ -1203,11 +1227,17 @@ mod tests {
         assert_eq!(check("alt+ctrl+Digit1"), Ok("Ctrl+Alt+Digit1".into()));
         assert_eq!(check("AltGr+Digit5"), Ok("Ctrl+Alt+Digit5".into()));
         assert_eq!(check("F13"), Ok("F13".into()));
+        assert_eq!(check("Win+Digit1"), Ok("Win+Digit1".into()));
+        assert_eq!(check("meta+Digit0"), Ok("Win+Digit0".into()));
     }
 
     #[test]
     fn reserved_and_weak_hotkeys_are_refused() {
         assert_eq!(check("Win+KeyD"), Err(HotkeyRefusal::Reserved));
+        assert_eq!(check("Win+Shift+Digit1"), Err(HotkeyRefusal::Reserved));
+        assert_eq!(check("Ctrl+Win+Digit1"), Err(HotkeyRefusal::Reserved));
+        assert_eq!(check("Win+Numpad1"), Err(HotkeyRefusal::Reserved));
+        assert_eq!(check("Win+Tab"), Err(HotkeyRefusal::Reserved));
         assert_eq!(check("Alt+Tab"), Err(HotkeyRefusal::Reserved));
         assert_eq!(check("Alt+F4"), Err(HotkeyRefusal::Reserved));
         assert_eq!(check("Ctrl+Alt+Delete"), Err(HotkeyRefusal::Reserved));
@@ -1231,6 +1261,8 @@ mod tests {
         // the meme keeping its own hotkey is no duplicate
         assert!(index.validate_hotkey("Ctrl+Alt+Digit1", &index.memes[0].id).is_ok());
         assert_eq!(index.validate_hotkey(DEFAULT_STOP_HOTKEY, &Uuid::new_v4()), Err(HotkeyRefusal::Duplicate));
+        let win = index_with(&["Win+Digit2"]);
+        assert_eq!(win.validate_hotkey("meta+Digit2", &Uuid::new_v4()), Err(HotkeyRefusal::Duplicate));
 
         let keys: Vec<String> = (0..MAX_HOTKEYS).filter_map(default_hotkey).collect();
         let full = index_with(&keys.iter().map(String::as_str).collect::<Vec<_>>());

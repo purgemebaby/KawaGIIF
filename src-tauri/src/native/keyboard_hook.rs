@@ -3,6 +3,8 @@ RegisterHotKey can't tell a real Ctrl from the fake one AltGr sends, so `Ctrl+Al
 character it types (`|` on a Spanish keyboard). The hook sees each key with its scan code and tracks the real modifiers
 itself: AltGr alone passes through untouched, Ctrl+AltGr+1 matches. Keys are matched by physical position (scan code),
 the same thing the frontend records as `KeyboardEvent.code`.
+Win + a digit is allowed too: the hook takes it before the taskbar does (Win+N opens the Nth pinned app), and taps an
+unassigned key while Win is still down so its release doesn't open the Start menu (what AutoHotkey calls a mask key).
 The callback only compares and sends: firing happens on the receiver's thread, so typing never waits on a meme.
 */
 
@@ -14,8 +16,9 @@ use std::sync::{Mutex, OnceLock, PoisonError, RwLock};
 
 use windows::Win32::Foundation::{LPARAM, LRESULT, WPARAM};
 use windows::Win32::UI::Input::KeyboardAndMouse::{
-    GetAsyncKeyState, MapVirtualKeyW, MAPVK_VK_TO_VSC_EX, VK_CONTROL, VK_LCONTROL, VK_LMENU, VK_LSHIFT, VK_LWIN,
-    VK_MENU, VK_RCONTROL, VK_RMENU, VK_RSHIFT, VK_RWIN, VK_SHIFT,
+    GetAsyncKeyState, MapVirtualKeyW, SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_KEYUP,
+    MAPVK_VK_TO_VSC_EX, VIRTUAL_KEY, VK_CONTROL, VK_LCONTROL, VK_LMENU, VK_LSHIFT, VK_LWIN, VK_MENU, VK_RCONTROL,
+    VK_RMENU, VK_RSHIFT, VK_RWIN, VK_SHIFT,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     CallNextHookEx, GetMessageW, SetWindowsHookExW, HC_ACTION, KBDLLHOOKSTRUCT, LLKHF_EXTENDED, MSG, WH_KEYBOARD_LL,
@@ -26,22 +29,36 @@ use windows::Win32::UI::WindowsAndMessaging::{
 
 /** A key combination as the hook matches it: the key's scan code (0xE0 prefix as `0xE000`) and the real modifiers. */
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
-pub struct KeyCombo { pub scan: u16, pub ctrl: bool, pub alt: bool, pub shift: bool }
+pub struct KeyCombo { pub scan: u16, pub ctrl: bool, pub alt: bool, pub shift: bool, pub win: bool }
+
+/** What the hook reports. */
+pub enum HookEvent {
+    /** A combo in the set was pressed. */
+    Pressed(KeyCombo),
+    /** Win + a digit pressed while paused: a shortcut field is recording it. Taken here, or the taskbar would. */
+    Recorded(KeyCombo),
+}
 
 /// The bit Windows sets on the scan code of the fake Left Ctrl it sends with AltGr (undocumented, but stable since XP).
 const ALTGR_FAKE_CTRL: u32 = 0x200;
 const EXTENDED: u16 = 0xE000;
+/// An unassigned virtual key, tapped to hide a Win press from the shell (AutoHotkey's default mask key).
+const MASK_VK: u16 = 0xE8;
+/// Marks the events the hook sends itself, so it lets them through.
+const OWN_INPUT: usize = 0x4B47_4946; // "KGIF"
+/// Scan codes of the digit row, 1..9 then 0.
+const DIGIT_SCANS: std::ops::RangeInclusive<u16> = 0x02..=0x0B;
 
 struct Shared {
     combos: RwLock<HashSet<KeyCombo>>,
     paused: AtomicBool,
-    sender: Mutex<Sender<KeyCombo>>,
+    sender: Mutex<Sender<HookEvent>>,
 }
 static SHARED: OnceLock<Shared> = OnceLock::new();
 
 /** Real modifier keys held, as seen by the hook (left and right apart). */
 #[derive(Default)]
-struct Held { lctrl: bool, rctrl: bool, lalt: bool, ralt: bool, lshift: bool, rshift: bool, win: bool }
+struct Held { lctrl: bool, rctrl: bool, lalt: bool, ralt: bool, lshift: bool, rshift: bool, lwin: bool, rwin: bool }
 
 thread_local! {
     static HELD: RefCell<Held> = RefCell::new(Held::default());
@@ -51,9 +68,9 @@ thread_local! {
 
 /**
  * Starts the hook on its own thread (an LL hook runs on the thread that installed it, which must pump messages).
- * Returns the receiver of the matched combos, or `None` if it was already started or can't be installed.
+ * Returns the receiver of what it matches, or `None` if it was already started or can't be installed.
  */
-pub fn start() -> Option<Receiver<KeyCombo>> {
+pub fn start() -> Option<Receiver<HookEvent>> {
     let (sender, receiver) = mpsc::channel();
     let shared = Shared { combos: RwLock::new(HashSet::new()), paused: AtomicBool::new(false), sender: Mutex::new(sender) };
     SHARED.set(shared).ok()?;
@@ -156,14 +173,34 @@ fn track_modifier(held: &mut Held, vk: u16, scan: u32, down: bool) -> bool {
         v if v == VK_RMENU.0 => held.ralt = down,
         v if v == VK_LSHIFT.0 || v == VK_SHIFT.0 => held.lshift = down,
         v if v == VK_RSHIFT.0 => held.rshift = down,
-        v if v == VK_LWIN.0 || v == VK_RWIN.0 => held.win = down,
+        v if v == VK_LWIN.0 => held.lwin = down,
+        v if v == VK_RWIN.0 => held.rwin = down,
         _ => return false,
     }
     true
 }
 
+/** Taps the mask key, so the shell doesn't take the Win press around a swallowed key for a lone one (Start menu). */
+fn mask_win() {
+    let key = |flags| INPUT {
+        r#type: INPUT_KEYBOARD,
+        Anonymous: INPUT_0 {
+            ki: KEYBDINPUT { wVk: VIRTUAL_KEY(MASK_VK), wScan: 0, dwFlags: flags, time: 0, dwExtraInfo: OWN_INPUT },
+        },
+    };
+    let inputs = [key(Default::default()), key(KEYEVENTF_KEYUP)];
+    // SAFETY: two plain keyboard inputs; it only queues them, so calling it from the hook can't re-enter it
+    unsafe { SendInput(&inputs, std::mem::size_of::<INPUT>() as i32) };
+}
+
+/** Whether a combo is Win and a digit alone, the only Win combos a meme can have. */
+fn is_win_digit(combo: &KeyCombo) -> bool {
+    combo.win && !combo.ctrl && !combo.alt && !combo.shift && DIGIT_SCANS.contains(&combo.scan)
+}
+
 /** Decides what to do with one key event. Returns true to swallow it. */
 fn on_key(info: &KBDLLHOOKSTRUCT, down: bool) -> bool {
+    if info.dwExtraInfo == OWN_INPUT { return false; }
     let vk = info.vkCode as u16;
     let is_modifier = HELD.with_borrow_mut(|held| track_modifier(held, vk, info.scanCode, down));
     if is_modifier { return false; }
@@ -172,7 +209,6 @@ fn on_key(info: &KBDLLHOOKSTRUCT, down: bool) -> bool {
 
     if !down { return SWALLOWED.with_borrow_mut(|keys| keys.remove(&scan)); }
     if SWALLOWED.with_borrow(|keys| keys.contains(&scan)) { return true; } // a repeat of a swallowed press
-    if shared.paused.load(Ordering::Relaxed) { return false; }
 
     // a release the hook missed (the secure desktop, a lock screen) must not leave a modifier stuck
     let combo = HELD.with_borrow(|held| KeyCombo {
@@ -180,13 +216,26 @@ fn on_key(info: &KBDLLHOOKSTRUCT, down: bool) -> bool {
         ctrl: (held.lctrl || held.rctrl) && key_down(VK_CONTROL.0),
         alt: (held.lalt || held.ralt) && key_down(VK_MENU.0),
         shift: (held.lshift || held.rshift) && key_down(VK_SHIFT.0),
+        win: (held.lwin && key_down(VK_LWIN.0)) || (held.rwin && key_down(VK_RWIN.0)),
     });
-    if HELD.with_borrow(|held| held.win) { return false; }
-    let matched = shared.combos.read().unwrap_or_else(PoisonError::into_inner).contains(&combo);
-    if !matched { return false; }
-    let _ = shared.sender.lock().unwrap_or_else(PoisonError::into_inner).send(combo);
+    let event = if shared.paused.load(Ordering::Relaxed) {
+        // the shortcut field can't see Win + a digit: the taskbar would take it first
+        if !is_win_digit(&combo) { return false; }
+        HookEvent::Recorded(combo)
+    } else {
+        let matched = shared.combos.read().unwrap_or_else(PoisonError::into_inner).contains(&combo);
+        if !matched { return false; }
+        HookEvent::Pressed(combo)
+    };
+    if combo.win { mask_win(); }
+    let _ = shared.sender.lock().unwrap_or_else(PoisonError::into_inner).send(event);
     SWALLOWED.with_borrow_mut(|keys| keys.insert(scan));
     true
+}
+
+/** The `KeyboardEvent.code` of a digit-row scan code ("Digit1"…"Digit0"). */
+pub fn digit_code(scan: u16) -> Option<String> {
+    DIGIT_SCANS.contains(&scan).then(|| format!("Digit{}", (scan - 1) % 10))
 }
 
 unsafe extern "system" fn keyboard_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
@@ -228,6 +277,20 @@ mod tests {
         assert_eq!(scan_for_code("Backspace"), Some(0x0E));
         assert_eq!(scan_for_code("KeyAB"), None);
         assert_eq!(scan_for_code("MediaPlayPause"), None);
+        // and back, for the digits a Win shortcut is recorded with
+        assert_eq!(digit_code(0x02).as_deref(), Some("Digit1"));
+        assert_eq!(digit_code(0x0B).as_deref(), Some("Digit0"));
+        assert_eq!(digit_code(0x1E), None);
+    }
+
+    #[test]
+    fn only_win_and_a_lone_digit_is_a_win_shortcut() {
+        let combo = |scan, shift| KeyCombo { scan, ctrl: false, alt: false, shift, win: true };
+        assert!(is_win_digit(&combo(0x02, false)));
+        assert!(is_win_digit(&combo(0x0B, false)));
+        assert!(!is_win_digit(&combo(0x02, true)), "Win+Shift+1 stays the taskbar's");
+        assert!(!is_win_digit(&combo(0x20, false)), "Win+D stays Windows'");
+        assert!(!is_win_digit(&KeyCombo { win: false, ..combo(0x02, false) }));
     }
 
     #[test]

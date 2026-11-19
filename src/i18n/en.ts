@@ -272,7 +272,10 @@ export const en = {
 			hotkeyPlaceholder: 'Click and press the keys',
 			hotkeyListening: 'Press the keys…',
 			hotkeyClear: 'Remove shortcut',
-			hotkeyHint: 'Use Ctrl + AltGr (or Ctrl + Alt) with a key.',
+			hotkeyHint:
+				'Use Ctrl + AltGr (or Ctrl + Alt) with a key, or Win with a number.',
+			hotkeyWinNote:
+				'While a meme has it, Win + this number no longer opens that pinned taskbar app.',
 			preview: 'Preview',
 			save: 'Save meme',
 			needsMedia: 'Pick an image or a sound first.',

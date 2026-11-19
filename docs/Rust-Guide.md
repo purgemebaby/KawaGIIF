@@ -223,6 +223,7 @@ from the any-foreground hook (a click on the control window raises it).
 | `meme-fire`                  | `memeboard::fire` (`StageFire`)                  | MEME-STAGE   | `MemeStageApp` (`"self"`) → adds a layer             |
 | `meme-end`                   | `memeboard::fire` (evicted instance id)          | MEME-STAGE   | `MemeStageApp` (`"self"`) → drops that layer         |
 | `meme-clear`                 | `memeboard::stop_all`                            | MEME-STAGE   | `MemeStageApp` (`"self"`) → empties the stage        |
+| `meme-hotkey-recorded`       | `memeboard::start_hotkeys` (`"Win+DigitN"`)      | all          | `HotkeyField` while recording (Win + a digit never reaches the page) |
 
 `emit` broadcasts to every window. For per-overlay events Rust uses `emit_to`
 **and** React listens with `listenToSelf` (`getCurrentWebviewWindow().listen`).
@@ -293,8 +294,8 @@ Thumbnails live in `thumbs/<stored stem>.webp` (longest side 320 px, lossless WE
 |---|---|---|
 | `list_memes` | — | `MemeboardView` (`memes` with `hotkey_conflict`, `stop_hotkey`, `stop_conflict`, `presets`, `max_hotkeys` = 10, `max_meme_ms` = 20 000) |
 | `new_meme` | `name: String` | `Meme` (not saved; first free default hotkey `Ctrl+Alt+Digit1..0`, shown as Ctrl+AltGr+N) |
-| `check_hotkey` | `hotkey: String, meme_id: Option<Uuid>` (none = the Stop all shortcut) | `Option<HotkeyRefusal>` (`invalid`, `needs_modifier`, `reserved`, `duplicate`, `limit`) |
-| `pause_meme_hotkeys` | `paused: bool` | — (while a shortcut field records; lifted by itself after 15 s without renewal) |
+| `check_hotkey` | `hotkey: String, meme_id: Option<Uuid>` (none = the Stop all shortcut) | `Option<HotkeyRefusal>` (`invalid`, `needs_modifier`, `reserved`, `duplicate`, `limit`; Win only with a lone digit) |
+| `pause_meme_hotkeys` | `paused: bool` | — (while a shortcut field records; lifted by itself after 15 s without renewal. While paused the hook still takes Win + a digit and sends `meme-hotkey-recorded`) |
 | `save_meme` | `meme: Meme` | `AppResult<Meme>` (sanitized, hotkey canonicalized; keeps the stored `fire_count`; re-registers every hotkey) |
 | `delete_meme` | `id: Uuid` | `AppResult<()>` |
 | `set_stop_hotkey` | `hotkey: String` | `AppResult<String>` (canonical form) |

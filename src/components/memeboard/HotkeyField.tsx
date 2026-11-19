@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { t } from '../../i18n';
-import { invoke } from '../../lib/ipc';
+import { invoke, listen } from '../../lib/ipc';
 import {
 	displayHotkey,
 	hotkeyFromEvent,
@@ -75,15 +75,7 @@ function HotkeyField({
 
 	useEffect(() => {
 		if (!listening) return;
-		const onKeyDown = (e: KeyboardEvent) => {
-			e.preventDefault();
-			e.stopPropagation();
-			if (e.code === 'Escape' && !e.ctrlKey && !e.altKey && !e.shiftKey) {
-				setListening(false);
-				return;
-			}
-			const hotkey = hotkeyFromEvent(e);
-			if (!hotkey) return;
+		const take = (hotkey: string) => {
 			setListening(false);
 			// a refused combination (taken, reserved…) is never set: the field keeps its value and says why
 			invoke<HotkeyRefusal | null>('check_hotkey', {
@@ -96,9 +88,32 @@ function HotkeyField({
 				})
 				.catch(() => {});
 		};
+		const onKeyDown = (e: KeyboardEvent) => {
+			e.preventDefault();
+			e.stopPropagation();
+			if (e.code === 'Escape' && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+				setListening(false);
+				return;
+			}
+			const hotkey = hotkeyFromEvent(e);
+			if (hotkey) take(hotkey);
+		};
 		// capture, so Escape doesn't also close the editor around it
 		window.addEventListener('keydown', onKeyDown, true);
-		return () => window.removeEventListener('keydown', onKeyDown, true);
+		// Win + a digit never reaches the page (the taskbar would take it): the keyboard hook records it instead
+		let unlisten: (() => void) | undefined;
+		let stopped = false;
+		listen<string>('meme-hotkey-recorded', (e) => take(e.payload)).then(
+			(fn) => {
+				if (stopped) fn();
+				else unlisten = fn;
+			},
+		);
+		return () => {
+			stopped = true;
+			unlisten?.();
+			window.removeEventListener('keydown', onKeyDown, true);
+		};
 	}, [listening, onChange, memeId]);
 
 	return (
@@ -128,6 +143,11 @@ function HotkeyField({
 			{refusal ? (
 				<small className="hotkey-field-error">
 					{t.memeboard.refusals[refusal]}
+				</small>
+			) : value?.startsWith('Win+') ? (
+				// it takes over a Windows shortcut: say which, even where the hint is hidden
+				<small className="hotkey-field-hint">
+					{t.memeboard.editor.hotkeyWinNote}
 				</small>
 			) : (
 				hint && (
