@@ -10,7 +10,7 @@ import { invoke } from '../../lib/ipc';
 import { notifyError } from '../../lib/notify';
 import { isVideoType, type MediaItem } from '../../lib/media';
 import { mediaFileUrl, thumbFileUrl } from '../../lib/mediaUrl';
-import type { Anchor, Animation, PathPoint } from '../../lib/memeboard';
+import type { Anchor, Animation, PathPoint, Trim } from '../../lib/memeboard';
 import { seedOf, sketchStroke } from '../../lib/sketch';
 import { useMediaDirs, useMediaFiles } from '../../hooks/useMediaFiles';
 import MemeLayer from './MemeLayer';
@@ -25,6 +25,8 @@ interface MemePreviewProps {
 	maxMs: number;
 	motionSpeed: number;
 	playbackSpeed: number;
+	/** The part of a video it plays. */
+	trim?: Trim | null;
 	/** Width / height of the meme's monitor, so the preview has its shape. */
 	aspect: number;
 	/** Set while "Recorded path" is chosen: dragging on the preview draws a new path. */
@@ -49,6 +51,7 @@ function MemePreview({
 	maxMs,
 	motionSpeed,
 	playbackSpeed,
+	trim = null,
 	aspect,
 	onPathDrawn,
 	partyItems = [],
@@ -171,8 +174,8 @@ function MemePreview({
 			)}
 			{visual && url && box[0] > 0 && !stroke && (
 				<MemeLayer
-					// a new visual or length restarts the loop from the beginning
-					key={`${visual.id}-${durationMs}`}
+					// a new visual, length or cut restarts the loop from the beginning
+					key={`${visual.id}-${durationMs}-${trim?.start_ms}-${trim?.end_ms}`}
 					url={url}
 					mediaType={visual.media_type}
 					naturalW={visual.width ?? null}
@@ -185,6 +188,7 @@ function MemePreview({
 					stageW={box[0]}
 					stageH={box[1]}
 					speed={playbackSpeed}
+					trim={trim}
 					motionSpeed={motionSpeed}
 					party={partyMedia}
 					combo={comboTop ? combo : 0}

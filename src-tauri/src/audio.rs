@@ -28,7 +28,14 @@ pub struct Sound {
     pub volume: f32,
     pub speed: f32,
     pub max: Duration,
+    /// Where in the file it starts (a cut video's part).
+    pub start: Duration,
+    /// How much of the file from `start` it plays before looping; `None` to its end.
+    pub clip: Option<Duration>,
 }
+
+/// A clip longer than any meme: "to the end of the file".
+const WHOLE_FILE: Duration = Duration::from_secs(3600);
 
 enum Command {
     Play(Uuid, Sound, Sender<Result<(), String>>),
@@ -91,6 +98,8 @@ impl Engine {
             let file = std::fs::File::open(&sound.path).map_err(|e| e.to_string())?;
             // repeats when the meme lasts longer than the file; the decoded copy is a few MB at most (≤ 20 s)
             let source = Decoder::try_from(file).map_err(|e| e.to_string())?
+                .skip_duration(sound.start)
+                .take_duration(sound.clip.unwrap_or(WHOLE_FILE))
                 .buffered()
                 .repeat_infinite()
                 .take_duration(sound.max);

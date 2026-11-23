@@ -23,6 +23,7 @@ import { useMediaFilters } from '../hooks/useMediaFilters';
 import MediaFilterBar from './MediaFilterBar';
 import EmptyLibraryMascot from './mascot/EmptyLibraryMascot';
 import LibraryMascot from './mascot/LibraryMascot';
+import MusicMascot from './mascot/MusicMascot';
 import MediaGrid from './MediaGrid';
 import { useImportFlow } from './ImportDialogs';
 import BulkTagPopover from './tags/BulkTagPopover';
@@ -241,7 +242,14 @@ function StorageScreen() {
 				className={`library-island kg-drop-zone${dropping ? ' is-dropping' : ''}`}
 				data-drop-hint={t.storage.dropHint}
 			>
-				{showMascot && items.length > 0 && <LibraryMascot flashes={imports} />}
+				{/* the photographer for pictures, the one with headphones for sounds */}
+				{showMascot &&
+					items.length > 0 &&
+					(tab === 'audio' ? (
+						<MusicMascot />
+					) : (
+						<LibraryMascot flashes={imports} />
+					))}
 				{importNotices.length > 0 && (
 					<p className="storage-notice" role="status">
 						{importNotices.join(' ')}

@@ -5,6 +5,7 @@ import {
 	resolveAnimation,
 	type Anchor,
 	type Animation,
+	type Trim,
 } from '../../lib/memeboard';
 import {
 	anchorPoint,
@@ -34,6 +35,8 @@ interface MemeLayerProps {
 	loop?: boolean;
 	/** Playback speed of the GIF or video (1 = as recorded), matching the sound. */
 	speed?: number;
+	/** The part of a video it plays, looping within it (the sound loops the same part). */
+	trim?: Trim | null;
 	/** How fast the movement runs, see `PoseContext.motionSpeed`. */
 	motionSpeed?: number;
 	/** Copies of this meme already on screen: this one is placed a little aside. */
@@ -43,6 +46,60 @@ interface MemeLayerProps {
 	/** Combo: this press's count. */
 	combo?: number;
 	onDone?: () => void;
+}
+
+/**
+ * A muted looping video; with a `trim`, it starts at the part's start and jumps back there at its end. Each frame is
+ * checked (requestVideoFrameCallback), so it never shows more than a frame past the end.
+ */
+export function TrimmedVideo({
+	url,
+	speed,
+	trim,
+	onNatural,
+}: {
+	url: string;
+	speed: number;
+	trim: Trim | null;
+	onNatural: (w: number, h: number) => void;
+}) {
+	const ref = useRef<HTMLVideoElement>(null);
+	const start = (trim?.start_ms ?? 0) / 1000;
+	const end = trim ? trim.end_ms / 1000 : null;
+
+	useEffect(() => {
+		const el = ref.current;
+		if (!el || end === null) return;
+		let handle = 0;
+		const check = (_now: number, frame: VideoFrameCallbackMetadata) => {
+			if (frame.mediaTime >= end) el.currentTime = start;
+			handle = el.requestVideoFrameCallback(check);
+		};
+		handle = el.requestVideoFrameCallback(check);
+		return () => el.cancelVideoFrameCallback(handle);
+	}, [start, end]);
+
+	return (
+		<video
+			ref={ref}
+			src={url}
+			autoPlay
+			// a cut video loops by hand: a part that runs to the file's end still has to go back to its start
+			loop={end === null}
+			muted
+			playsInline
+			onLoadedMetadata={(e) => {
+				const el = e.currentTarget;
+				el.playbackRate = speed;
+				if (start > 0) el.currentTime = start;
+				onNatural(el.videoWidth, el.videoHeight);
+			}}
+			onEnded={(e) => {
+				e.currentTarget.currentTime = start;
+				void e.currentTarget.play();
+			}}
+		/>
+	);
 }
 
 /** One meme's visual, moved every frame by `poseAt`. Videos are muted: their sound comes from the audio thread. */
@@ -60,6 +117,7 @@ function MemeLayer({
 	stageH,
 	loop = false,
 	speed = 1,
+	trim = null,
 	motionSpeed = 1,
 	stack = 0,
 	party = [],
@@ -173,18 +231,11 @@ function MemeLayer({
 				/>
 			)}
 			{isVideoType(mediaType) && (
-				<video
-					src={url}
-					autoPlay
-					loop
-					muted
-					playsInline
-					ref={(el) => {
-						if (el) el.playbackRate = speed;
-					}}
-					onLoadedMetadata={(e) =>
-						onNatural(e.currentTarget.videoWidth, e.currentTarget.videoHeight)
-					}
+				<TrimmedVideo
+					url={url}
+					speed={speed}
+					trim={trim}
+					onNatural={onNatural}
 				/>
 			)}
 			{mediaType === 'gif' && (

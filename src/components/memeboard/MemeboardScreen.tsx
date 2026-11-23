@@ -13,6 +13,7 @@ import SketchIcon from '../ui/SketchIcon';
 import Toast from '../ui/Toast';
 import WaveText from '../brand/WaveText';
 import MemeEditor from './MemeEditor';
+import MemeLightbox from './MemeLightbox';
 import MemeboardSettings from './MemeboardSettings';
 import Podium from './Podium';
 import InfoTip from '../ui/InfoTip';
@@ -33,12 +34,14 @@ function MemeCard({
 	audio,
 	onEdit,
 	onDelete,
+	onEnlarge,
 }: {
 	meme: MemeView;
 	visual: MediaItem | undefined;
 	audio: MediaItem | undefined;
 	onEdit: () => void;
 	onDelete: () => void;
+	onEnlarge: () => void;
 }) {
 	const card = t.memeboard.card;
 	const shown = visual ?? audio;
@@ -52,6 +55,17 @@ function MemeCard({
 				)}
 				{!visual && audio && (
 					<span className="meme-card-badge">{card.onlySound}</span>
+				)}
+				{visual && (
+					<button
+						type="button"
+						className="meme-card-enlarge"
+						onClick={onEnlarge}
+						aria-label={card.enlarge}
+						title={card.enlarge}
+					>
+						<SketchIcon name="expand" />
+					</button>
 				)}
 				{/* the same corner × as the Library's cards */}
 				<button
@@ -108,6 +122,7 @@ function MemeboardScreen() {
 	const [tab, setTab] = useState<Tab>('memes');
 	const [editing, setEditing] = useState<Editing | null>(null);
 	const [deleting, setDeleting] = useState<MemeView | null>(null);
+	const [enlarged, setEnlarged] = useState<MemeView | null>(null);
 	const [rejected, setRejected] = useState<string | null>(null);
 
 	const byId = useMemo(() => new Map(items.map((i) => [i.id, i])), [items]);
@@ -194,6 +209,7 @@ function MemeboardScreen() {
 									audio={meme.audio ? byId.get(meme.audio) : undefined}
 									onEdit={() => setEditing({ meme, isNew: false })}
 									onDelete={() => setDeleting(meme)}
+									onEnlarge={() => setEnlarged(meme)}
 								/>
 							))}
 						</div>
@@ -213,6 +229,15 @@ function MemeboardScreen() {
 					presets={view.presets}
 					partyVisuals={view.memes.flatMap((m) => (m.visual ? [m.visual] : []))}
 					onClose={() => setEditing(null)}
+				/>
+			)}
+
+			{enlarged?.visual && byId.get(enlarged.visual) && (
+				<MemeLightbox
+					name={enlarged.name}
+					visual={byId.get(enlarged.visual)!}
+					trim={enlarged.trim}
+					onClose={() => setEnlarged(null)}
 				/>
 			)}
 

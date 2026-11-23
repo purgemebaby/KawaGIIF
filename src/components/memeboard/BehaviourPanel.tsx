@@ -19,7 +19,7 @@ const MIN_JITTER = 0.01;
 const MAX_JITTER = 0.5;
 const DEFAULT_JITTER = 0.12;
 
-/** What pressing the shortcut does: the cooldown, what a second press does, and a pitch that can vary at random. */
+/** What pressing the shortcut does: the cooldown and what a second press does. */
 function BehaviourPanel({
 	behaviour,
 	onChange,
@@ -28,11 +28,6 @@ function BehaviourPanel({
 	const text = t.memeboard.behaviour;
 	const set = (patch: Partial<Behaviour>) =>
 		onChange({ ...behaviour, ...patch });
-	// switching the random pitch off and on again brings back the last variation
-	const [lastJitter, setLastJitter] = useState(
-		behaviour.speed_jitter > 0 ? behaviour.speed_jitter : DEFAULT_JITTER,
-	);
-	const randomPitch = behaviour.speed_jitter > 0;
 
 	return (
 		<>
@@ -61,10 +56,30 @@ function BehaviourPanel({
 					<small className="meme-field-note">{text.stackLimited}</small>
 				)}
 			</div>
+		</>
+	);
+}
+
+/** A pitch that varies at random on each play: a switch, and how much it varies while on. */
+export function RandomPitch({
+	behaviour,
+	onChange,
+}: Omit<BehaviourPanelProps, 'maxConcurrent'>) {
+	const text = t.memeboard.behaviour;
+	// switching the random pitch off and on again brings back the last variation
+	const [lastJitter, setLastJitter] = useState(
+		behaviour.speed_jitter > 0 ? behaviour.speed_jitter : DEFAULT_JITTER,
+	);
+	const randomPitch = behaviour.speed_jitter > 0;
+
+	return (
+		<>
 			<SettingsToggle
 				checked={randomPitch}
 				text={{ label: text.pitch }}
-				onChange={(on) => set({ speed_jitter: on ? lastJitter : 0 })}
+				onChange={(on) =>
+					onChange({ ...behaviour, speed_jitter: on ? lastJitter : 0 })
+				}
 			/>
 			{randomPitch && (
 				<Slider
@@ -76,7 +91,7 @@ function BehaviourPanel({
 					format={(v) => `± ${Math.round(v * 100)} %`}
 					onChange={(speed_jitter) => {
 						setLastJitter(speed_jitter);
-						set({ speed_jitter });
+						onChange({ ...behaviour, speed_jitter });
 					}}
 				/>
 			)}

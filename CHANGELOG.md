@@ -13,6 +13,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - The shortcuts are read with a keyboard hook that tells a real Ctrl from AltGr, so AltGr alone still types its character (`|`, `@`, `#`…) and only Ctrl+AltGr plays the meme. While a shortcut is being recorded they are paused, and a combination another meme already has is refused.
   - Cross the screen can come in from a random side and Cross and Fall at a random position, picked anew on each play.
   - Images and sounds can be imported straight from the meme editor, with the button or by dropping files on it.
+  - A video can be cut to the part you want, like in a video editor: drag the two ends of a strip of its frames (or the window between them) while a viewer above shows the frame under the end you drag. The part can be played with its sound, and the viewer opens bigger. The meme loops that part, sound included.
+  - "Appears at" has an **Exact spot**: a big screen in the monitor's shape opens and a click or a drag puts the meme there, drawn at its real size.
+  - A meme card's picture can be seen bigger with the button in its corner.
   - Two more animations: **Party** fills the screen with tiny pop-ups of all your saved memes (5–60), and **Combo** sits in a corner with a fighting-game counter (up to x99) whose pixel-art flames grow every few presses, from a faint glow to blue fire, and die down when you stop.
   - The podium is drawn by hand in the app's colours, with the top memes glowing and sparkling.
   - In Party, videos play too (up to 12 at once; the rest show their poster).
@@ -35,6 +38,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - The Library, the editor's Storage panel and the meme pickers show small thumbnails instead of the original files: GIFs and animated WEBPs move only under the pointer, and videos show a poster until hovered. With a large library this cuts the app's memory use a lot.
 - The home ring shows only big icons; hovering a sector lights its neon edge, the icon steps inwards and the name flickers on along the edge.
 - Filled buttons (Save, Update, Import, Done…) drop the purple-to-pink gradient for the sliders' pen hatch inside a hand-drawn outline: the hatch slides under the pointer and the two strokes meet when pressed.
+- The meme editor is tidier: every choice chip is the same size, one gap between every block, the random pitch sits under the sliders of "General configuration", both media pickers are the same height, and the note about a video's sound is gone.
+- Shake is calmer: it sways about four times a second instead of eight, by a share of the meme's own size, and low intensities stay subtle.
+- The Library's Audio tab has its own chibi: one with headphones that rises from the corner up to mid-torso, sways to the beat and lets music notes float out of the headphones (still when animations are off).
 - Imports now read each file's real codec (audio track and first packet, image header, first GIF frame, MP4 tracks) instead of trusting its first bytes, so a renamed or corrupt file is refused.
 
 ## [0.1.2] - 2026-10-28

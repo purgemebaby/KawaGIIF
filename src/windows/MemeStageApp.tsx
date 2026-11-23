@@ -75,6 +75,7 @@ function MemeStageApp() {
 							size={layer.meme.size}
 							durationMs={layer.duration_ms}
 							speed={layer.speed}
+							trim={layer.meme.trim}
 							motionSpeed={layer.meme.motion_speed}
 							cursor={layer.cursor}
 							stack={layer.stack}

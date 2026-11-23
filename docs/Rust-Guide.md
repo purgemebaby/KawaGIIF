@@ -311,7 +311,7 @@ Thumbnails live in `thumbs/<stored stem>.webp` (longest side 320 px, lossless WE
 | `simplify_meme_path` | `points: Vec<PathPoint>, width: f64, height: f64` (the path drawn on the editor preview, fractions of it; the preview size in px) | `Vec<PathPoint>` (thinned with Visvalingam-Whyatt to triangles ≥ 40 px² and at most 240 points) |
 | `list_monitors` (window_manager.rs) | — | `AppResult<Vec<MonitorInfo>>` (`{ name, width, height, primary }`, physical px) |
 
-Memes live in `%LOCALAPPDATA%\KawaGIIF\memeboard.json`. A meme lasts as long as its sound (an MP4's own track, decoded by the audio thread so it follows the output device), else its `duration_ms` or one GIF loop, never more than 20 s; a faster random speed shortens it. `KawaGIIF.exe --fire-meme <id|name>` fires one from outside (a second launch passes its args through the single-instance plugin).
+Memes live in `%LOCALAPPDATA%\KawaGIIF\memeboard.json`. A meme lasts as long as its sound (an MP4's own track, decoded by the audio thread so it follows the output device), else its `duration_ms` or one GIF loop, never more than 20 s; a faster random speed shortens it. A video can be cut to a part (`trim: { start_ms, end_ms }`): the stage loops that part and the audio thread plays its own track from `start_ms` for the part's length (`Sound.start` / `Sound.clip`), so a cut video lasts as long as its part. `KawaGIIF.exe --fire-meme <id|name>` fires one from outside (a second launch passes its args through the single-instance plugin).
 
 **template.rs**
 | Command | Args | Returns |

@@ -45,8 +45,13 @@ const COMBO_PRESS_MS = 200;
 // a combo fades out slowly when its window runs out
 const COMBO_FADE_MS = 600;
 
-// at full intensity: px sideways, px up and down, degrees
-const SHAKE_MAX: [number, number, number] = [10, 6, 4];
+// at full intensity: share of the meme's width sideways, share of its height up and down, degrees. A share, not px,
+// so the editor's small preview shakes the way the stage does.
+const SHAKE_MAX: [number, number, number] = [0.06, 0.04, 3];
+// how the slider maps to the shake: below 1 the curve stays low for longer, so small values stay small
+const SHAKE_CURVE = 1.4;
+// rad per ms of the main sway (≈ 4 shakes a second); a faster second wave on top keeps it from looking mechanical
+const SHAKE_RATE = 0.026;
 const DVD_SPEED = 0.28; // of the stage's shorter side per second
 const DVD_HUE_STEP = 67;
 
@@ -145,12 +150,18 @@ export function poseAt(
 			return { ...base, y: base.y - hop * amp, scale: squash };
 		}
 		case 'shake': {
-			const [dx, dy, deg] = SHAKE_MAX.map((max) => max * animation.intensity);
+			const strength = animation.intensity ** SHAKE_CURVE;
+			const [sx, sy, deg] = SHAKE_MAX.map((max) => max * strength);
+			// two waves each (the second faster and smaller), scaled back to ±1
+			const wave = (rate: number, phase: number) =>
+				(Math.sin(m * rate + phase) +
+					0.35 * Math.sin(m * rate * 2.3 + phase * 1.7)) /
+				1.35;
 			return {
 				...base,
-				x: base.x + Math.sin(m * 0.05) * dx,
-				y: base.y + Math.cos(m * 0.065) * dy,
-				rotate: Math.sin(m * 0.04) * deg,
+				x: base.x + wave(SHAKE_RATE, 0) * sx * w,
+				y: base.y + wave(SHAKE_RATE * 1.21, 1.1) * sy * h,
+				rotate: wave(SHAKE_RATE * 0.83, 2.3) * deg,
 			};
 		}
 		case 'cross': {

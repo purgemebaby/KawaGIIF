@@ -25,6 +25,7 @@ import {
 	type Meme,
 	type Preset,
 	type Side,
+	type Trim,
 } from '../../lib/memeboard';
 import { useLibrary } from '../../context/LibraryProvider';
 import { useEscape } from '../../hooks/useDismiss';
@@ -38,11 +39,13 @@ import ChoiceChips from '../ui/ChoiceChips';
 import InfoTip from '../ui/InfoTip';
 import { MODAL_ROOT_ID } from '../ui/Modal';
 import Slider from '../ui/Slider';
-import BehaviourPanel from './BehaviourPanel';
+import BehaviourPanel, { RandomPitch } from './BehaviourPanel';
 import HotkeyField from './HotkeyField';
 import MemePreview from './MemePreview';
 import PathRecorder from './PathRecorder';
+import SpotPicker from './SpotPicker';
 import StyleRow from './StyleRow';
+import VideoTrimmer from './VideoTrimmer';
 
 interface MemeEditorProps {
 	meme: Meme;
@@ -69,7 +72,12 @@ const CORNERS: readonly Corner[] = [
 	'bottom_right',
 ];
 const SIDES: readonly Side[] = ['left', 'right', 'top', 'bottom', 'random'];
-const ANCHORS: readonly Anchor['kind'][] = ['cursor', 'center', 'random'];
+const ANCHORS: readonly Anchor['kind'][] = [
+	'cursor',
+	'center',
+	'random',
+	'fixed',
+];
 const DEFAULT_STILL_MS = 3000;
 const MIN_TIME_MS = 500;
 // until list_monitors answers (or in the browser preview): no name, so nothing gets pinned to it
@@ -270,7 +278,10 @@ function MemeEditor({
 		const addedSounds = added.filter((i) => isAudioType(i.media_type));
 		setDraft((d) => ({
 			...d,
-			visual: addedVisuals.length === 1 ? addedVisuals[0].id : d.visual,
+			...(addedVisuals.length === 1 && {
+				visual: addedVisuals[0].id,
+				trim: null,
+			}),
 			audio: addedSounds.length === 1 ? addedSounds[0].id : d.audio,
 		}));
 	}, [items]);
@@ -285,11 +296,22 @@ function MemeEditor({
 	const sound = sounds.find((i) => i.id === draft.audio) ?? null;
 	const videoVisual = visual !== null && isVideoType(visual.media_type);
 
-	// the length rule of memeboard.rs: the video's own sound, else the sound, else one GIF loop, at the playback speed
+	// a cut video plays only its part, never past its real end
+	const trim = videoVisual ? draft.trim : null;
+	const videoMs =
+		videoVisual && visual.duration_ms
+			? trim
+				? Math.min(trim.end_ms, visual.duration_ms) - trim.start_ms
+				: visual.duration_ms
+			: trim
+				? trim.end_ms - trim.start_ms
+				: undefined;
+	// the length rule of memeboard.rs media_length: the video's own sound, else the sound, else the visual's own
+	// length (a GIF loop, a silent video), at the playback speed
 	const mediaMs = videoVisual
-		? visual.has_audio
-			? visual.duration_ms
-			: undefined
+		? visual.has_audio || !sound
+			? videoMs
+			: sound.duration_ms
 		: (sound?.duration_ms ??
 			(visual?.media_type === 'gif' ? visual.duration_ms : undefined));
 	const naturalMs = mediaMs
@@ -319,6 +341,25 @@ function MemeEditor({
 
 	const set = <K extends keyof Meme>(key: K, value: Meme[K]) =>
 		setDraft((d) => ({ ...d, [key]: value }));
+	// a cut belongs to its video: another visual plays whole
+	const setVisual = (id: string | null) =>
+		setDraft((d) => ({
+			...d,
+			visual: id,
+			trim: d.visual === id ? d.trim : null,
+		}));
+	const [pickingSpot, setPickingSpot] = useState(false);
+	// the last exact spot, so switching to another anchor and back keeps it
+	const [lastSpot, setLastSpot] = useState(
+		meme.anchor.kind === 'fixed'
+			? { x: meme.anchor.x, y: meme.anchor.y }
+			: { x: 0.5, y: 0.5 },
+	);
+	const pickAnchor = (kind: Anchor['kind']) => {
+		if (kind !== 'fixed') return set('anchor', { kind } as Anchor);
+		set('anchor', { kind, ...lastSpot });
+		setPickingSpot(true);
+	};
 	const setAnimation = (animation: Animation) => set('animation', animation);
 
 	const hasMedia = visual !== null || (sound !== null && !videoVisual);
@@ -356,6 +397,7 @@ function MemeEditor({
 				maxMs={maxMemeMs}
 				motionSpeed={draft.motion_speed}
 				playbackSpeed={draft.playback_speed}
+				trim={trim}
 				aspect={screen.width / screen.height}
 				partyItems={partyItems}
 				onPathDrawn={
@@ -368,6 +410,15 @@ function MemeEditor({
 				<PathRecorder
 					points={anim.points}
 					onClear={() => setAnimation({ kind: 'path', points: [] })}
+				/>
+			)}
+			{videoVisual && (
+				<VideoTrimmer
+					// another video starts from a fresh strip
+					key={visual.id}
+					video={visual}
+					trim={trim}
+					onChange={(next: Trim | null) => set('trim', next)}
 				/>
 			)}
 		</Block>
@@ -582,7 +633,7 @@ function MemeEditor({
 									kind="visual"
 									items={visuals}
 									selected={draft.visual}
-									onSelect={(id) => set('visual', id)}
+									onSelect={setVisual}
 								/>
 							</div>
 							<div className="meme-field">
@@ -594,9 +645,6 @@ function MemeEditor({
 									onSelect={(id) => set('audio', id)}
 									disabled={videoVisual}
 								/>
-								{videoVisual && (
-									<small className="meme-field-note">{editor.videoSound}</small>
-								)}
 							</div>
 						</Block>
 
@@ -613,14 +661,27 @@ function MemeEditor({
 									<span>{editor.anchor}</span>
 									<ChoiceChips
 										options={ANCHORS}
-										value={
-											draft.anchor.kind === 'fixed'
-												? 'center'
-												: draft.anchor.kind
-										}
+										value={draft.anchor.kind}
 										label={(kind) => t.memeboard.anchors[kind]}
-										onChange={(kind) => set('anchor', { kind } as Anchor)}
+										onChange={pickAnchor}
 									/>
+									{draft.anchor.kind === 'fixed' && (
+										<div className="meme-spot-row">
+											<small className="meme-field-note">
+												{t.memeboard.spot.at(
+													Math.round(draft.anchor.x * screen.width),
+													Math.round(draft.anchor.y * screen.height),
+												)}
+											</small>
+											<button
+												type="button"
+												className="kg-btn kg-btn--secondary kg-btn--sm"
+												onClick={() => setPickingSpot(true)}
+											>
+												{t.memeboard.spot.choose}
+											</button>
+										</div>
+									)}
 								</div>
 							)}
 						</Block>
@@ -746,6 +807,10 @@ function MemeEditor({
 								format={percent}
 								onChange={(v) => set('volume', v)}
 							/>
+							<RandomPitch
+								behaviour={draft.behaviour}
+								onChange={(behaviour) => set('behaviour', behaviour)}
+							/>
 						</Block>
 					</div>
 				</div>
@@ -772,6 +837,19 @@ function MemeEditor({
 				</div>
 				{/* inside the editor box, so their clicks stop here instead of reaching the backdrop that closes it */}
 				{dialogs}
+				{pickingSpot && draft.anchor.kind === 'fixed' && (
+					<SpotPicker
+						visual={visual}
+						size={draft.size}
+						screen={screen}
+						spot={{ x: draft.anchor.x, y: draft.anchor.y }}
+						onPick={(spot) => {
+							setLastSpot(spot);
+							set('anchor', { kind: 'fixed', ...spot });
+						}}
+						onClose={() => setPickingSpot(false)}
+					/>
+				)}
 			</div>
 		</div>,
 		document.getElementById(MODAL_ROOT_ID) ?? document.body,

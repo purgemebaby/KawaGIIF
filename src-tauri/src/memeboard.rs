@@ -245,6 +245,15 @@ pub enum MonitorChoice {
     Named { name: String },
 }
 
+/** The part of a video a meme plays, in ms of the video. It loops within it, sound included. */
+#[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Debug)]
+pub struct Trim { pub start_ms: u32, pub end_ms: u32 }
+/// The shortest part a video can be cut down to.
+const MIN_TRIM_MS: u32 = 100;
+impl Trim {
+    pub fn length_ms(self) -> u32 { self.end_ms.saturating_sub(self.start_ms) }
+}
+
 /** One meme. `size` is the visual's longer side as a fraction of the monitor's shorter one. */
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
 pub struct Meme {
@@ -273,6 +282,9 @@ pub struct Meme {
     pub playback_speed: f32,
     #[serde(default)]
     pub monitor: MonitorChoice,
+    /// The part of a video visual it plays; `None` plays all of it. Ignored for other visuals.
+    #[serde(default)]
+    pub trim: Option<Trim>,
     /// Canonical form, e.g. `Ctrl+Alt+Digit1` (key names are `KeyboardEvent.code`).
     #[serde(default)]
     pub hotkey: Option<String>,
@@ -291,6 +303,8 @@ impl Meme {
         self.motion_speed = finite_or(self.motion_speed, 1.0).clamp(*SPEEDS.start(), *SPEEDS.end());
         self.playback_speed = finite_or(self.playback_speed, 1.0).clamp(*SPEEDS.start(), *SPEEDS.end());
         self.behaviour = self.behaviour.sanitized();
+        // a part too short or the wrong way round plays the whole video
+        self.trim = self.trim.filter(|t| t.end_ms >= t.start_ms.saturating_add(MIN_TRIM_MS));
         if let Anchor::Fixed { x, y } = &mut self.anchor {
             *x = finite_or(*x, 0.5).clamp(0.0, 1.0);
             *y = finite_or(*y, 0.5).clamp(0.0, 1.0);
@@ -747,14 +761,32 @@ fn next_combo(previous: Option<(u32, Instant)>, now: Instant, window: Duration) 
 fn media_path(item: &MediaItem) -> PathBuf { crate::library::media_dir().join(&item.stored_file_name) }
 
 /** Length of a meme's media as recorded: the MP4's own sound, else its sound, else one GIF loop. */
-fn media_length(visual: Option<&MediaItem>, audio: Option<&MediaItem>) -> Option<u32> {
+fn media_length(visual: Option<&MediaItem>, audio: Option<&MediaItem>, trim: Option<Trim>) -> Option<u32> {
     let video_sound = visual.filter(|v| v.media_type == MediaType::Mp4 && v.info.has_audio == Some(true));
+    // a cut video lasts as long as its part (never past its real end)
+    let visual_length = |v: &MediaItem| match (v.media_type, trim) {
+        (MediaType::Mp4, Some(trim)) => Some(v.info.duration_ms.map_or(trim.length_ms(), |all| {
+            trim.end_ms.min(all).saturating_sub(trim.start_ms)
+        })),
+        _ => v.info.duration_ms,
+    };
     let ms = match (video_sound, audio) {
-        (Some(video), _) => video.info.duration_ms,
+        (Some(video), _) => visual_length(video),
         (None, Some(sound)) => sound.info.duration_ms,
-        (None, None) => visual.and_then(|v| v.info.duration_ms),
+        (None, None) => visual.and_then(visual_length),
     };
     ms.filter(|ms| *ms > 0)
+}
+
+/** The part of the visual's own sound to play: from where, and how long before it loops. */
+fn video_clip(meme: &Meme, file: &MediaItem) -> (Duration, Option<Duration>) {
+    match meme.trim.filter(|_| file.media_type == MediaType::Mp4) {
+        Some(trim) => (
+            Duration::from_millis(u64::from(trim.start_ms)),
+            Some(Duration::from_millis(u64::from(trim.length_ms()))),
+        ),
+        None => (Duration::ZERO, None),
+    }
 }
 
 /** How long a meme lasts, in real time: its own `duration_ms` when set, else its media played at `speed`, else
@@ -762,7 +794,7 @@ fn media_length(visual: Option<&MediaItem>, audio: Option<&MediaItem>) -> Option
 fn meme_duration(meme: &Meme, visual: Option<&MediaItem>, audio: Option<&MediaItem>, speed: f32) -> u32 {
     // a combo stays up for its window, so the next press can still count
     if let Animation::Combo { window_ms, .. } = meme.animation { return window_ms.clamp(100, MAX_MEME_MS); }
-    let natural = media_length(visual, audio).map(|ms| (ms as f32 / speed.max(0.01)).round() as u32);
+    let natural = media_length(visual, audio, meme.trim).map(|ms| (ms as f32 / speed.max(0.01)).round() as u32);
     meme.duration_ms.or(natural).unwrap_or(DEFAULT_STILL_MS).clamp(100, MAX_MEME_MS)
 }
 
@@ -943,7 +975,8 @@ pub fn fire(app: &AppHandle, id: Uuid) -> AppResult<()> {
         let volume = meme.volume * settings.meme_volume;
         // `max` is in the sound's own time: at speed 2, 1 s of real time is 2 s of the file
         let max = Duration::from_millis((f64::from(duration_ms) * f64::from(speed)).round() as u64);
-        sound.play(instance, Sound { path: media_path(file), volume, speed, max })?;
+        let (start, clip) = video_clip(&meme, file);
+        sound.play(instance, Sound { path: media_path(file), volume, speed, max, start, clip })?;
     }
 
     for old in evicted.iter().filter(|old| Some(**old) != replaces) {
@@ -1068,6 +1101,7 @@ pub fn new_meme(state: State<MemeboardState>, name: String) -> Meme {
         motion_speed: 1.0,
         playback_speed: 1.0,
         monitor: MonitorChoice::Cursor,
+        trim: None,
         hotkey: inner.index.free_default_hotkey(),
         behaviour: Behaviour::default(),
         fire_count: 0,
@@ -1211,7 +1245,7 @@ mod tests {
             let mut meme = Meme {
                 id: Uuid::new_v4(), name: format!("m{n}"), visual: None, audio: None, animation: Animation::default(),
                 anchor: Anchor::Cursor, size: 0.3, volume: 1.0, duration_ms: None, hotkey: None,
-                motion_speed: 1.0, playback_speed: 1.0, monitor: MonitorChoice::Cursor,
+                motion_speed: 1.0, playback_speed: 1.0, monitor: MonitorChoice::Cursor, trim: None,
                 behaviour: Behaviour::default(), fire_count: 0,
             };
             meme.hotkey = Some((*key).to_owned());
@@ -1328,6 +1362,26 @@ mod tests {
         assert_eq!(meme_duration(&timed, Some(&gif), Some(&short), 1.0), 8_000);
         let capped = Meme { duration_ms: Some(60_000), ..meme }.sanitized();
         assert_eq!(meme_duration(&capped, Some(&still), None, 1.0), MAX_MEME_MS);
+    }
+
+    #[test]
+    fn a_cut_video_lasts_its_part_and_plays_its_sound_from_there() {
+        let meme = index_with(&["F13"]).memes.remove(0);
+        let video = item(MediaType::Mp4, Some(9_000), Some(true));
+        let cut = Meme { trim: Some(Trim { start_ms: 2_000, end_ms: 5_500 }), ..meme.clone() }.sanitized();
+        assert_eq!(meme_duration(&cut, Some(&video), None, 1.0), 3_500);
+        assert_eq!(video_clip(&cut, &video), (Duration::from_secs(2), Some(Duration::from_millis(3_500))));
+        // a part past the real end stops at it
+        let past = Meme { trim: Some(Trim { start_ms: 8_000, end_ms: 12_000 }), ..meme.clone() };
+        assert_eq!(meme_duration(&past, Some(&video), None, 1.0), 1_000);
+        // the cut is the video's: a separate sound plays whole
+        let sound = item(MediaType::Mp3, Some(3_000), Some(true));
+        assert_eq!(video_clip(&cut, &sound), (Duration::ZERO, None));
+        // too short, or the wrong way round: the whole video
+        let backwards = Meme { trim: Some(Trim { start_ms: 5_000, end_ms: 1_000 }), ..meme.clone() }.sanitized();
+        assert_eq!(backwards.trim, None);
+        let tiny = Meme { trim: Some(Trim { start_ms: 1_000, end_ms: 1_050 }), ..meme }.sanitized();
+        assert_eq!(tiny.trim, None);
     }
 
     #[test]

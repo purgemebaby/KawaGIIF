@@ -47,6 +47,14 @@ export type Anchor =
 	| { kind: 'random' }
 	| { kind: 'fixed'; x: number; y: number };
 
+/** The part of a video a meme plays, in ms of the video; it loops within it. */
+export interface Trim {
+	start_ms: number;
+	end_ms: number;
+}
+/** The shortest part a video can be cut down to (memeboard.rs MIN_TRIM_MS). */
+export const MIN_TRIM_MS = 100;
+
 /** Which monitor a meme shows on. */
 type MonitorChoice = { kind: 'cursor' } | { kind: 'named'; name: string };
 
@@ -89,6 +97,8 @@ export interface Meme {
 	/** How fast the visual and the sound play (1 = as recorded). */
 	playback_speed: number;
 	monitor: MonitorChoice;
+	/** The part of a video visual it plays; null plays all of it. */
+	trim: Trim | null;
 	/** Canonical `Ctrl+Alt+Digit1` form, keys as `KeyboardEvent.code`. */
 	hotkey: string | null;
 	behaviour: Behaviour;

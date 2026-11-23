@@ -16,7 +16,11 @@ function ChoiceChips<T extends string>({
 	ariaLabel,
 }: ChoiceChipsProps<T>) {
 	return (
-		<div className="filter-types" role="group" aria-label={ariaLabel}>
+		<div
+			className="filter-types choice-chips"
+			role="group"
+			aria-label={ariaLabel}
+		>
 			{options.map((option) => (
 				<button
 					key={option}

@@ -65,6 +65,7 @@ function mockMeme(
 		motion_speed: 1,
 		playback_speed: 1,
 		monitor: { kind: 'cursor' },
+		trim: null,
 		hotkey,
 		behaviour: { cooldown_ms: 0, refire: 'restart', speed_jitter: 0 },
 		fire_count: fireCount,

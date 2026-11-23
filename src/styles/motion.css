@@ -192,6 +192,52 @@
 	}
 }
 
+/* the Audio tab's chibi: a sway whose low point is in the middle, so the head swings along an arc */
+@keyframes kg-music-sway {
+	0%,
+	100% {
+		rotate: -4deg;
+		translate: 0 0;
+	}
+	25% {
+		rotate: 0deg;
+		translate: 0 5px;
+	}
+	50% {
+		rotate: 4deg;
+		translate: 0 0;
+	}
+	75% {
+		rotate: 0deg;
+		translate: 0 5px;
+	}
+}
+
+/* a music note leaving the headphones */
+@keyframes kg-music-note {
+	0% {
+		opacity: 0;
+		transform: translate(0, 0) scale(0.4) rotate(0deg);
+	}
+	15% {
+		opacity: 1;
+		transform: translate(calc(var(--note-drift) * 15%), -40%) scale(1)
+			rotate(calc(var(--note-tilt) * 0.3));
+	}
+	50% {
+		transform: translate(calc(var(--note-drift) * 55% + 20%), -150%) scale(1)
+			rotate(calc(var(--note-tilt) * -0.3));
+	}
+	70% {
+		opacity: 1;
+	}
+	100% {
+		opacity: 0;
+		transform: translate(calc(var(--note-drift) * 100%), -290%) scale(0.85)
+			rotate(var(--note-tilt));
+	}
+}
+
 @keyframes kg-mascot-slide-in {
 	from {
 		translate: -120% 0;
@@ -274,6 +320,7 @@
 		.update-notice-chibi,
 		.storage-empty-mascot,
 		.library-mascot,
+		.music-mascot-dancer,
 		.settings-mascot,
 		.editor-mascot-bubble,
 		.editor-mascot-chibi,
@@ -287,7 +334,8 @@
 }
 
 /* the steam and the flash only exist in motion */
-:root[data-nav-animations='off'] :is(.storage-smoke, .library-mascot-flash) {
+:root[data-nav-animations='off']
+	:is(.storage-smoke, .library-mascot-flash, .music-note) {
 	display: none;
 }
 
@@ -396,6 +444,7 @@
 	.update-notice-chibi,
 	.storage-empty-mascot,
 	.library-mascot,
+	.music-mascot-dancer,
 	.settings-mascot,
 	.editor-mascot-bubble,
 	.editor-mascot-chibi,
@@ -409,6 +458,7 @@
 
 	.storage-smoke,
 	.library-mascot-flash,
+	.music-note,
 	.editor-panel-hand {
 		display: none;
 	}

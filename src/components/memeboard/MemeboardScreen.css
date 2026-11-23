@@ -159,6 +159,8 @@
 	container-type: inline-size;
 }
 
+/* Each block is as tall as what it holds (a stretched one only left a big empty box). One gap everywhere: between
+   the columns, between blocks, and around the style row and the actions. */
 .meme-editor-body {
 	display: grid;
 	grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -177,6 +179,35 @@
 	flex-direction: column;
 	gap: var(--kg-space-5);
 	min-width: 0;
+}
+
+.meme-editor .meme-styles {
+	margin-bottom: var(--kg-space-5);
+}
+
+/* Every choice chip of the editor the same size: equal columns that fill the row, a label that wraps if it must. */
+.meme-editor .choice-chips {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(116px, 1fr));
+}
+
+.meme-editor .choice-chips .filter-type {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 34px;
+	padding-inline: 8px;
+	line-height: 1.2;
+	text-align: center;
+}
+
+/* the exact spot: where it is, and the button that opens the big screen to choose it */
+.meme-spot-row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--kg-space-2);
 }
 
 /* the preview over the full width while a path is drawn */
@@ -274,11 +305,19 @@
 	opacity: 0.45;
 }
 
+/* the search box as tall as the sort and tags buttons beside it */
+.meme-picker-wrap .filter-row {
+	align-items: stretch;
+}
+
+/* Both pickers the same fixed height, whether they hold three items or three hundred. */
 .meme-picker {
 	display: grid;
 	grid-template-columns: repeat(auto-fill, 76px);
+	grid-auto-rows: 76px;
+	align-content: start;
 	gap: var(--kg-space-2);
-	max-height: calc(3 * 76px + 2 * var(--kg-space-2) + 8px);
+	height: calc(3 * 76px + 2 * var(--kg-space-2) + 8px);
 	padding: 2px 4px 6px 2px;
 	overflow-y: auto;
 }
@@ -670,4 +709,410 @@
 	.podium-visual.is-bobbing {
 		animation: none;
 	}
+}
+
+/* Video cut: the video's frames in a strip, the chosen part inside a hand-drawn window, the rest dimmed. */
+.video-trimmer {
+	display: flex;
+	flex-direction: column;
+	gap: var(--kg-space-2);
+}
+
+.trim-track {
+	position: relative;
+	height: 52px;
+	border: 1.5px solid var(--kg-border);
+	border-radius: var(--kg-radius-sm);
+	background: var(--kg-bg-input);
+	touch-action: none;
+	user-select: none;
+}
+
+.trim-frames {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	border-radius: inherit;
+}
+
+.trim-dim {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	background: rgb(10 10 14 / 0.68);
+	pointer-events: none;
+}
+
+.trim-window {
+	position: absolute;
+	top: -3px;
+	bottom: -3px;
+	border: 2px solid var(--kg-accent);
+	border-radius: 6px;
+	box-shadow: 0 0 12px rgb(var(--kg-accent-rgb) / 0.35);
+	cursor: grab;
+}
+
+.trim-window:active {
+	cursor: grabbing;
+}
+
+/* the second pass of the sketch outline, like the buttons */
+.trim-window::after {
+	content: '';
+	position: absolute;
+	inset: -2px;
+	border: 1px solid var(--kg-accent);
+	border-radius: inherit;
+	opacity: 0.45;
+	transform: translate(1px, 1.2px) rotate(-0.3deg);
+	pointer-events: none;
+}
+
+/* the two ends: a grip with two lines, wide enough to catch */
+.trim-handle {
+	position: absolute;
+	z-index: 1;
+	top: -5px;
+	bottom: -5px;
+	width: 14px;
+	padding: 0;
+	border: 1.5px solid var(--kg-px-ink);
+	border-radius: 5px;
+	background:
+		linear-gradient(var(--kg-px-ink), var(--kg-px-ink)) 4px 50% / 1.5px 40%
+			no-repeat,
+		linear-gradient(var(--kg-px-ink), var(--kg-px-ink)) 7.5px 50% / 1.5px 40%
+			no-repeat,
+		var(--kg-accent);
+	translate: -50% 0;
+	cursor: ew-resize;
+	transition: background-color var(--kg-dur-fast) var(--kg-ease-out);
+}
+
+.trim-handle:hover,
+.trim-handle:focus-visible {
+	background-color: var(--kg-accent-strong);
+	outline: none;
+	box-shadow: 0 0 0 3px rgb(var(--kg-accent-rgb) / 0.35);
+}
+
+.trim-info {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--kg-space-2);
+	min-height: 28px;
+	color: var(--kg-fg-muted);
+	font-size: var(--kg-text-sm);
+	font-variant-numeric: tabular-nums;
+}
+
+.trim-info strong {
+	color: var(--kg-fg);
+	font-weight: 600;
+}
+
+/* The exact spot: the preview blown up over the editor, in the monitor's shape. */
+.spot-picker-backdrop {
+	position: fixed;
+	inset: 0;
+	z-index: 110;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: var(--kg-space-5);
+	background: var(--kg-scrim);
+	animation: kg-fade-up var(--kg-dur-fast) var(--kg-ease-out);
+}
+
+.spot-picker {
+	display: flex;
+	flex-direction: column;
+	gap: var(--kg-space-4);
+	width: min(100%, 1100px);
+	max-height: 100%;
+	padding: var(--kg-space-5);
+	border: 1px solid var(--kg-border);
+	border-radius: var(--kg-radius-lg);
+	background: var(--kg-bg-panel);
+	box-shadow: var(--kg-shadow-2);
+}
+
+.spot-picker-head {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: var(--kg-space-2);
+}
+
+.spot-picker-head h3 {
+	margin: 0;
+	font-family: var(--kg-font-heading);
+	font-size: var(--kg-text-heading);
+	font-weight: 600;
+}
+
+.spot-picker-head small {
+	color: var(--kg-fg-muted);
+	font-size: var(--kg-text-sm);
+}
+
+/* the screen keeps the monitor's shape; its width (set inline) keeps it under the window's height */
+.spot-picker-screen {
+	position: relative;
+	margin-inline: auto;
+	overflow: hidden;
+	border: 1.5px dashed var(--kg-accent);
+	border-radius: var(--kg-radius-sm);
+	background:
+		/* thirds, to line a spot up by eye */
+		linear-gradient(
+			90deg,
+			transparent calc(33.333% - 0.5px),
+			rgb(255 255 255 / 0.07) calc(33.333% - 0.5px) calc(33.333% + 0.5px),
+			transparent calc(33.333% + 0.5px) calc(66.666% - 0.5px),
+			rgb(255 255 255 / 0.07) calc(66.666% - 0.5px) calc(66.666% + 0.5px),
+			transparent calc(66.666% + 0.5px)
+		),
+		linear-gradient(
+			transparent calc(33.333% - 0.5px),
+			rgb(255 255 255 / 0.07) calc(33.333% - 0.5px) calc(33.333% + 0.5px),
+			transparent calc(33.333% + 0.5px) calc(66.666% - 0.5px),
+			rgb(255 255 255 / 0.07) calc(66.666% - 0.5px) calc(66.666% + 0.5px),
+			transparent calc(66.666% + 0.5px)
+		),
+		linear-gradient(
+			135deg,
+			color-mix(in srgb, var(--kg-accent) 12%, transparent),
+			transparent
+		),
+		var(--kg-bg-input);
+	cursor: crosshair;
+	touch-action: none;
+}
+
+.spot-picker-meme {
+	position: absolute;
+	pointer-events: none;
+	opacity: 0.9;
+}
+
+.spot-picker-meme img {
+	display: block;
+	width: 100%;
+	height: 100%;
+	object-fit: contain;
+}
+
+/* a crosshair on the meme's centre */
+.spot-picker-mark {
+	position: absolute;
+	width: 22px;
+	height: 22px;
+	translate: -50% -50%;
+	pointer-events: none;
+	background:
+		linear-gradient(var(--kg-px-pink), var(--kg-px-pink)) 50% 0 / 2px 100%
+			no-repeat,
+		linear-gradient(var(--kg-px-pink), var(--kg-px-pink)) 0 50% / 100% 2px
+			no-repeat;
+	filter: drop-shadow(0 0 3px rgb(0 0 0 / 0.8));
+}
+
+.spot-picker .modal-actions {
+	align-items: center;
+	margin-top: 0;
+}
+
+.spot-picker-coords {
+	margin-right: auto;
+	color: var(--kg-fg-muted);
+	font-size: var(--kg-text-sm);
+	font-variant-numeric: tabular-nums;
+}
+
+/* A meme card's visual, seen bigger. */
+.meme-card-enlarge {
+	position: absolute;
+	z-index: 5;
+	top: var(--kg-space-2);
+	left: var(--kg-space-2);
+	display: grid;
+	place-items: center;
+	width: 28px;
+	height: 28px;
+	padding: 3px;
+	border: none;
+	border-radius: var(--kg-radius-pill);
+	background: var(--kg-scrim);
+	color: var(--kg-fg);
+	cursor: zoom-in;
+	opacity: 0;
+	transition:
+		opacity var(--kg-dur-fast) var(--kg-ease-out),
+		background-color var(--kg-dur-fast) var(--kg-ease-out);
+}
+
+.meme-card:hover .meme-card-enlarge,
+.meme-card-enlarge:focus-visible {
+	opacity: 1;
+}
+
+.meme-card-enlarge:hover {
+	background: color-mix(in srgb, var(--kg-accent) 45%, var(--kg-scrim));
+}
+
+.meme-lightbox {
+	cursor: zoom-out;
+}
+
+.meme-lightbox-frame {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: var(--kg-space-3);
+	max-width: min(92vw, 1200px);
+	margin: 0;
+	animation: kg-fade-up var(--kg-dur-med) var(--kg-ease-out);
+}
+
+.meme-lightbox-frame img,
+.meme-lightbox-frame video,
+.meme-lightbox-frame canvas {
+	display: block;
+	max-width: 100%;
+	max-height: calc(100vh - 140px);
+	object-fit: contain;
+	border-radius: var(--kg-radius-md);
+	box-shadow: var(--kg-shadow-2);
+}
+
+.meme-lightbox-media {
+	display: flex;
+	justify-content: center;
+}
+
+.meme-lightbox-frame figcaption {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 2px;
+	color: var(--kg-fg);
+	font-family: var(--kg-font-heading);
+	font-size: var(--kg-text-lg);
+	font-weight: 600;
+}
+
+.meme-lightbox-frame figcaption small {
+	color: var(--kg-fg-muted);
+	font-family: var(--kg-font-ui);
+	font-size: var(--kg-text-xs);
+	font-weight: 400;
+}
+
+/* The cut's viewer: the frame under the dragged end, or the part playing with its sound. */
+.trim-viewer {
+	position: relative;
+	overflow: hidden;
+	border: 1.5px solid var(--kg-border);
+	border-radius: var(--kg-radius-sm);
+	background: #000;
+}
+
+.trim-viewer video {
+	display: block;
+	width: 100%;
+	height: 200px;
+	object-fit: contain;
+	cursor: pointer;
+}
+
+.trim-viewer-bar {
+	position: absolute;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	display: flex;
+	align-items: center;
+	gap: var(--kg-space-2);
+	padding: var(--kg-space-1) var(--kg-space-2);
+	background: linear-gradient(transparent, rgb(0 0 0 / 0.7));
+}
+
+.trim-time {
+	flex: 1;
+	color: var(--kg-fg);
+	font-size: var(--kg-text-sm);
+	font-variant-numeric: tabular-nums;
+}
+
+.trim-play {
+	display: grid;
+	place-items: center;
+	width: 30px;
+	height: 30px;
+	padding: 4px;
+	border: none;
+	border-radius: var(--kg-radius-pill);
+	background: transparent;
+	color: var(--kg-fg);
+	cursor: pointer;
+	transition: background-color var(--kg-dur-fast) var(--kg-ease-out);
+}
+
+.trim-play:hover,
+.trim-play:focus-visible {
+	background: rgb(255 255 255 / 0.12);
+	outline: none;
+}
+
+/* where the viewer is, a thin line across the strip */
+.trim-playhead {
+	position: absolute;
+	z-index: 1;
+	top: -4px;
+	bottom: -4px;
+	width: 2px;
+	translate: -50% 0;
+	border-radius: 1px;
+	background: var(--kg-px-light);
+	box-shadow: 0 0 4px rgb(0 0 0 / 0.8);
+	pointer-events: none;
+}
+
+/* the same cut, blown up over the editor */
+.trim-big-backdrop {
+	position: fixed;
+	inset: 0;
+	z-index: 110;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: var(--kg-space-5);
+	background: var(--kg-scrim);
+	animation: kg-fade-up var(--kg-dur-fast) var(--kg-ease-out);
+}
+
+.trim-big-backdrop > div {
+	width: min(100%, 1100px);
+}
+
+.video-trimmer.is-big {
+	gap: var(--kg-space-3);
+	padding: var(--kg-space-5);
+	border: 1px solid var(--kg-border);
+	border-radius: var(--kg-radius-lg);
+	background: var(--kg-bg-panel);
+	box-shadow: var(--kg-shadow-2);
+}
+
+.video-trimmer.is-big .trim-viewer video {
+	height: min(60vh, 600px);
+}
+
+.video-trimmer.is-big .trim-track {
+	height: 72px;
 }

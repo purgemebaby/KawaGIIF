@@ -367,6 +367,50 @@ export const SKETCH_ICONS = {
 			{ ellipse: [15.5, 9, 1.7, 1.7], fill: 'var(--kg-px-sun)' },
 		],
 	},
+	// a frame's corners pulled outwards: show it bigger
+	expand: {
+		base: [
+			{
+				points: [
+					[4.5, 9.5],
+					[4.5, 4.5],
+					[9.5, 4.5],
+				],
+			},
+			{
+				points: [
+					[14.5, 4.5],
+					[19.5, 4.5],
+					[19.5, 9.5],
+				],
+			},
+			{
+				points: [
+					[19.5, 14.5],
+					[19.5, 19.5],
+					[14.5, 19.5],
+				],
+			},
+			{
+				points: [
+					[9.5, 19.5],
+					[4.5, 19.5],
+					[4.5, 14.5],
+				],
+			},
+			{
+				// a small screen in the middle, the thing being blown up
+				points: [
+					[9, 9.5],
+					[15, 9.5],
+					[15, 14.5],
+					[9, 14.5],
+				],
+				closed: true,
+				fill: 'var(--kg-px-sky)',
+			},
+		],
+	},
 	info: {
 		// outline only: a fill under the white stroke made the i hard to read
 		base: [
