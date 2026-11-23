@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-11-23
+
 ### Added
 
 - **Memeboard**, a new section on the home ring. A meme pairs an image, GIF or video with a sound, an animation (pop, still, DVD bounce, bounce, shake, cross the screen, fall, or a path you record with the mouse) and a global shortcut.
@@ -100,6 +102,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Overlays fell behind the taskbar after a focus change; they are now raised every 2 s and on every foreground change.
 - A thin white strip showed at the top of the overlays on Windows 11 when switching between edit mode and other tabs.
 
+[0.1.3]: https://github.com/purgemebaby/KawaGIIF/releases/tag/v0.1.3
 [0.1.2]: https://github.com/purgemebaby/KawaGIIF/releases/tag/v0.1.2
 [0.1.1]: https://github.com/purgemebaby/KawaGIIF/releases/tag/v0.1.1
 [0.1.0]: https://github.com/purgemebaby/KawaGIIF/releases/tag/v0.1.0
