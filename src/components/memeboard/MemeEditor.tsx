@@ -1,0 +1,859 @@
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
+import { t } from '../../i18n';
+import { invoke } from '../../lib/ipc';
+import { loadConfig } from '../../lib/config';
+import { notifyError } from '../../lib/notify';
+import {
+	isAudioType,
+	isVideoType,
+	type MediaItem,
+	type MediaKind,
+} from '../../lib/media';
+import {
+	ANIMATION_KINDS,
+	COMBO_MAX_MARGIN,
+	COMBO_STEP_RANGE,
+	COMBO_WINDOW_MIN,
+	PARTY_COUNT_RANGE,
+	POP_MS_RANGE,
+	SPEED_RANGE,
+	defaultAnimation,
+	type Anchor,
+	type Animation,
+	type Corner,
+	type Meme,
+	type Preset,
+	type Side,
+	type Trim,
+} from '../../lib/memeboard';
+import { useLibrary } from '../../context/LibraryProvider';
+import { useEscape } from '../../hooks/useDismiss';
+import { useMediaFilters } from '../../hooks/useMediaFilters';
+import { useImportFlow } from '../ImportDialogs';
+import MediaFilterBar from '../MediaFilterBar';
+import MediaThumb from '../MediaThumb';
+import TagManager from '../tags/TagManager';
+import SettingsToggle from '../settings/SettingsToggle';
+import ChoiceChips from '../ui/ChoiceChips';
+import InfoTip from '../ui/InfoTip';
+import { MODAL_ROOT_ID } from '../ui/Modal';
+import Slider from '../ui/Slider';
+import BehaviourPanel, { RandomPitch } from './BehaviourPanel';
+import HotkeyField from './HotkeyField';
+import MemePreview from './MemePreview';
+import PathRecorder from './PathRecorder';
+import SpotPicker from './SpotPicker';
+import StyleRow from './StyleRow';
+import VideoTrimmer from './VideoTrimmer';
+
+interface MemeEditorProps {
+	meme: Meme;
+	isNew: boolean;
+	maxMemeMs: number;
+	presets: Preset[];
+	/** The visuals of every saved meme, which a Party shows. */
+	partyVisuals: string[];
+	onClose: () => void;
+}
+
+/** A monitor as `list_monitors` reports it. */
+interface MonitorInfo {
+	name: string;
+	width: number;
+	height: number;
+	primary: boolean;
+}
+
+const CORNERS: readonly Corner[] = [
+	'top_left',
+	'top_right',
+	'bottom_left',
+	'bottom_right',
+];
+const SIDES: readonly Side[] = ['left', 'right', 'top', 'bottom', 'random'];
+const ANCHORS: readonly Anchor['kind'][] = [
+	'cursor',
+	'center',
+	'random',
+	'fixed',
+];
+const DEFAULT_STILL_MS = 3000;
+const MIN_TIME_MS = 500;
+// until list_monitors answers (or in the browser preview): no name, so nothing gets pinned to it
+const FALLBACK_MONITOR: MonitorInfo = {
+	name: '',
+	width: 1920,
+	height: 1080,
+	primary: true,
+};
+/** Animations that follow the "Appears at" anchor; the others place themselves. */
+const ANCHORED = new Set<Animation['kind']>([
+	'pop',
+	'static',
+	'dvd_bounce',
+	'bounce',
+	'shake',
+]);
+
+const seconds = (ms: number) => `${(ms / 1000).toFixed(1)} s`;
+const times = (v: number) => `× ${v.toFixed(2)}`;
+const percent = (v: number) => `${Math.round(v * 100)} %`;
+
+/** A titled block of the editor, the same card as a Settings section. */
+function Block({
+	title,
+	extra,
+	className,
+	dropHint,
+	children,
+}: {
+	title: string;
+	extra?: ReactNode;
+	className?: string;
+	/** Set on a drop zone: the text shown while files are dragged over it. */
+	dropHint?: string;
+	children: ReactNode;
+}) {
+	return (
+		<section
+			className={className ? `meme-block ${className}` : 'meme-block'}
+			data-drop-hint={dropHint}
+		>
+			<header className="meme-block-title">
+				<h4>{title}</h4>
+				{extra}
+			</header>
+			{children}
+		</section>
+	);
+}
+
+/**
+ * Library items to pick from: visuals or cassettes, plus a "None" tile, in a scrolling grid with the Library's own
+ * search, sort and tag filter (a library of hundreds is hopeless as a strip). Only the chosen tile moves or plays.
+ */
+function MediaPicker({
+	items,
+	selected,
+	onSelect,
+	disabled,
+	kind,
+}: {
+	items: MediaItem[];
+	selected: string | null;
+	onSelect: (id: string | null) => void;
+	disabled?: boolean;
+	kind: MediaKind;
+}) {
+	const {
+		filters,
+		setFilters,
+		filtered,
+		managingTags,
+		openTags,
+		closeTags,
+		toggleTag,
+	} = useMediaFilters(items);
+	// the current choice stays on the grid even when the search leaves it out
+	const shown = useMemo(() => {
+		const chosen = items.find((item) => item.id === selected);
+		return chosen && !filtered.includes(chosen)
+			? [chosen, ...filtered]
+			: filtered;
+	}, [items, filtered, selected]);
+
+	return (
+		<div
+			className={`meme-picker-wrap${disabled ? ' is-disabled' : ''}`}
+			inert={disabled}
+		>
+			{items.length > 0 && (
+				<MediaFilterBar
+					compact
+					kind={kind}
+					filters={filters}
+					onChange={setFilters}
+					onOpenTags={openTags}
+				/>
+			)}
+			<div className="meme-picker">
+				<button
+					type="button"
+					className={`meme-picker-tile meme-picker-none${selected === null ? ' active' : ''}`}
+					disabled={disabled}
+					onClick={() => onSelect(null)}
+				>
+					{t.memeboard.editor.none}
+				</button>
+				{shown.map((item) => {
+					const chosen = selected === item.id;
+					return (
+						<div
+							key={item.id}
+							role="button"
+							tabIndex={disabled ? -1 : 0}
+							aria-pressed={chosen}
+							aria-disabled={disabled}
+							className={`meme-picker-tile${chosen ? ' active' : ''}`}
+							title={item.original_file_name}
+							onClick={() => !disabled && onSelect(item.id)}
+							onKeyDown={(e) => {
+								if (disabled || (e.key !== 'Enter' && e.key !== ' ')) return;
+								e.preventDefault();
+								onSelect(item.id);
+							}}
+						>
+							<MediaThumb
+								item={item}
+								motion={chosen ? 'always' : 'hover'}
+								playable={!disabled && chosen}
+								alt={item.original_file_name}
+							/>
+						</div>
+					);
+				})}
+			</div>
+			{items.length > 0 && filtered.length === 0 && (
+				<small className="meme-field-note">{t.editor.sidebarNoMatches}</small>
+			)}
+			{managingTags && (
+				<TagManager
+					activeFilters={filters.tags}
+					onToggleFilter={toggleTag}
+					onClose={closeTags}
+				/>
+			)}
+		</div>
+	);
+}
+
+/** The editor of one meme: what it shows and plays, how it moves, its shortcut, with a live preview. */
+function MemeEditor({
+	meme,
+	isNew,
+	maxMemeMs,
+	presets,
+	partyVisuals,
+	onClose,
+}: MemeEditorProps) {
+	const { items } = useLibrary();
+	// imports from here work like the Library's: a button, or files dropped on the media block
+	const { startImport, dropping, dialogs } = useImportFlow({
+		toastNotices: true,
+	});
+	const [draft, setDraft] = useState<Meme>(meme);
+	const [hotkeyOk, setHotkeyOk] = useState(true);
+	const [saving, setSaving] = useState(false);
+	const [monitors, setMonitors] = useState<MonitorInfo[]>([]);
+	// how many memes the settings let show at once (1 until it is read: the cautious answer)
+	const [maxConcurrent, setMaxConcurrent] = useState(1);
+	useEscape(true, onClose);
+
+	useEffect(() => {
+		loadConfig()
+			.then((config) => setMaxConcurrent(config.meme_max_concurrent))
+			.catch(() => {});
+		invoke<MonitorInfo[]>('list_monitors')
+			.then((list) => setMonitors(list ?? []))
+			.catch(() => setMonitors([]));
+	}, []);
+
+	const visuals = useMemo(
+		() => items.filter((i) => !isAudioType(i.media_type) && !i.missing),
+		[items],
+	);
+	const sounds = useMemo(
+		() => items.filter((i) => isAudioType(i.media_type) && !i.missing),
+		[items],
+	);
+	// what an import while the editor is open adds gets picked, when it is one visual or one sound
+	const knownIds = useRef<Set<string> | null>(null);
+	useEffect(() => {
+		const known = knownIds.current;
+		knownIds.current = new Set(items.map((i) => i.id));
+		if (!known) return;
+		const added = items.filter((i) => !known.has(i.id) && !i.missing);
+		const addedVisuals = added.filter((i) => !isAudioType(i.media_type));
+		const addedSounds = added.filter((i) => isAudioType(i.media_type));
+		setDraft((d) => ({
+			...d,
+			...(addedVisuals.length === 1 && {
+				visual: addedVisuals[0].id,
+				trim: null,
+			}),
+			audio: addedSounds.length === 1 ? addedSounds[0].id : d.audio,
+		}));
+	}, [items]);
+
+	const visual = visuals.find((i) => i.id === draft.visual) ?? null;
+	// a Party shows every saved meme's visual, this one's (maybe not saved yet) included
+	const partyItems = useMemo(() => {
+		const ids = new Set(partyVisuals);
+		if (draft.visual) ids.add(draft.visual);
+		return visuals.filter((i) => ids.has(i.id));
+	}, [partyVisuals, draft.visual, visuals]);
+	const sound = sounds.find((i) => i.id === draft.audio) ?? null;
+	const videoVisual = visual !== null && isVideoType(visual.media_type);
+
+	// a cut video plays only its part, never past its real end
+	const trim = videoVisual ? draft.trim : null;
+	const videoMs =
+		videoVisual && visual.duration_ms
+			? trim
+				? Math.min(trim.end_ms, visual.duration_ms) - trim.start_ms
+				: visual.duration_ms
+			: trim
+				? trim.end_ms - trim.start_ms
+				: undefined;
+	// the length rule of memeboard.rs media_length: the video's own sound, else the sound, else the visual's own
+	// length (a GIF loop, a silent video), at the playback speed
+	const mediaMs = videoVisual
+		? visual.has_audio || !sound
+			? videoMs
+			: sound.duration_ms
+		: (sound?.duration_ms ??
+			(visual?.media_type === 'gif' ? visual.duration_ms : undefined));
+	const naturalMs = mediaMs
+		? Math.round(mediaMs / draft.playback_speed)
+		: DEFAULT_STILL_MS;
+	// a combo lasts its window (memeboard.rs meme_duration)
+	const durationMs =
+		draft.animation.kind === 'combo'
+			? draft.animation.window_ms
+			: Math.min(
+					maxMemeMs,
+					Math.max(MIN_TIME_MS, draft.duration_ms ?? naturalMs),
+				);
+
+	// the meme's monitor; one that is gone, or none picked yet, means the primary one
+	const chosen = draft.monitor.kind === 'named' ? draft.monitor.name : null;
+	const screen =
+		monitors.find((m) => m.name === chosen) ??
+		monitors.find((m) => m.primary) ??
+		FALLBACK_MONITOR;
+
+	// the list has no "wherever the cursor is": once the monitors are known, pin the meme to one of them
+	useEffect(() => {
+		if (!screen.name || screen.name === chosen) return;
+		setDraft((d) => ({ ...d, monitor: { kind: 'named', name: screen.name } }));
+	}, [screen, chosen]);
+
+	const set = <K extends keyof Meme>(key: K, value: Meme[K]) =>
+		setDraft((d) => ({ ...d, [key]: value }));
+	// a cut belongs to its video: another visual plays whole
+	const setVisual = (id: string | null) =>
+		setDraft((d) => ({
+			...d,
+			visual: id,
+			trim: d.visual === id ? d.trim : null,
+		}));
+	const [pickingSpot, setPickingSpot] = useState(false);
+	// the last exact spot, so switching to another anchor and back keeps it
+	const [lastSpot, setLastSpot] = useState(
+		meme.anchor.kind === 'fixed'
+			? { x: meme.anchor.x, y: meme.anchor.y }
+			: { x: 0.5, y: 0.5 },
+	);
+	const pickAnchor = (kind: Anchor['kind']) => {
+		if (kind !== 'fixed') return set('anchor', { kind } as Anchor);
+		set('anchor', { kind, ...lastSpot });
+		setPickingSpot(true);
+	};
+	const setAnimation = (animation: Animation) => set('animation', animation);
+
+	const hasMedia = visual !== null || (sound !== null && !videoVisual);
+	const canSave = hasMedia && hotkeyOk && draft.name.trim() !== '' && !saving;
+
+	const save = async () => {
+		setSaving(true);
+		try {
+			await invoke('save_meme', { meme: draft });
+			onClose();
+		} catch (e) {
+			notifyError(e);
+			setSaving(false);
+		}
+	};
+
+	const anim = draft.animation;
+	const editor = t.memeboard.editor;
+	const options = t.memeboard.options;
+	const isPath = anim.kind === 'path';
+
+	const preview = (
+		<Block
+			title={editor.preview}
+			extra={
+				<InfoTip text={t.memeboard.gameNote} label={t.memeboard.infoLabel} />
+			}
+		>
+			<MemePreview
+				visual={visual}
+				animation={anim}
+				anchor={draft.anchor}
+				size={draft.size}
+				durationMs={durationMs}
+				maxMs={maxMemeMs}
+				motionSpeed={draft.motion_speed}
+				playbackSpeed={draft.playback_speed}
+				trim={trim}
+				aspect={screen.width / screen.height}
+				partyItems={partyItems}
+				onPathDrawn={
+					isPath
+						? (points) => setAnimation({ kind: 'path', points })
+						: undefined
+				}
+			/>
+			{isPath && (
+				<PathRecorder
+					points={anim.points}
+					onClear={() => setAnimation({ kind: 'path', points: [] })}
+				/>
+			)}
+			{videoVisual && (
+				<VideoTrimmer
+					// another video starts from a fresh strip
+					key={visual.id}
+					video={visual}
+					trim={trim}
+					onChange={(next: Trim | null) => set('trim', next)}
+				/>
+			)}
+		</Block>
+	);
+
+	// Where along the other axis a crossing or a fall goes: Y for a side entry, X for one from above or below, shown in
+	// px of the meme's monitor. A random side can be either, so it reads as a plain share. Random hides the slider.
+	const positionOptions = (
+		anim: Extract<Animation, { kind: 'cross' | 'fall' }>,
+		axis: 'x' | 'y' | 'either',
+	) => {
+		const length = axis === 'y' ? screen.height : screen.width;
+		return (
+			<>
+				<SettingsToggle
+					checked={anim.random_at}
+					text={{ label: editor.randomAt }}
+					onChange={(random_at) => setAnimation({ ...anim, random_at })}
+				/>
+				{!anim.random_at && (
+					<Slider
+						label={
+							axis === 'x'
+								? editor.xAt
+								: axis === 'y'
+									? editor.yAt
+									: editor.positionAt
+						}
+						min={0}
+						max={1}
+						step={0.01}
+						value={anim.at}
+						format={(v) =>
+							axis === 'either'
+								? percent(v)
+								: editor.pxOf(Math.round(v * length), length)
+						}
+						onChange={(at) => setAnimation({ ...anim, at })}
+					/>
+				)}
+			</>
+		);
+	};
+
+	const animationOptions = (() => {
+		switch (anim.kind) {
+			case 'pop':
+				return (
+					<>
+						<Slider
+							label={options.popIn}
+							min={POP_MS_RANGE[0]}
+							max={POP_MS_RANGE[1]}
+							step={20}
+							value={anim.enter_ms}
+							format={(ms) => `${ms} ms`}
+							onChange={(enter_ms) => setAnimation({ ...anim, enter_ms })}
+						/>
+						<Slider
+							label={options.popOut}
+							min={POP_MS_RANGE[0]}
+							max={POP_MS_RANGE[1]}
+							step={20}
+							value={anim.exit_ms}
+							format={(ms) => `${ms} ms`}
+							onChange={(exit_ms) => setAnimation({ ...anim, exit_ms })}
+						/>
+					</>
+				);
+			case 'shake':
+				return (
+					<Slider
+						label={options.intensity}
+						min={0.05}
+						max={1}
+						step={0.05}
+						value={anim.intensity}
+						format={percent}
+						onChange={(intensity) => setAnimation({ ...anim, intensity })}
+					/>
+				);
+			case 'dvd_bounce':
+				return (
+					<SettingsToggle
+						checked={anim.colors}
+						text={{ label: options.dvdColors }}
+						onChange={(colors) => setAnimation({ ...anim, colors })}
+					/>
+				);
+			case 'cross':
+				return (
+					<>
+						<div className="meme-field">
+							<span>{editor.from}</span>
+							<ChoiceChips
+								options={SIDES}
+								value={anim.from}
+								label={(side) => t.memeboard.sides[side]}
+								onChange={(from) => setAnimation({ ...anim, from })}
+							/>
+						</div>
+						{positionOptions(
+							anim,
+							anim.from === 'random'
+								? 'either'
+								: anim.from === 'left' || anim.from === 'right'
+									? 'y'
+									: 'x',
+						)}
+					</>
+				);
+			case 'fall':
+				return positionOptions(anim, 'x');
+			case 'party':
+				return (
+					<Slider
+						label={options.partyCount}
+						min={PARTY_COUNT_RANGE[0]}
+						max={PARTY_COUNT_RANGE[1]}
+						step={1}
+						value={anim.count}
+						format={String}
+						onChange={(count) => setAnimation({ ...anim, count })}
+						info={
+							<InfoTip text={options.partyInfo} label={t.memeboard.infoLabel} />
+						}
+					/>
+				);
+			case 'combo':
+				return (
+					<>
+						<div className="meme-field">
+							<span>{options.corner}</span>
+							<ChoiceChips
+								options={CORNERS}
+								value={anim.corner}
+								label={(corner) => t.memeboard.corners[corner]}
+								onChange={(corner) => setAnimation({ ...anim, corner })}
+							/>
+						</div>
+						<Slider
+							label={options.margin}
+							min={0}
+							max={COMBO_MAX_MARGIN}
+							step={0.01}
+							value={anim.margin}
+							format={percent}
+							onChange={(margin) => setAnimation({ ...anim, margin })}
+						/>
+						<Slider
+							label={options.comboStep}
+							min={COMBO_STEP_RANGE[0]}
+							max={COMBO_STEP_RANGE[1]}
+							step={1}
+							value={anim.step}
+							format={options.comboHits}
+							onChange={(step) => setAnimation({ ...anim, step })}
+						/>
+					</>
+				);
+			default:
+				return null;
+		}
+	})();
+
+	return createPortal(
+		<div className="modal-backdrop" onClick={onClose}>
+			<div
+				className="modal meme-editor"
+				role="dialog"
+				aria-modal="true"
+				aria-label={isNew ? editor.titleNew : editor.titleEdit}
+				onClick={(e) => e.stopPropagation()}
+			>
+				<h3 className="modal-title">
+					{isNew ? editor.titleNew : editor.titleEdit}
+				</h3>
+
+				<StyleRow draft={draft} presets={presets} onChange={setDraft} />
+
+				{/* drawing a path wants room: the preview takes the whole width */}
+				{isPath && <div className="meme-editor-wide">{preview}</div>}
+
+				<div className="meme-editor-body">
+					<div className="meme-editor-column">
+						<Block
+							title={editor.media}
+							className={`kg-drop-zone${dropping ? ' is-dropping' : ''}`}
+							dropHint={t.storage.dropHint}
+							extra={
+								<button
+									type="button"
+									className="kg-btn kg-btn--secondary kg-btn--sm"
+									onClick={startImport}
+								>
+									{t.storage.import}
+								</button>
+							}
+						>
+							<label className="meme-field">
+								<span>{editor.name}</span>
+								<input
+									className="filter-search"
+									value={draft.name}
+									maxLength={60}
+									onChange={(e) => set('name', e.target.value)}
+								/>
+							</label>
+							<div className="meme-field">
+								<span>{editor.visual}</span>
+								<MediaPicker
+									kind="visual"
+									items={visuals}
+									selected={draft.visual}
+									onSelect={setVisual}
+								/>
+							</div>
+							<div className="meme-field">
+								<span>{editor.sound}</span>
+								<MediaPicker
+									kind="audio"
+									items={sounds}
+									selected={draft.audio}
+									onSelect={(id) => set('audio', id)}
+									disabled={videoVisual}
+								/>
+							</div>
+						</Block>
+
+						<Block title={editor.animation}>
+							<ChoiceChips
+								options={ANIMATION_KINDS}
+								value={anim.kind}
+								label={(kind) => t.memeboard.animations[kind]}
+								onChange={(kind) => setAnimation(defaultAnimation(kind))}
+								ariaLabel={editor.animation}
+							/>
+							{ANCHORED.has(anim.kind) && (
+								<div className="meme-field">
+									<span>{editor.anchor}</span>
+									<ChoiceChips
+										options={ANCHORS}
+										value={draft.anchor.kind}
+										label={(kind) => t.memeboard.anchors[kind]}
+										onChange={pickAnchor}
+									/>
+									{draft.anchor.kind === 'fixed' && (
+										<div className="meme-spot-row">
+											<small className="meme-field-note">
+												{t.memeboard.spot.at(
+													Math.round(draft.anchor.x * screen.width),
+													Math.round(draft.anchor.y * screen.height),
+												)}
+											</small>
+											<button
+												type="button"
+												className="kg-btn kg-btn--secondary kg-btn--sm"
+												onClick={() => setPickingSpot(true)}
+											>
+												{t.memeboard.spot.choose}
+											</button>
+										</div>
+									)}
+								</div>
+							)}
+						</Block>
+
+						<Block title={editor.hotkey}>
+							<HotkeyField
+								value={draft.hotkey}
+								memeId={draft.id}
+								onChange={(hotkey) => set('hotkey', hotkey)}
+								onValidity={setHotkeyOk}
+								hint={false}
+							/>
+							<BehaviourPanel
+								behaviour={draft.behaviour}
+								maxConcurrent={maxConcurrent}
+								onChange={(behaviour) => set('behaviour', behaviour)}
+							/>
+						</Block>
+					</div>
+
+					<div className="meme-editor-column">
+						{!isPath && preview}
+
+						{animationOptions && (
+							<Block title={editor.options}>{animationOptions}</Block>
+						)}
+
+						<Block title={editor.playback}>
+							<label className="meme-field">
+								<span>{editor.monitor}</span>
+								<select
+									className="filter-search"
+									value={screen.name}
+									onChange={(e) =>
+										set('monitor', { kind: 'named', name: e.target.value })
+									}
+								>
+									{monitors.map((m) => (
+										<option key={m.name} value={m.name}>
+											{editor.monitorName(
+												m.name.replace(/^\\\\\.\\/, ''),
+												m.width,
+												m.height,
+											)}
+										</option>
+									))}
+								</select>
+							</label>
+							<Slider
+								label={editor.size}
+								min={0.05}
+								max={1}
+								step={0.01}
+								value={draft.size}
+								format={percent}
+								onChange={(v) => set('size', v)}
+							/>
+							<Slider
+								label={editor.motionSpeed}
+								min={SPEED_RANGE[0]}
+								max={SPEED_RANGE[1]}
+								step={0.05}
+								value={draft.motion_speed}
+								format={times}
+								onChange={(v) => set('motion_speed', v)}
+								onReset={() => set('motion_speed', 1)}
+								resetLabel={editor.motionSpeed}
+							/>
+							<Slider
+								label={editor.playbackSpeed}
+								min={SPEED_RANGE[0]}
+								max={SPEED_RANGE[1]}
+								step={0.05}
+								value={draft.playback_speed}
+								format={times}
+								onChange={(v) => set('playback_speed', v)}
+								onReset={() => set('playback_speed', 1)}
+								resetLabel={editor.playbackSpeed}
+							/>
+							{anim.kind === 'combo' ? (
+								// a combo's time is its window: how long after the last press it keeps counting and burning
+								<Slider
+									label={editor.time}
+									min={COMBO_WINDOW_MIN}
+									max={maxMemeMs}
+									step={250}
+									value={anim.window_ms}
+									format={seconds}
+									onChange={(window_ms) => setAnimation({ ...anim, window_ms })}
+									info={
+										<InfoTip
+											text={options.comboInfo}
+											label={t.memeboard.infoLabel}
+										/>
+									}
+								/>
+							) : (
+								<Slider
+									label={editor.time}
+									min={MIN_TIME_MS}
+									max={maxMemeMs}
+									step={100}
+									value={durationMs}
+									format={seconds}
+									onChange={(v) => set('duration_ms', v)}
+									// back to "as long as its sound"
+									onReset={() => set('duration_ms', null)}
+									resetLabel={editor.time}
+									info={
+										<InfoTip
+											text={editor.timeInfo(maxMemeMs / 1000)}
+											label={t.memeboard.infoLabel}
+										/>
+									}
+								/>
+							)}
+							<Slider
+								label={editor.volume}
+								min={0}
+								max={1}
+								step={0.01}
+								value={draft.volume}
+								format={percent}
+								onChange={(v) => set('volume', v)}
+							/>
+							<RandomPitch
+								behaviour={draft.behaviour}
+								onChange={(behaviour) => set('behaviour', behaviour)}
+							/>
+						</Block>
+					</div>
+				</div>
+
+				<div className="modal-actions">
+					{!hasMedia && (
+						<small className="meme-editor-warning">{editor.needsMedia}</small>
+					)}
+					<button
+						type="button"
+						className="kg-btn kg-btn--secondary"
+						onClick={onClose}
+					>
+						{t.common.cancel}
+					</button>
+					<button
+						type="button"
+						className="kg-btn kg-btn--primary"
+						disabled={!canSave}
+						onClick={save}
+					>
+						{editor.save}
+					</button>
+				</div>
+				{/* inside the editor box, so their clicks stop here instead of reaching the backdrop that closes it */}
+				{dialogs}
+				{pickingSpot && draft.anchor.kind === 'fixed' && (
+					<SpotPicker
+						visual={visual}
+						size={draft.size}
+						screen={screen}
+						spot={{ x: draft.anchor.x, y: draft.anchor.y }}
+						onPick={(spot) => {
+							setLastSpot(spot);
+							set('anchor', { kind: 'fixed', ...spot });
+						}}
+						onClose={() => setPickingSpot(false)}
+					/>
+				)}
+			</div>
+		</div>,
+		document.getElementById(MODAL_ROOT_ID) ?? document.body,
+	);
+}
+
+export default MemeEditor;

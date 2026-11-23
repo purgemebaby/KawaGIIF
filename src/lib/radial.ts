@@ -1,4 +1,4 @@
-export type SectorId = 'storage' | 'editor' | 'settings';
+export type SectorId = 'storage' | 'editor' | 'memeboard' | 'settings';
 
 interface Sector {
 	id: SectorId;
@@ -14,14 +14,15 @@ export const RING_SIZE = 420;
 export const RING_OUTER = 190;
 export const RING_INNER = 80;
 
-const SECTOR_SPAN_DEG = 120;
+const SECTOR_SPAN_DEG = 90;
 const SECTOR_GAP_DEG = 3;
 
 // Screen degrees, clockwise from +x (y down).
 const CENTRES: Record<SectorId, number> = {
-	storage: 330,
-	editor: 90,
-	settings: 210,
+	storage: 315,
+	memeboard: 45,
+	editor: 135,
+	settings: 225,
 };
 
 function sectorOf(id: SectorId): Sector {
@@ -86,6 +87,21 @@ export function outerArcPath(
 ): string {
 	const large = largeArcFlag(startDeg, endDeg);
 	return `M ${fmt(pointAt(cx, cy, r, startDeg))} ${arcTo(r, large, 1, pointAt(cx, cy, r, endDeg))}`;
+}
+
+/** The arc a sector's label is written along. It always runs left to right, so the lower sectors' labels never read
+ upside down: their arc goes back from the end angle to the start one. */
+export function labelArcPath(
+	id: SectorId,
+	cx: number,
+	cy: number,
+	r: number,
+): string {
+	const { startDeg, endDeg, centreDeg } = sectorOf(id);
+	if (Math.sin((centreDeg * Math.PI) / 180) <= 0)
+		return outerArcPath(cx, cy, r, startDeg, endDeg);
+	const large = largeArcFlag(startDeg, endDeg);
+	return `M ${fmt(pointAt(cx, cy, r, endDeg))} ${arcTo(r, large, 0, pointAt(cx, cy, r, startDeg))}`;
 }
 
 /** Unit vector from the ring centre towards the sector centre. */

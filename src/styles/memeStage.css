@@ -1,0 +1,24 @@
+/* The memeboard stage covers a whole monitor; each meme is an absolutely placed layer moved by its transform. */
+.meme-stage {
+	position: fixed;
+	inset: 0;
+	overflow: hidden;
+	pointer-events: none;
+}
+
+.meme-layer {
+	position: absolute;
+	top: 0;
+	left: 0;
+	transform-origin: center;
+	will-change: transform, opacity;
+}
+
+.meme-layer img,
+.meme-layer video,
+.meme-layer canvas {
+	display: block;
+	width: 100%;
+	height: 100%;
+	object-fit: contain;
+}

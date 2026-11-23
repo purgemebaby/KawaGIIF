@@ -93,6 +93,11 @@ fn raise_visible_overlays(app: &AppHandle, restyle: bool) {
     // the carried overlay stays above everything, the control window included, or it flickers behind it
     let carried: usize = CARRIED_SLOT.load(Ordering::Relaxed);
     if carried != usize::MAX { raise(slot_window(app, carried)); }
+    // memes go over the placed animations too
+    if let Some(stage) = meme_stage(app).filter(|w| w.is_visible().unwrap_or(false)) {
+        if restyle { reapply_stage_style(&stage); }
+        raise(Some(stage));
+    }
 }
 
 /** Raises the overlays above the control window once the window changes queued so far (tao's `set_always_on_top`) are applied. */
@@ -335,6 +340,125 @@ pub fn create_overlay_pool(app: &AppHandle) -> tauri::Result<()> {
         watch_overlay_events(app, &window, slot);
     }
     Ok(())
+}
+
+
+
+// Meme stage
+pub const MEME_STAGE_LABEL: &str = "MEME-STAGE";
+
+fn meme_stage(app: &AppHandle) -> Option<WebviewWindow> { app.get_webview_window(MEME_STAGE_LABEL) }
+
+/** Restyles the stage like an overlay, plus `WS_EX_NOACTIVATE`: it shows over games and must never take their focus. */
+fn reapply_stage_style(window: &WebviewWindow) {
+    reapply_overlay_style(window);
+    #[cfg(windows)]
+    if let Ok(hwnd) = window.hwnd() { native::force_no_activate(hwnd); }
+}
+
+/**
+ * Creates the memeboard's stage, hidden, during `setup()` for the same reason as the pool (a transparent window
+ * created later is opaque). One transparent, always click-through window that covers the cursor's monitor while memes
+ * play, all of them drawn inside it. Same builder options as the pool, its own page (`meme-stage.html`).
+ */
+pub fn create_meme_stage(app: &AppHandle) -> tauri::Result<()> {
+    let window = WebviewWindowBuilder::new(app, MEME_STAGE_LABEL, WebviewUrl::App("meme-stage.html".into()))
+        .additional_browser_args(BROWSER_ARGS)
+        // the name OBS lists it by, for a Window Capture of the memes
+        .title("KawaGIIF memes")
+        .position(0.0, 0.0)
+        .inner_size(200.0, 200.0)
+        .decorations(false)
+        .transparent(true)
+        .always_on_top(true)
+        .skip_taskbar(true)
+        .resizable(false)
+        .shadow(false)
+        .focused(false)
+        .background_color(Color(0, 0, 0, 0))
+        .window_classname("KawaGIIFOverlay")
+        .visible(false)
+        .build()?;
+    set_overlay_click_through(&window, true);
+    reapply_stage_style(&window);
+    Ok(())
+}
+
+/** A monitor as the meme editor lists it, in physical px. */
+#[derive(serde::Serialize)]
+pub struct MonitorInfo {
+    pub name: String,
+    pub width: u32,
+    pub height: u32,
+    pub primary: bool,
+}
+
+/// Every connected monitor, for the meme editor's monitor choice and its preview's shape.
+#[tauri::command]
+pub fn list_monitors(app: AppHandle) -> crate::error::AppResult<Vec<MonitorInfo>> {
+    let primary = app.primary_monitor()?.and_then(|m| m.name().cloned());
+    Ok(app.available_monitors()?.into_iter()
+        .filter_map(|m| {
+            let name = m.name()?.clone();
+            Some(MonitorInfo { primary: primary.as_ref() == Some(&name), width: m.size().width, height: m.size().height, name })
+        })
+        .collect())
+}
+
+/**
+ * Covers the chosen monitor (the one under the cursor when none is chosen or it was unplugged) with the stage and shows
+ * it without activating it. Returns where the cursor is, as a fraction (0..=1) of that monitor, clamped when the
+ * cursor is on another one, or the middle when Windows has no cursor to give (a locked screen, the secure desktop).
+ */
+pub fn show_meme_stage(app: &AppHandle, choice: &crate::memeboard::MonitorChoice) -> crate::error::AppResult<(f64, f64)> {
+    let window = meme_stage(app).ok_or(crate::error::AppError::MissingStageWindow)?;
+    let cursor = app.cursor_position().ok();
+    let monitor = stage_monitor(app, choice)?;
+    let (pos, size) = (*monitor.position(), *monitor.size());
+
+    set_slot_dormant(&window, false, || true);
+    place(&window, pos.x, pos.y, size.width, size.height)?;
+    #[cfg(windows)]
+    if let Ok(hwnd) = window.hwnd() { native::show_no_activate(hwnd); }
+    #[cfg(not(windows))]
+    window.show()?;
+    after_queued(&window, |window| {
+        reapply_stage_style(window);
+        raise(Some(window.clone()));
+    });
+
+    let fraction = |at: f64, start: i32, len: u32| ((at - f64::from(start)) / f64::from(len.max(1))).clamp(0.0, 1.0);
+    Ok(cursor.map_or((0.5, 0.5), |c| (fraction(c.x, pos.x, size.width), fraction(c.y, pos.y, size.height))))
+}
+
+/** The monitor a meme shows on: the chosen one if still connected, else the one under the cursor, else the primary
+ (also when there is no cursor to ask, as with a locked screen: a Stream Deck or --fire-meme still plays). */
+fn stage_monitor(app: &AppHandle, choice: &crate::memeboard::MonitorChoice) -> crate::error::AppResult<tauri::Monitor> {
+    if let crate::memeboard::MonitorChoice::Named { name } = choice {
+        if let Some(monitor) = app.available_monitors()?.into_iter().find(|m| m.name() == Some(name)) {
+            return Ok(monitor);
+        }
+    }
+    let under_cursor = match app.cursor_position() {
+        Ok(cursor) => app.monitor_from_point(cursor.x, cursor.y)?,
+        Err(_) => None,
+    };
+    under_cursor
+        .or(app.primary_monitor()?)
+        .ok_or(crate::error::AppError::MissingStageWindow)
+}
+
+/** The name of the monitor a meme would show on, without moving anything. */
+pub fn meme_monitor_name(app: &AppHandle, choice: &crate::memeboard::MonitorChoice) -> Option<String> {
+    stage_monitor(app, choice).ok().map(|m| m.name().cloned().unwrap_or_default())
+}
+
+/** Hides the stage and puts its webview to sleep until the next meme. */
+pub fn hide_meme_stage(app: &AppHandle) {
+    let Some(window) = meme_stage(app) else { return; };
+    let _ = window.hide();
+    let check = window.clone();
+    set_slot_dormant(&window, true, move || !check.is_visible().unwrap_or(false));
 }
 
 /** The keeper's next sleep and whether it raises this pass, from what the foreground window does to the screen. */

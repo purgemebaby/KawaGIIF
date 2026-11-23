@@ -102,9 +102,63 @@
 	animation: kg-camera-flash 520ms ease-out;
 }
 
+/* The Audio tab's chibi, cut at mid-torso by the window's bottom edge (the picture is the whole body). */
+.music-mascot {
+	--music-mascot-h: clamp(250px, 53vh, 420px);
+
+	position: fixed;
+	right: var(--kg-space-5);
+	/* the lower 40 % (waist down) stays below the window edge */
+	bottom: calc(var(--music-mascot-h) * -0.4);
+	z-index: 6;
+	height: var(--music-mascot-h);
+	aspect-ratio: 518 / 800;
+	pointer-events: none;
+}
+
+/* Swings side to side around the hips and dips in the middle: the head draws an arc on each beat. */
+.music-mascot-dancer {
+	position: relative;
+	width: 100%;
+	height: 100%;
+	transform-origin: 50% 88%;
+	animation: kg-music-sway 1.3s ease-in-out infinite;
+}
+
+.music-mascot-dancer img {
+	display: block;
+	width: 100%;
+	height: 100%;
+}
+
+/* Notes come out of an earcup, rise and drift outwards, turn a little and fade. */
+.music-note {
+	position: absolute;
+	left: calc(var(--note-x) * 100%);
+	top: calc(var(--note-y) * 100%);
+	width: 11%;
+	aspect-ratio: 1;
+	translate: -50% -50%;
+	opacity: 0;
+	animation: kg-music-note 2.4s ease-out infinite;
+}
+
+.music-note-glyph {
+	display: block;
+	width: 100%;
+	height: 100%;
+	overflow: visible;
+	fill: var(--note-color);
+	stroke: var(--kg-px-ink);
+	stroke-width: 1.6;
+	stroke-linejoin: round;
+	paint-order: stroke;
+}
+
 /* Too short a window: the chibi would cover most of the grid. */
 @media (max-height: 420px) {
-	.library-mascot {
+	.library-mascot,
+	.music-mascot {
 		display: none;
 	}
 }

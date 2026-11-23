@@ -340,6 +340,198 @@ export const SKETCH_ICONS = {
 			},
 		],
 	},
+	image: {
+		base: [
+			{
+				points: [
+					[4, 5],
+					[20, 5],
+					[20, 19],
+					[4, 19],
+				],
+				closed: true,
+				fill: 'var(--kg-px-sky)',
+			},
+			{
+				// a hill and its smaller neighbour
+				points: [
+					[4.5, 18.5],
+					[10, 11.5],
+					[14, 15.5],
+					[16, 13.5],
+					[19.5, 18.5],
+				],
+				closed: true,
+				fill: 'var(--kg-px-purple)',
+			},
+			{ ellipse: [15.5, 9, 1.7, 1.7], fill: 'var(--kg-px-sun)' },
+		],
+	},
+	// a frame's corners pulled outwards: show it bigger
+	expand: {
+		base: [
+			{
+				points: [
+					[4.5, 9.5],
+					[4.5, 4.5],
+					[9.5, 4.5],
+				],
+			},
+			{
+				points: [
+					[14.5, 4.5],
+					[19.5, 4.5],
+					[19.5, 9.5],
+				],
+			},
+			{
+				points: [
+					[19.5, 14.5],
+					[19.5, 19.5],
+					[14.5, 19.5],
+				],
+			},
+			{
+				points: [
+					[9.5, 19.5],
+					[4.5, 19.5],
+					[4.5, 14.5],
+				],
+			},
+			{
+				// a small screen in the middle, the thing being blown up
+				points: [
+					[9, 9.5],
+					[15, 9.5],
+					[15, 14.5],
+					[9, 14.5],
+				],
+				closed: true,
+				fill: 'var(--kg-px-sky)',
+			},
+		],
+	},
+	info: {
+		// outline only: a fill under the white stroke made the i hard to read
+		base: [
+			{ ellipse: [12, 12, 8.5, 8.5] },
+			{ ellipse: [12, 7.8, 0.9, 0.9], fill: 'var(--kg-fg)' },
+			{
+				// the stem of the i, with a little foot
+				points: [
+					[11, 11],
+					[12.3, 10.8],
+					[12.2, 16.8],
+					[13.6, 16.9],
+				],
+			},
+		],
+	},
+	// tape-recorder keys: a red play triangle and two pause bars
+	play: {
+		base: [
+			{
+				points: [
+					[7, 4.5],
+					[19, 12],
+					[7, 19.5],
+				],
+				closed: true,
+				fill: 'var(--kg-px-red)',
+			},
+		],
+	},
+	pause: {
+		base: [
+			{
+				points: [
+					[6.5, 5],
+					[10, 5],
+					[10, 19],
+					[6.5, 19],
+				],
+				closed: true,
+				fill: 'var(--kg-px-light)',
+			},
+			{
+				points: [
+					[14, 5],
+					[17.5, 5],
+					[17.5, 19],
+					[14, 19],
+				],
+				closed: true,
+				fill: 'var(--kg-px-light)',
+			},
+		],
+	},
+	laugh: {
+		base: [
+			{ ellipse: [12, 12, 8.5, 8.5], fill: 'var(--kg-px-sun)' },
+			{
+				// eyes squeezed shut: ^ ^
+				points: [
+					[7.5, 10.5],
+					[9, 8.8],
+					[10.5, 10.5],
+				],
+			},
+			{
+				points: [
+					[13.5, 10.5],
+					[15, 8.8],
+					[16.5, 10.5],
+				],
+			},
+			{
+				// the open mouth, wide
+				points: [
+					[7.5, 13],
+					[16.5, 13],
+					[14.5, 17],
+					[12, 17.8],
+					[9.5, 17],
+				],
+				closed: true,
+				fill: 'var(--kg-px-pink)',
+			},
+		],
+	},
+	cassette: {
+		base: [
+			{
+				points: [
+					[3.5, 6],
+					[20.5, 6],
+					[20.5, 18.5],
+					[3.5, 18.5],
+				],
+				closed: true,
+				fill: 'var(--kg-px-pink)',
+			},
+			{
+				// the paper label
+				points: [
+					[6, 8],
+					[18, 8],
+					[18, 10.5],
+					[6, 10.5],
+				],
+				closed: true,
+				fill: 'var(--kg-px-white)',
+			},
+			{ ellipse: [9, 14, 1.8, 1.8], fill: 'var(--kg-px-deep)' },
+			{ ellipse: [15, 14, 1.8, 1.8], fill: 'var(--kg-px-deep)' },
+			{
+				points: [
+					[7.5, 18.5],
+					[9, 16.5],
+					[15, 16.5],
+					[16.5, 18.5],
+				],
+			},
+		],
+	},
 } satisfies Record<string, Record<string, readonly SketchShape[]>>;
 
 export type SketchIconName = keyof typeof SKETCH_ICONS;

@@ -4,6 +4,47 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [0.1.3] - 2026-11-23
+
+### Added
+
+- **Memeboard**, a new section on the home ring. A meme pairs an image, GIF or video with a sound, an animation (pop, still, DVD bounce, bounce, shake, cross the screen, fall, or a path you record with the mouse) and a global shortcut.
+  - Up to 10 shortcuts, `Ctrl+AltGr+1` … `Ctrl+AltGr+0` by default. Windows and common app shortcuts are refused, and one already taken by another app is flagged instead of failing silently. `Ctrl+AltGr+Backspace` stops everything. Win + a number works too: while a meme has it, it takes over opening that pinned taskbar app, and releasing Win doesn't open the Start menu.
+  - The shortcuts are read with a keyboard hook that tells a real Ctrl from AltGr, so AltGr alone still types its character (`|`, `@`, `#`…) and only Ctrl+AltGr plays the meme. While a shortcut is being recorded they are paused, and a combination another meme already has is refused.
+  - Cross the screen can come in from a random side and Cross and Fall at a random position, picked anew on each play.
+  - Images and sounds can be imported straight from the meme editor, with the button or by dropping files on it.
+  - A video can be cut to the part you want, like in a video editor: drag the two ends of a strip of its frames (or the window between them) while a viewer above shows the frame under the end you drag. The part can be played with its sound, and the viewer opens bigger. The meme loops that part, sound included.
+  - "Appears at" has an **Exact spot**: a big screen in the monitor's shape opens and a click or a drag puts the meme there, drawn at its real size.
+  - A meme card's picture can be seen bigger with the button in its corner.
+  - Two more animations: **Party** fills the screen with tiny pop-ups of all your saved memes (5–60), and **Combo** sits in a corner with a fighting-game counter (up to x99) whose pixel-art flames grow every few presses, from a faint glow to blue fire, and die down when you stop.
+  - The podium is drawn by hand in the app's colours, with the top memes glowing and sparkling.
+  - In Party, videos play too (up to 12 at once; the rest show their poster).
+  - In Fall, a meme falls once over the whole time, slower the longer the meme, and never starts over, whatever the animation speed.
+  - In Combo, the flame box is always the same size and always inside the screen; the flame drawn in it grows and burns brighter with each tier. The first press pops the meme in, later presses give it a small button-like press, and its Time slider is how long the combo lasts.
+  - A meme's plays start over when its image or sound is changed.
+  - A meme set to "Add another on top" says so in its editor when "Memes at once" is 1 in the Memeboard settings, since then each press can only replace the last one.
+  - The meme editor's pickers are a scrolling grid with the Library's search, sort and tag filter, so a library of hundreds is easy to browse.
+  - A meme still plays when Windows has no cursor to report (a locked screen, a Stream Deck press): it shows on the main monitor.
+  - A meme lasts as long as its sound (a video uses its own), 20 s at most; the visual loops until the sound ends.
+  - Sounds can go to another output, such as a virtual cable (VB-Cable) to play them in a voice chat, or to the speakers and that device at once.
+  - 1 meme at a time by default, up to 10 in the settings; a meme that wouldn't fit in the free memory is not played.
+  - Cooldown, what pressing again does (restart, stack, ignore), random speed and pitch, and presets to reuse a look and behaviour.
+  - A podium of the most played memes.
+  - `KawaGIIF.exe --fire-meme "name"` plays a meme from a Stream Deck or a script.
+- MP3, WAV and OGG files in the Library, shown as cassettes in their own tab.
+
+### Changed
+
+- The Library, the editor's Storage panel and the meme pickers show small thumbnails instead of the original files: GIFs and animated WEBPs move only under the pointer, and videos show a poster until hovered. With a large library this cuts the app's memory use a lot.
+- The home ring shows only big icons; hovering a sector lights its neon edge, the icon steps inwards and the name flickers on along the edge.
+- Filled buttons (Save, Update, Import, Done…) drop the purple-to-pink gradient for the sliders' pen hatch inside a hand-drawn outline: the hatch slides under the pointer and the two strokes meet when pressed.
+- The meme editor is tidier: every choice chip is the same size, one gap between every block, the random pitch sits under the sliders of "General configuration", both media pickers are the same height, and the note about a video's sound is gone.
+- Shake is calmer: it sways about four times a second instead of eight, by a share of the meme's own size, and low intensities stay subtle.
+- The Library's Audio tab has its own chibi: one with headphones that rises from the corner up to mid-torso, sways to the beat and lets music notes float out of the headphones (still when animations are off).
+- Imports now read each file's real codec (audio track and first packet, image header, first GIF frame, MP4 tracks) instead of trusting its first bytes, so a renamed or corrupt file is refused.
+
 ## [0.1.2] - 2026-10-28
 
 ### Fixed
@@ -61,6 +102,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Overlays fell behind the taskbar after a focus change; they are now raised every 2 s and on every foreground change.
 - A thin white strip showed at the top of the overlays on Windows 11 when switching between edit mode and other tabs.
 
+[0.1.3]: https://github.com/purgemebaby/KawaGIIF/releases/tag/v0.1.3
 [0.1.2]: https://github.com/purgemebaby/KawaGIIF/releases/tag/v0.1.2
 [0.1.1]: https://github.com/purgemebaby/KawaGIIF/releases/tag/v0.1.1
 [0.1.0]: https://github.com/purgemebaby/KawaGIIF/releases/tag/v0.1.0

@@ -49,22 +49,52 @@
 	cursor: not-allowed;
 }
 
-/* Solid pill: lifts and glows on hover. */
+/* Filled with the slider's pen hatch: on hover the hatch slides like a slider being dragged, and pressing
+   lands the second pass on the first. */
 .kg-btn--primary {
-	--kg-btn-ink: transparent;
-	background: var(--kg-btn-gradient);
-	color: var(--kg-fg-on-accent);
+	--kg-btn-ink: var(--kg-accent);
+	background-color: color-mix(in srgb, var(--kg-accent) 16%, transparent);
+	color: var(--kg-px-light);
 	font-weight: 600;
 }
 
+.kg-btn--primary::before {
+	content: '';
+	position: absolute;
+	z-index: -1;
+	inset: 0;
+	border-radius: inherit;
+	background: var(--kg-hatch) 0 0 / var(--kg-hatch-size) var(--kg-hatch-size);
+	opacity: 0.5;
+	transition: opacity var(--kg-dur-med) var(--kg-ease-out);
+}
+
 .kg-btn--primary::after {
-	display: none; /* no second pass on the solid pill */
+	transition:
+		border-color var(--kg-dur-fast) var(--kg-ease-out),
+		opacity var(--kg-dur-fast) var(--kg-ease-out),
+		transform var(--kg-dur-fast) var(--kg-ease-out);
 }
 
 .kg-btn--primary:hover:not(:disabled) {
+	--kg-btn-ink: var(--kg-accent-strong);
 	box-shadow: var(--kg-btn-glow);
-	filter: brightness(1.1);
 	transform: translateY(-1px);
+}
+
+.kg-btn--primary:hover:not(:disabled)::before {
+	opacity: 0.9;
+	animation: kg-hatch-slide 0.6s linear infinite;
+}
+
+.kg-btn--primary:active:not(:disabled) {
+	box-shadow: none;
+	transform: translateY(1px);
+}
+
+.kg-btn--primary:active:not(:disabled)::after {
+	opacity: 0.8;
+	transform: none;
 }
 
 /* Neutral ink at rest, accent on hover. */
@@ -138,41 +168,26 @@
 }
 
 /* Raised neutral pill: grows a touch, the icon spins. */
-.kg-btn--ghost,
-.kg-btn--icon {
+.kg-btn--ghost {
 	--kg-btn-ink: var(--kg-border-strong);
 	background: var(--kg-bg-raised);
 	color: var(--kg-fg-muted);
 }
 
-.kg-btn--ghost:hover:not(:disabled),
-.kg-btn--icon:hover:not(:disabled) {
-	--kg-btn-ink: var(--kg-fg);
+.kg-btn--ghost:hover:not(:disabled) {
+	--kg-btn-ink: var(--kg-fg-muted);
 	box-shadow: var(--kg-shadow-1);
 	color: var(--kg-fg);
 	transform: scale(1.04);
 }
 
-.kg-btn--ghost:hover:not(:disabled) {
-	--kg-btn-ink: var(--kg-fg-muted);
-}
-
-.kg-btn--ghost:hover:not(:disabled) > svg,
-.kg-btn--icon:hover:not(:disabled) > svg {
+.kg-btn--ghost:hover:not(:disabled) > svg {
 	transform: rotate(180deg);
 }
 
 .kg-btn--sm {
 	padding: 6px 12px;
 	font-size: var(--kg-text-sm);
-}
-
-.kg-btn--icon {
-	width: 34px;
-	height: 34px;
-	padding: 0;
-	border-radius: 50%;
-	font-size: var(--kg-text-icon);
 }
 
 /* After the hover rules so a press wins while hovering. */
@@ -306,15 +321,15 @@
 	color: var(--kg-fg-muted);
 }
 
-/* Icon-only per-slider reset; the sketch strokes take their ink from --kg-fg. */
-.kg-slider-reset {
+/* Icon-only reset (a circular arrow); the sketch strokes take their ink from --kg-fg. */
+.kg-reset {
 	--kg-fg: var(--kg-fg-muted);
 	display: inline-flex;
+	flex: none;
 	align-items: center;
 	justify-content: center;
-	width: 22px;
-	height: 22px;
-	margin-left: auto;
+	width: 26px;
+	height: 26px;
 	padding: 0;
 	border: none;
 	border-radius: var(--kg-radius-pill);
@@ -323,66 +338,101 @@
 	transition: background var(--kg-dur-fast) var(--kg-ease-out);
 }
 
-.kg-slider-reset:hover,
-.kg-slider-reset:focus-visible {
+.kg-reset:hover,
+.kg-reset:focus-visible {
 	--kg-fg: var(--kg-accent);
 	background: var(--kg-accent-soft);
 }
 
+.kg-slider-reset {
+	margin-left: auto;
+}
+
+/* Hand-drawn slider: a pill outlined like the buttons (a real border plus a fainter second pass) that fills with
+   the buttons' hatch up to the value. The native range input sits on top, invisible, so it still takes the
+   pointer, the keyboard and the screen reader. */
 .kg-slider-track-wrap {
+	--kg-slider-ink: var(--kg-border-strong);
 	position: relative;
 	display: block;
+	height: 18px;
+}
+
+.kg-slider:hover,
+.kg-slider:focus-within,
+.kg-slider[data-dragging] {
+	--kg-slider-ink: var(--kg-accent);
+}
+
+.kg-slider-track {
+	position: absolute;
+	inset: 0;
+	border: 1.5px solid var(--kg-slider-ink);
+	border-radius: var(--kg-radius-pill);
+	background: var(--kg-well-bg);
+	overflow: hidden;
+	transition: border-color var(--kg-dur-fast) var(--kg-ease-out);
+}
+
+/* second pass, outside the clipped track so it can stray past the line */
+.kg-slider-track-wrap::after {
+	content: '';
+	position: absolute;
+	inset: -1px;
+	border: 1px solid var(--kg-slider-ink);
+	border-radius: var(--kg-radius-pill);
+	opacity: 0.45;
+	transform: translate(1px, 1.2px) rotate(-0.25deg);
+	pointer-events: none;
+	transition: border-color var(--kg-dur-fast) var(--kg-ease-out);
+}
+
+/* The pen hatch (tokens.css), sliding while dragged. */
+.kg-slider-fill {
+	position: absolute;
+	inset: 0 auto 0 0;
+	width: calc(var(--ratio) * 100%);
+	border-right: 1.5px solid var(--kg-accent);
+	background-color: color-mix(in srgb, var(--kg-accent) 10%, transparent);
+	background-image: var(--kg-hatch);
+	background-size: var(--kg-hatch-size) var(--kg-hatch-size);
+	opacity: 0.9;
+	pointer-events: none;
+}
+
+.kg-slider[data-dragging] .kg-slider-fill {
+	animation: kg-hatch-slide 0.4s linear infinite;
+}
+
+@keyframes kg-hatch-slide {
+	to {
+		background-position: var(--kg-hatch-size) 0;
+	}
 }
 
 .kg-slider-track-wrap input[type='range'] {
+	position: absolute;
+	inset: 0;
 	width: 100%;
+	height: 100%;
+	margin: 0;
 	appearance: none;
-	height: 14px;
 	background: transparent;
+	opacity: 0;
 	cursor: pointer;
 }
 
-.kg-slider-track-wrap input[type='range']::-webkit-slider-runnable-track {
-	height: 3px;
-	border-radius: var(--kg-radius-pill);
-	background:
-		linear-gradient(90deg, var(--kg-accent-2), var(--kg-accent)) 0 /
-			var(--fill, 0%) 100% no-repeat,
-		var(--kg-bg-raised);
-}
-
+/* a hair-thin native thumb, so the value under the pointer is where the fill ends */
 .kg-slider-track-wrap input[type='range']::-webkit-slider-thumb {
 	appearance: none;
-	width: 12px;
-	height: 12px;
-	margin-top: -4.5px;
-	border-radius: 50%;
-	background: var(--kg-title-keyline);
-	box-shadow: 0 0 0 2px var(--kg-accent);
-	transition:
-		transform var(--kg-dur-fast) var(--kg-ease-out),
-		box-shadow var(--kg-dur-fast) var(--kg-ease-out);
-}
-
-/* The hover/focus glow mirrors the ring sectors' hover. */
-.kg-slider:hover input[type='range']::-webkit-slider-runnable-track,
-.kg-slider:focus-within input[type='range']::-webkit-slider-runnable-track {
-	box-shadow:
-		0 0 8px rgb(var(--kg-accent-rgb) / 0.7),
-		0 0 2px var(--kg-accent-2);
-}
-
-.kg-slider:hover input[type='range']::-webkit-slider-thumb,
-.kg-slider:focus-within input[type='range']::-webkit-slider-thumb {
-	transform: scale(1.2);
-	box-shadow:
-		0 0 0 2px var(--kg-accent-2),
-		0 0 10px rgb(var(--kg-accent-rgb) / 0.9);
+	width: 2px;
+	height: 18px;
 }
 
 .kg-slider-bubble {
 	position: absolute;
-	bottom: 100%;
+	bottom: calc(100% + 4px);
+	left: calc(var(--ratio) * 100%);
 	transform: translateX(-50%);
 	padding: 3px 8px;
 	border-radius: var(--kg-radius-pill);
@@ -395,6 +445,13 @@
 	opacity: 0;
 	pointer-events: none;
 	transition: opacity var(--kg-dur-fast) var(--kg-ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.kg-slider[data-dragging] .kg-slider-fill,
+	.kg-btn--primary:hover:not(:disabled)::before {
+		animation: none;
+	}
 }
 
 .kg-slider-track-wrap:hover .kg-slider-bubble,

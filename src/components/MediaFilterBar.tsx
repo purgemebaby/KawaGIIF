@@ -2,12 +2,15 @@ import { t } from '../i18n';
 import SortMenu from './ui/SortMenu';
 import type { MediaFilters, SortMode } from '../lib/mediaFilter';
 import { tagStyle } from '../lib/tags';
+import type { MediaKind } from '../lib/media';
 
 interface MediaFilterBarProps {
 	filters: MediaFilters;
 	onChange: (filters: MediaFilters) => void;
 	onOpenTags: () => void;
 	compact?: boolean;
+	/** Which tab the type buttons belong to. */
+	kind?: MediaKind;
 }
 
 function MediaFilterBar({
@@ -15,17 +18,26 @@ function MediaFilterBar({
 	onChange,
 	onOpenTags,
 	compact,
+	kind = 'visual',
 }: MediaFilterBarProps) {
 	// built per render, so a language switch relabels them without a reload
-	const typeOptions: { value: MediaFilters['type']; label: string }[] = [
-		{ value: 'all', label: t.storage.types.all },
-		{ value: 'gif', label: t.storage.types.gif },
-		{ value: 'mp4', label: t.storage.types.mp4 },
-		{ value: 'jpeg', label: t.storage.types.jpeg },
-		{ value: 'png', label: t.storage.types.png },
-		{ value: 'webp', label: t.storage.types.webp },
-		{ value: 'svg', label: t.storage.types.svg },
-	];
+	const typeOptions: { value: MediaFilters['type']; label: string }[] =
+		kind === 'audio'
+			? [
+					{ value: 'all', label: t.storage.types.all },
+					{ value: 'mp3', label: t.storage.types.mp3 },
+					{ value: 'wav', label: t.storage.types.wav },
+					{ value: 'ogg', label: t.storage.types.ogg },
+				]
+			: [
+					{ value: 'all', label: t.storage.types.all },
+					{ value: 'gif', label: t.storage.types.gif },
+					{ value: 'mp4', label: t.storage.types.mp4 },
+					{ value: 'jpeg', label: t.storage.types.jpeg },
+					{ value: 'png', label: t.storage.types.png },
+					{ value: 'webp', label: t.storage.types.webp },
+					{ value: 'svg', label: t.storage.types.svg },
+				];
 
 	const sortOptions: { value: SortMode; label: string }[] = [
 		{ value: 'date-new', label: t.storage.sort.dateNew },

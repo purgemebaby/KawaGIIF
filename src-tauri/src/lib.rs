@@ -1,9 +1,14 @@
 /* App entry point. Registers plugins, states and commands, creates the windows at startup and decides what closing and quitting do. */
+mod audio;
 mod commands;
 mod config;
 mod error;
 mod library;
 mod media_compress;
+mod media_probe;
+mod media_thumbs;
+mod meme_path;
+mod memeboard;
 #[cfg(windows)]
 mod native;
 mod system_stats;
@@ -42,6 +47,7 @@ fn handle_control_close(control: &WebviewWindow) {
 /** Every real exit ends here. Unsaved edits are discarded since no dialog can be shown while shutting down. */
 fn handle_exit(app: &AppHandle) {
     app.state::<EditorState>().lock().discard_changes();
+    memeboard::flush_counts(app);
     window_manager::stop_watching_foreground_changes();
     window_manager::hide_all_overlay_slots(app);
 }
@@ -54,16 +60,22 @@ pub fn run() {
 
     tauri::Builder::default()
         // first plugin on purpose: a second launch (autostart already running) only brings the window back
-        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| window_manager::show_control(app)))
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            // a Stream Deck button fires a meme through a second launch: no window for that
+            if !memeboard::fire_from_args(app, &args) { window_manager::show_control(app); }
+        }))
         .manage(EditorState::default())
         .manage(LibraryState::default())
         .manage(SysState::default())
         .manage(UpdateState::default())
+        .manage(audio::AudioState::start())
+        .manage(memeboard::MemeboardState::default())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, None))
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
+                // the meme hotkeys go through the keyboard hook (memeboard::start_hotkeys); only the app's own is here
                 .with_handler(move |app, shortcut, event| {
                     if *shortcut == release_shortcut && event.state == ShortcutState::Pressed {
                         template::toggle_click_through_release(app);
@@ -73,6 +85,24 @@ pub fn run() {
         )
         .invoke_handler(tauri::generate_handler![
             commands::hide_control_window,
+            audio::list_audio_outputs,
+            audio::set_audio_output,
+            audio::set_meme_volume,
+            memeboard::list_memes,
+            memeboard::new_meme,
+            memeboard::check_hotkey,
+            memeboard::pause_meme_hotkeys,
+            memeboard::save_meme,
+            memeboard::delete_meme,
+            memeboard::set_stop_hotkey,
+            memeboard::fire_meme,
+            memeboard::stop_all_memes,
+            memeboard::set_meme_max_concurrent,
+            memeboard::meme_stage_idle,
+            memeboard::save_preset,
+            memeboard::delete_preset,
+            meme_path::simplify_meme_path,
+            window_manager::list_monitors,
             commands::set_overlay_rect,
             commands::get_config,
             commands::set_launch_on_startup,
@@ -101,6 +131,8 @@ pub fn run() {
             library::delete_tag,
             library::delete_media,
             library::get_media_path,
+            media_thumbs::get_media_dirs,
+            media_thumbs::save_video_thumb,
             library::get_file_sizes,
             system_stats::get_system_stats,
             #[cfg(debug_assertions)]
@@ -140,6 +172,7 @@ pub fn run() {
             let handle: &AppHandle = app.handle();
             let control: WebviewWindow = window_manager::create_control_window(handle)?;
             window_manager::create_overlay_pool(handle)?;
+            window_manager::create_meme_stage(handle)?;
 
             let control_for_close: WebviewWindow = control.clone();
             let app_for_events: AppHandle = handle.clone();
@@ -159,7 +192,11 @@ pub fn run() {
             control.open_devtools();
 
             template::load_saved_template_on_boot(&handle.state::<EditorState>());
+            library::thumbnail_library_on_boot(&handle.state::<LibraryState>());
             app.global_shortcut().register(release_shortcut)?;
+            memeboard::start_hotkeys(handle);
+            memeboard::sync_hotkeys(handle);
+            memeboard::fire_from_args(handle, &std::env::args().collect::<Vec<_>>());
             tray::setup(handle)?;
             window_manager::spawn_topmost_keeper(handle);
             window_manager::watch_foreground_changes(handle);

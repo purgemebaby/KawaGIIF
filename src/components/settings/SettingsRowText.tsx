@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 
 interface SettingsRowTextProps {
-	text: { label: string; hint: string };
+	text: { label: string; hint?: string };
 	children?: ReactNode;
 }
 
@@ -10,7 +10,7 @@ function SettingsRowText({ text, children }: SettingsRowTextProps) {
 	return (
 		<span className="settings-row-text">
 			<strong>{text.label}</strong>
-			<small>{text.hint}</small>
+			{text.hint && <small>{text.hint}</small>}
 			{children}
 		</span>
 	);

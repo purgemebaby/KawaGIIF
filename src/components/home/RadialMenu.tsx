@@ -8,24 +8,56 @@ import {
 	SECTORS,
 	annularSectorPath,
 	directionOf,
+	labelArcPath,
 	outerArcPath,
 } from '../../lib/radial';
-import type { KeyboardEvent } from 'react';
+import type { CSSProperties, KeyboardEvent } from 'react';
 
 interface RadialMenuProps {
 	onSelect: (id: Screen) => void;
 }
 
-const LABEL_RADIUS = 145;
-// ring units: the 24-unit icon drawn at 2x
-const ICON_SIZE = 48;
-// small sideways nudges so each icon sits optically centred over its label
-const ICON_NUDGE: Partial<Record<Screen, number>> = {
-	settings: 8,
-	storage: -8,
-};
+// ring units: the 24-unit icon drawn at 2.67x
+const ICON_SIZE = 64;
 const CENTRE = RING_SIZE / 2;
+// the icon sits in the middle of the band; on hover it steps this far towards the centre and shrinks, making room
+const ICON_RADIUS = (RING_INNER + RING_OUTER) / 2;
+const ICON_INWARD = 18;
+// the label runs along the inside of the neon line, where the glow lights it up
+const LABEL_RADIUS = RING_OUTER - 20;
 
+// The ring and its arcs never change, so they are worked out once.
+const SHAPES = SECTORS.map((sector) => {
+	const dir = directionOf(sector.id);
+	return {
+		id: sector.id,
+		shape: annularSectorPath(
+			CENTRE,
+			CENTRE,
+			RING_OUTER,
+			RING_INNER,
+			sector.startDeg,
+			sector.endDeg,
+		),
+		arc: outerArcPath(
+			CENTRE,
+			CENTRE,
+			RING_OUTER,
+			sector.startDeg,
+			sector.endDeg,
+		),
+		labelArc: labelArcPath(sector.id, CENTRE, CENTRE, LABEL_RADIUS),
+		iconX: CENTRE + dir.x * ICON_RADIUS - ICON_SIZE / 2,
+		iconY: CENTRE + dir.y * ICON_RADIUS - ICON_SIZE / 2,
+		// read by .radial-icon on hover (RadialMenu.css)
+		inward: {
+			'--radial-in-x': `${(-dir.x * ICON_INWARD).toFixed(2)}px`,
+			'--radial-in-y': `${(-dir.y * ICON_INWARD).toFixed(2)}px`,
+		} as CSSProperties,
+	};
+});
+
+/** Home's ring: one icon per sector. Hovering a sector lights its neon edge, and the light reveals its name. */
 function RadialMenu({ onSelect }: RadialMenuProps) {
 	// read per render, so a language switch relabels the ring without a reload
 	const tiles = homeTiles();
@@ -56,25 +88,17 @@ function RadialMenu({ onSelect }: RadialMenuProps) {
 				>
 					<feGaussianBlur stdDeviation="6" />
 				</filter>
+				{SHAPES.map((s) => (
+					<path key={s.id} id={`radial-label-arc-${s.id}`} d={s.labelArc} />
+				))}
 			</defs>
 
-			{SECTORS.map((sector) => {
-				const tile = tiles.find((item) => item.id === sector.id);
+			{SHAPES.map((s) => {
+				const tile = tiles.find((item) => item.id === s.id);
 				if (!tile) return null;
-				const dir = directionOf(sector.id);
-				const x = CENTRE + dir.x * LABEL_RADIUS;
-				const y = CENTRE + dir.y * LABEL_RADIUS;
-				const arc = outerArcPath(
-					CENTRE,
-					CENTRE,
-					RING_OUTER,
-					sector.startDeg,
-					sector.endDeg,
-				);
-
 				return (
 					<g
-						key={sector.id}
+						key={s.id}
 						className="radial-sector icon-hover"
 						role="button"
 						tabIndex={0}
@@ -82,32 +106,26 @@ function RadialMenu({ onSelect }: RadialMenuProps) {
 						onClick={() => onSelect(tile.id)}
 						onKeyDown={(event) => onKeyDown(event, tile.id)}
 					>
-						<path
-							className="radial-shape"
-							d={annularSectorPath(
-								CENTRE,
-								CENTRE,
-								RING_OUTER,
-								RING_INNER,
-								sector.startDeg,
-								sector.endDeg,
-							)}
-						/>
+						<path className="radial-shape" d={s.shape} />
 						<g className="radial-glow" aria-hidden="true">
-							<path className="kg-neon-halo radial-glow-halo" d={arc} />
-							<path className="kg-neon-line radial-glow-line" d={arc} />
+							<path className="kg-neon-halo radial-glow-halo" d={s.arc} />
+							<path className="kg-neon-line radial-glow-line" d={s.arc} />
 						</g>
-						<g transform={`translate(${x} ${y})`} aria-hidden="true">
-							{tile.icon && (
+						{tile.icon && (
+							<g className="radial-icon" style={s.inward}>
 								<SketchIcon
 									name={tile.icon}
 									size={ICON_SIZE}
-									x={-ICON_SIZE / 2 + (ICON_NUDGE[tile.id] ?? 0)}
-									y={-ICON_SIZE - 4}
+									x={s.iconX}
+									y={s.iconY}
 								/>
-							)}
-							<text className="radial-label">{tile.label}</text>
-						</g>
+							</g>
+						)}
+						<text className="radial-label" aria-hidden="true">
+							<textPath href={`#radial-label-arc-${s.id}`} startOffset="50%">
+								{tile.label}
+							</textPath>
+						</text>
 					</g>
 				);
 			})}
