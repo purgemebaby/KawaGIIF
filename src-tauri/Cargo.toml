@@ -30,7 +30,7 @@ toml = "0.8"
 dirs = "6"
 uuid = { version = "1", features = ["v4", "serde"] }
 thiserror = "2"
-sysinfo = { version = "0.33", default-features = false, features = ["system"] }
+sysinfo = { version = "0.40", default-features = false, features = ["system"] }
 tauri-plugin-single-instance = "~2.4.5"
 # import limits (dimensions, GIF frame count) and shrinking oversized still images
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"] }
