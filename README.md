@@ -20,6 +20,15 @@
 
 https://github.com/user-attachments/assets/4827124b-1fba-4b6c-9d7b-7a6401a80ddb
 
+<h3 align="center">New Feature</h3>
+
+
+
+https://github.com/user-attachments/assets/9722afd6-a92e-42dc-8fdf-3c6c47361bad
+
+
+
+
 <a href="https://ko-fi.com/L0T824SRAJ"><img src="https://ko-fi.com/img/githubbutton_sm.svg" alt="Support me on Ko-fi"></a>
 
 
@@ -45,7 +54,6 @@ KawaGIIF lets you drop any GIF, image or looping video straight onto your screen
 - [FAQ](#faq)
 - [Contributing](#-contributing)
 - [To Do](#to-do)
-- [Support](#-support)
 - [License](#license)
 
 ## <img src="src/assets/mascot/library.webp" height="40"> Features
@@ -211,7 +219,7 @@ AI tools are very welcome. You can use them to write code, documentation or tran
 
 Big features:
 - Add a "marketplace" to search directly images, GIFs... from many sources to download them and use it without leaving the app.
-- Memeboard: Shortcuts to spawn media files stored with defined speed, movement, effects, sound effects...
+- Add a "Discord" linked function to allow your friends to spawn memes from your memeboard in your screen on voice chat.
 
 **Settings and features**
 
